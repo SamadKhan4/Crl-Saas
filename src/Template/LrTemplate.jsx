@@ -69,16 +69,6 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
   return (
     <div ref={ref} className="lr-print-root" style={{ width: 1000, background: "white", color: "black" }}>
       <div className="flex" style={{ width: 1000 }}>
-        {/* Binding space */}
-        <div className="flex items-center justify-center border-t border-b border-l border-black px-1 w-6">
-          <span
-            className="text-[10px] tracking-[3px] font-medium whitespace-nowrap"
-            style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
-          >
-            BINDING SPACE
-          </span>
-        </div>
-
         {/* Main document */}
         <div className="flex-1 border border-black text-black bg-white font-sans">
           {/* Header row: logo/company + consignment note/barcode */}
