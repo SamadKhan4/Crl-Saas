@@ -13,7 +13,7 @@ import { PageHeader, FormField } from '../components/common/UI';
 import Lookup from '../components/forms/Lookup';
 import { idOf } from '../lib/workflow';
 import { copyText } from '../lib/clipboard';
-import { LrPdfDownload } from '../Template/LrTemplate';
+import { LrPdfDownload } from '../Template/LrPdf';
 
 function PrintInputGrid({ fields, register, errors }) {
   return (

@@ -17,7 +17,7 @@ import {
 import { date } from '../lib/workflow';
 import ShipmentActions from '../components/shipment/ShipmentActions';
 import DocumentPreview from '../components/shipment/DocumentPreview';
-import { LrPdfDownload } from '../Template/LrTemplate';
+import { LrPdfDownload } from '../Template/LrPdf';
 export default function ShipmentDetailPage() {
   const { id } = useParams();
   const { user } = useAuth();
