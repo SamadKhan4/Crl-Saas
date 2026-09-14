@@ -17,7 +17,7 @@ const Box = ({ children }) => (
 );
 
 const BoxRow = ({ count = 10, value = "" }) => (
-  <div className="flex gap-[2px]">
+  <div className="lr-box-row flex gap-[2px]">
     {Array.from({ length: count }).map((_, i) => (
       <Box key={i}>{String(value)[i] || ""}</Box>
     ))}
@@ -68,20 +68,15 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
   const charges = [s.freightCharges, s.fuelCharges, s.handlingCharges, s.fodCodCharges, s.rovCharges, s.docketCharges];
   return (
     <div ref={ref} className="lr-print-root" style={{ width: 1000, background: "white", color: "black" }}>
+      <style>{`.lr-print-root,.lr-print-root *{box-sizing:border-box}.lr-print-root .lr-party-fields{display:flex;flex-direction:column}.lr-print-root .lr-party-fields .lr-form-row{flex:1}.lr-print-root .lr-form-row>div{min-width:0;min-height:27px;padding:5px 7px}.lr-print-root .lr-form-row .lr-value{min-width:0;overflow-wrap:anywhere;line-height:1.25}.lr-print-root .lr-box-row{flex-shrink:0}.lr-print-root .lr-goods-table th,.lr-print-root .lr-goods-table td{vertical-align:middle;line-height:1.25}.lr-print-root .lr-goods-table td{overflow-wrap:anywhere}`}</style>
       <div className="flex" style={{ width: 1000 }}>
         {/* Main document */}
         <div className="flex-1 border border-black text-black bg-white font-sans">
           {/* Header row: logo/company + consignment note/barcode */}
           <div className="grid grid-cols-12 border-b border-black">
-            <div className="col-span-8 border-r border-black p-2 flex gap-2 items-start">
-              <div className="shrink-0 pt-1">
-                <div className="text-2xl font-black italic leading-none">
-                  <span className="text-black">C</span>
-                  <span style={{ color: '#c9232a' }}>R</span>
-                  <span className="text-black">L</span>
-                </div>
-              </div>
-              <div>
+            <div className="col-span-8 border-r border-black p-2 flex items-center" style={{ gap: 24, minHeight: 100 }}>
+              <img src="/crl-logo.png" alt="Chaple Roadlines logo" width="120" height="54" style={{ width: 120, height: 54, objectFit: 'contain', flexShrink: 0 }} />
+              <div style={{ minWidth: 0 }}>
                 <div className="text-xl font-extrabold tracking-tight">
                   CHAPLE ROADLINES PVT. LTD.
                 </div>
@@ -125,7 +120,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
           {/* Consignor / Consignee / Booking block */}
           <div className="grid grid-cols-12 border-b border-black">
             {/* Left: Consignor + Consignee (8 cols) */}
-            <div className="col-span-8 border-r border-black">
+            <div className="lr-party-fields col-span-8 border-r border-black">
               <div className="grid grid-cols-2">
                 <SectionHeader className="border-t-0 border-l-0">
                   CONSIGNOR DETAILS
@@ -136,34 +131,34 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
               </div>
 
               {/* Row: Code / Name */}
-              <div className="grid grid-cols-2 border-t border-black">
+              <div className="lr-form-row grid grid-cols-2 border-t border-black">
                 <div className="p-1 border-r border-black flex items-center gap-1">
                   <Label>Consignor Code</Label>
                   <BoxRow count={9} value={s.consignorCode || customer.customerCode} />
                 </div>
                 <div className="p-1 flex items-center gap-1">
                   <Label>Consignee Name</Label>
-                  <span className="text-[9px]">{display(s.consigneeName || s.receiverName)}</span>
+                  <span className="lr-value text-[9px]">{display(s.consigneeName || s.receiverName)}</span>
                 </div>
               </div>
 
               {/* Row: Name / Address */}
-              <div className="grid grid-cols-2 border-t border-black">
+              <div className="lr-form-row grid grid-cols-2 border-t border-black">
                 <div className="p-1 border-r border-black flex items-center gap-1">
                   <Label>Consignor Name</Label>
-                  <span className="text-[9px]">{display(s.consignorName || s.senderName || customer.name)}</span>
+                  <span className="lr-value text-[9px]">{display(s.consignorName || s.senderName || customer.name)}</span>
                 </div>
                 <div className="p-1 flex items-center gap-1">
                   <Label>Address</Label>
-                  <span className="text-[9px]">{display(s.consigneeAddress)}</span>
+                  <span className="lr-value text-[9px]">{display(s.consigneeAddress)}</span>
                 </div>
               </div>
 
               {/* Row: Address / Address cont. */}
-              <div className="grid grid-cols-2 border-t border-black">
+              <div className="lr-form-row grid grid-cols-2 border-t border-black">
                 <div className="p-1 border-r border-black flex items-center gap-1">
                   <Label>Address</Label>
-                  <span className="text-[9px]">{display(s.consignorAddress || customer.address)}</span>
+                  <span className="lr-value text-[9px]">{display(s.consignorAddress || customer.address)}</span>
                 </div>
                 <div className="p-1">
                   <Dots />
@@ -171,7 +166,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
               </div>
 
               {/* Row: Address cont. / Address cont. */}
-              <div className="grid grid-cols-2 border-t border-black">
+              <div className="lr-form-row grid grid-cols-2 border-t border-black">
                 <div className="p-1 border-r border-black">
                   <Dots />
                 </div>
@@ -181,7 +176,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
               </div>
 
               {/* Row: PIN CODE / PIN CODE */}
-              <div className="grid grid-cols-2 border-t border-black">
+              <div className="lr-form-row grid grid-cols-2 border-t border-black">
                 <div className="p-1 border-r border-black flex items-center gap-1">
                   <Label>PIN CODE</Label>
                   <BoxRow count={6} value={s.consignorPincode || customer.pincode} />
@@ -193,7 +188,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
               </div>
 
               {/* Row: GSTIN / GSTIN */}
-              <div className="grid grid-cols-2 border-t border-black">
+              <div className="lr-form-row grid grid-cols-2 border-t border-black">
                 <div className="p-1 border-r border-black flex items-center gap-1">
                   <Label>GSTIN</Label>
                   <BoxRow count={15} value={s.consignorGstin || customer.gstNumber} />
@@ -208,10 +203,9 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
             {/* Right: Booking info + Delivery address + Contact (4 cols) */}
             <div className="col-span-4 flex flex-col">
               <div className="grid grid-cols-2 border-b border-black">
-                <div className="p-1 border-r border-black">
+                <div className="p-1 col-span-2">
                   <Label>Booking Date</Label> <span className="text-[9px]">{date(s.bookingDate || s.createdAt)}</span>
                 </div>
-                <div />
               </div>
               <div className="grid grid-cols-2 border-b border-black">
                 <div className="p-1 border-r border-black col-span-2">
@@ -242,7 +236,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
               <SectionHeader className="border-t-0 border-l-0 border-r-0">
                 REFERENCE &amp; DOCUMENT DETAILS
               </SectionHeader>
-              <div className="grid grid-cols-2 border-t border-black">
+              <div className="lr-form-row grid grid-cols-2 border-t border-black">
                 <div className="p-1 border-r border-black flex items-center gap-1">
                   <Label>Invoice No.</Label> <span className="text-[9px]">{display(s.invoiceNo)}</span>
                 </div>
@@ -251,7 +245,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
                   <DateBoxes value={date(s.invoiceDate)} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 border-t border-black">
+              <div className="lr-form-row grid grid-cols-2 border-t border-black">
                 <div className="p-1 border-r border-black flex items-center gap-1">
                   <Label>E-Way Bill No.</Label> <span className="text-[9px]">{display(s.eWayBillNo)}</span>
                 </div>
@@ -275,7 +269,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
           </div>
 
           {/* Goods table */}
-          <table className="w-full border-collapse border-b border-black text-[9px]">
+          <table className="lr-goods-table w-full border-collapse border-b border-black text-[9px]" style={{ tableLayout: 'fixed' }}>
             <thead>
               <tr>
                 {[

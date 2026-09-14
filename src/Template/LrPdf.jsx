@@ -7,6 +7,10 @@ import LrTemplate from './LrTemplate';
 
 export async function createLrPdfBlob(root) {
   if (!root) throw new Error('LR is not ready. Please try again.');
+  const logo = root.querySelector('img');
+  if (logo) {
+    await logo.decode();
+  }
   const canvas = await html2canvas(root, {
     scale: 2,
     backgroundColor: '#ffffff',
