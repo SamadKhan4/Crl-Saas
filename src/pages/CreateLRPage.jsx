@@ -20,11 +20,16 @@ import { idOf } from '../lib/workflow';
 import { copyText } from '../lib/clipboard';
 import { LrPdfDownload } from '../Template/LrPdf';
 
+const today = () => {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
 function PrintInputGrid({ fields, register, errors }) {
   return (
     <div className="form-grid">
       {fields.map(([name, label, type = 'text']) => (
-        <FormField key={name} label={label} type={type} step={type === 'number' ? 'any' : undefined} min={type === 'number' ? 0 : undefined} {...register(name)} error={errors[name]?.message} />
+        <FormField key={name} label={label} type={type} readOnly={name === 'bookingDate' || name === 'invoiceDate'} step={type === 'number' ? 'any' : undefined} min={type === 'number' ? 0 : undefined} {...register(name)} error={errors[name]?.message} />
       ))}
     </div>
   );
@@ -63,6 +68,8 @@ export default function CreateLRPage() {
       originBranchId: user.role !== 'ADMIN' ? idOf(user.branchId) : '',
       packageCount: 1,
       lrNumber: '',
+      bookingDate: today(),
+      invoiceDate: today(),
       goods: [emptyGoods()],
     },
   });

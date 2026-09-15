@@ -11,8 +11,8 @@ import React, { forwardRef } from "react";
 // Small reusable bits -------------------------------------------------
 
 const Box = ({ children }) => (
-  <div className="w-4 h-4 border border-black text-[7px] shrink-0" style={{ lineHeight: '8px', textAlign: 'center' }}>
-    {children}
+  <div className="w-4 h-4 border border-black text-[9px] font-semibold shrink-0 flex items-center justify-center">
+    <span className="lr-box-value">{children}</span>
   </div>
 );
 
@@ -29,22 +29,21 @@ const DateBoxes = ({ value }) => (
     {String(value || "").replace(/\D/g, "").padEnd(8, " ").slice(0, 8).split("").map((ch, i) => (
       <div
         key={i}
-        className="w-4 h-4 border border-black text-[7px] shrink-0"
-        style={{ lineHeight: '9px', textAlign: 'center' }}
+        className="w-4 h-4 border border-black text-[9px] font-semibold shrink-0 flex items-center justify-center"
       >
-        {ch}
+        <span className="lr-box-value">{ch}</span>
       </div>
     ))}
   </div>
 );
 
 const Label = ({ children, className = "" }) => (
-  <span className={`text-[9px] font-semibold ${className}`}>{children}</span>
+  <span className={`text-[11px] font-semibold ${className}`}>{children}</span>
 );
 
 const SectionHeader = ({ children, className = "" }) => (
   <div
-    className={`border border-black bg-white text-center text-[10px] font-bold py-[2px] tracking-wide ${className}`}
+    className={`border border-black bg-white text-center text-[12px] font-bold py-[2px] tracking-wide ${className}`}
   >
     {children}
   </div>
@@ -58,6 +57,15 @@ const Dots = ({ w = "w-full" }) => (
 
 const display = (value) => value === 0 || value ? String(value) : "";
 const branch = (value) => value?.name || value?.city || display(value);
+const amountInWords = (value) => {
+  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  const words = (n) => n < 20 ? ones[n] : n < 100 ? `${tens[Math.floor(n / 10)]} ${ones[n % 10]}`.trim() : n < 1000 ? `${ones[Math.floor(n / 100)]} Hundred ${words(n % 100)}`.trim() : n < 100000 ? `${words(Math.floor(n / 1000))} Thousand ${words(n % 1000)}`.trim() : n < 10000000 ? `${words(Math.floor(n / 100000))} Lakh ${words(n % 100000)}`.trim() : `${words(Math.floor(n / 10000000))} Crore ${words(n % 10000000)}`.trim();
+  const amount = Math.max(0, Number(value) || 0);
+  const rupees = Math.floor(amount);
+  const paise = Math.round((amount - rupees) * 100);
+  return `Rupees ${words(rupees) || "Zero"}${paise ? ` and ${words(paise)} Paise` : ""} Only`;
+};
 const date = (value) => value && !Number.isNaN(new Date(value).getTime())
   ? new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(value))
   : "";
@@ -69,7 +77,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
   const goods = s.goods?.length ? s.goods : [{ packageNumber: s.packageNumber || s.packageCount, description: s.goodsDescription || s.description, packageType: s.packageType, actualWeight: s.actualWeight ?? s.weightKg, chargedWeight: s.chargedWeight, dimensions: s.dimensions, volume: s.volume, declaredValue: s.declaredValue }];
   return (
     <div ref={ref} className="lr-print-root" style={{ width: 1000, background: "white", color: "black" }}>
-      <style>{`.lr-print-root,.lr-print-root *{box-sizing:border-box}.lr-print-root .lr-party-fields{display:flex;flex-direction:column}.lr-print-root .lr-party-fields .lr-form-row{flex:1}.lr-print-root .lr-form-row>div{min-width:0;min-height:27px;padding:5px 7px}.lr-print-root .lr-form-row .lr-value{min-width:0;overflow-wrap:anywhere;line-height:1.25}.lr-print-root .lr-box-row{flex-shrink:0}.lr-print-root .lr-goods-table th,.lr-print-root .lr-goods-table td{vertical-align:middle;line-height:1.25}.lr-print-root .lr-goods-table td{overflow-wrap:anywhere}`}</style>
+      <style>{`.lr-print-root,.lr-print-root *{box-sizing:border-box}.lr-print-root{font-size:11px}.lr-print-root [class~="text-[9px]"]{font-size:11px!important}.lr-print-root [class~="text-[8px]"]{font-size:10px!important}.lr-print-root [class~="text-[7px]"]{font-size:9px!important}.lr-print-root .lr-party-fields{display:flex;flex-direction:column}.lr-print-root .lr-party-fields .lr-form-row{flex:1}.lr-print-root .lr-form-row>div{min-width:0;min-height:31px;padding:6px 7px}.lr-print-root .lr-form-row .lr-value{min-width:0;flex:1;text-align:center;overflow-wrap:anywhere;line-height:1.3}.lr-print-root .lr-box-row{flex-shrink:0}.lr-print-root .lr-goods-table th,.lr-print-root .lr-goods-table td{vertical-align:middle;text-align:center;line-height:1.3}.lr-print-root .lr-goods-table td{overflow-wrap:anywhere}.lr-print-root .lr-amount-value{display:flex;align-items:center;justify-content:center;text-align:center}.lr-print-root .lr-value,.lr-print-root .lr-box-value,.lr-print-root .lr-amount-value{position:relative;top:-6px}.lr-print-root .lr-check-box{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}`}</style>
       <div className="flex" style={{ width: 1000 }}>
         {/* Main document */}
         <div className="flex-1 border border-black text-black bg-white font-sans">
@@ -81,13 +89,13 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
                 <div className="text-xl font-extrabold tracking-tight">
                   CHAPLE ROADLINES PVT. LTD.
                 </div>
-                <div className="text-[9px] leading-tight mt-[2px]">
+                <div className="text-[11px] leading-tight mt-[2px]">
                   Shop No. 3, Opp. Joshi Clinic Beside Pushpa Mobile,
                   <br />
                   Wadi, Nagpur – 440023 (MH.)&nbsp;&nbsp;
                   <span className="font-semibold">Mobile :</span> 7499358403
                 </div>
-                <div className="text-[9px] leading-tight mt-[2px] flex gap-4">
+                <div className="text-[11px] leading-tight mt-[2px] flex gap-4">
                   <span>
                     <span className="font-semibold">Email</span> :
                     info@crl-transport.com
@@ -97,23 +105,23 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
                     www.crl-transport.com
                   </span>
                 </div>
-                <div className="text-[9px] leading-tight mt-[2px]">
+                <div className="text-[11px] leading-tight mt-[2px]">
                   <span className="font-semibold">GST No.:</span>{" "}
                   27AANCC4313N1ZC&nbsp;&nbsp;
                   <span className="font-semibold">PAN :</span> AANCC4313N
                 </div>
-                <div className="text-[9px] leading-tight">
+                <div className="text-[11px] leading-tight">
                   <span className="font-semibold">Transporter ID :</span>{" "}
                   27AANCC4313N1ZC
                 </div>
               </div>
             </div>
             <div className="col-span-4 flex flex-col">
-              <div className="text-center text-[11px] font-bold border-b border-black py-[3px]">
+              <div className="text-center text-[13px] font-bold border-b border-black py-[3px]">
                 CONSIGNMENT NOTE
               </div>
               <div className="flex-1 flex flex-col items-center justify-center py-1">
-                <div className="text-[18px] font-bold tracking-wide mt-2">{display(s.lrNumber) || "LR PENDING"}</div>
+                <div className="text-[22px] font-bold tracking-wide mt-2">{display(s.lrNumber) || "LR PENDING"}</div>
               </div>
             </div>
           </div>
@@ -334,7 +342,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
                   className="flex items-center justify-between px-1 py-[3px] border-t border-black"
                 >
                   <span className="font-semibold">{m}</span>
-                  <div className="w-14 h-3 border border-black text-center leading-3">{s.paymentMode === m.replace(" ", "_") ? "X" : ""}</div>
+                  <div className="lr-check-box w-14 h-4 border border-black">{s.paymentMode === m.replace(" ", "_") ? "X" : ""}</div>
                 </div>
               ))}
               <SectionHeader className="border-l-0 border-r-0">
@@ -346,7 +354,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
                   className="flex items-center justify-between px-1 py-[3px] border-t border-black"
                 >
                   <span className="font-semibold">{m}</span>
-                  <div className="w-14 h-3 border border-black text-center leading-3">{s.riskType === m.replace(" ", "_") ? "X" : ""}</div>
+                  <div className="lr-check-box w-14 h-4 border border-black">{s.riskType === m.replace(" ", "_") ? "X" : ""}</div>
                 </div>
               ))}
               <SectionHeader className="border-l-0 border-r-0 border-b-0">
@@ -358,7 +366,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
                   className="flex items-center justify-between px-1 py-[3px] border-t border-black"
                 >
                   <span className="font-semibold">{m}</span>
-                  <div className="w-14 h-3 border border-black text-center leading-3">{s.insuranceType === m.replace(" ", "_") ? "X" : ""}</div>
+                  <div className="lr-check-box w-14 h-4 border border-black">{s.insuranceType === m.replace(" ", "_") ? "X" : ""}</div>
                 </div>
               ))}
             </div>
@@ -386,7 +394,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
                   <div className="px-1 py-[3px] border-r border-black font-semibold">
                     {c}
                   </div>
-                  <div className="px-1 py-[3px]">{display(charges[index])}</div>
+                  <div className="lr-amount-value px-1 py-[3px]">{display(charges[index])}</div>
                 </div>
               ))}
               {s.fodCodCharges != null && s.fodCharges == null && s.codCharges == null && <div className="grid grid-cols-2 border-t border-black"><div className="px-1 py-[3px] border-r border-black font-semibold">FOD / COD (LEGACY)</div><div className="px-1 py-[3px]">{display(s.fodCodCharges)}</div></div>}
@@ -394,13 +402,13 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
                 <div className="px-1 py-[3px] border-r border-black font-semibold">
                   GST @ {display(s.gstRate)}%
                 </div>
-                <div className="px-1 py-[3px]">{display(s.gstAmount)}</div>
+                <div className="lr-amount-value px-1 py-[3px]">{display(s.gstAmount)}</div>
               </div>
               <div className="grid grid-cols-2 border-t border-black flex-1">
                 <div className="px-1 py-[3px] bg-black text-white font-bold border-r border-black flex items-center">
-                  TOTAL
+                 SUB TOTAL
                 </div>
-                <div className="px-1 py-[3px] font-bold">{display(s.totalAmount)}</div>
+                <div className="lr-amount-value px-1 py-[3px] font-bold">{display(s.totalAmount)}</div>
               </div>
             </div>
           </div>
@@ -412,8 +420,8 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
               <br />
               terms and conditions printed herein.
             </div>
-            <div className="col-span-3 p-1 text-[9px] font-semibold">
-              For CHAPLE ROADLINES PVT. LTD.
+            <div className="col-span-3 p-1 text-[9px] font-semibold text-center">
+              {amountInWords(s.totalAmount)}
             </div>
           </div>
 
