@@ -100,6 +100,7 @@ describe('Branch and workflow permissions', () => {
 });
 describe('Form validation', () => {
   const valid = {
+    lrNumber: "MANUAL-001",
     customerId: customer,
     originBranchId: origin,
     destinationBranchId: destination,
@@ -120,6 +121,7 @@ describe('Form validation', () => {
     ).toBeUndefined());
   it('nests LR print fields in the documented shipment contract', () => {
     const values = lrCreateSchema.parse({
+      goods: [{ description: "Boxes", quantity: 1, actualWeight: 5, dimensionUnit: "CM" }],
       ...valid,
       consignorCode: 'TEST-001',
       invoiceNo: 'INV-1001',
@@ -132,7 +134,7 @@ describe('Form validation', () => {
       lrDetails: {
         consignorCode: 'TEST-001',
         invoiceNo: 'INV-1001',
-        actualWeight: 4.5,
+        actualWeight: 5,
         paymentMode: 'TO_PAY',
         freightCharges: 1500,
       },

@@ -65,7 +65,7 @@ function Tracking() {
             placeholder="Enter your LR number"
             value={input}
             required
-            minLength={5}
+            minLength={1}
             maxLength={50}
             onChange={(e) => setInput(e.target.value)}
           />
@@ -192,7 +192,7 @@ export function RequestUploadPage() {
             </label>
             <label>
               LR number
-              <input name="lrNumber" required minLength={5} maxLength={50} />
+              <input name="lrNumber" required minLength={1} maxLength={50} />
             </label>
             {error && (
               <p role="alert" className="field-error">

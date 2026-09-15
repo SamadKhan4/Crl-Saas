@@ -11,18 +11,18 @@ export async function createLrPdfBlob(root) {
   if (logo) {
     await logo.decode();
   }
-  const canvas = await html2canvas(root, {
-    scale: 2,
-    backgroundColor: '#ffffff',
-    width: 1000,
-    windowWidth: 1000,
-    useCORS: true,
-  });
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'in', format: [9, 6], compress: true });
-  const scale = Math.min(8.8 / canvas.width, 5.8 / canvas.height);
-  const width = canvas.width * scale;
-  const height = canvas.height * scale;
-  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', (9 - width) / 2, (6 - height) / 2, width, height, undefined, 'FAST');
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'in', format: 'a4', compress: true });
+  const pages = root.matches('.lr-print-root') ? [root] : [...root.querySelectorAll('.lr-print-root')];
+  if (!pages.length) throw new Error('LR is not ready. Please try again.');
+  for (const [index, page] of pages.entries()) {
+    if (index) pdf.addPage();
+    const canvas = await html2canvas(page, { scale: 2, backgroundColor: '#ffffff', width: 1000, windowWidth: 1000, useCORS: true });
+    const pageWidth = pdf.internal.pageSize.getWidth(), pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 0.15;
+    const scale = Math.min((pageWidth - margin * 2) / canvas.width, (pageHeight - margin * 2) / canvas.height);
+    const width = canvas.width * scale, height = canvas.height * scale;
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', (pageWidth - width) / 2, (pageHeight - height) / 2, width, height, undefined, 'FAST');
+  }
   return pdf.output('blob');
 }
 
@@ -30,6 +30,8 @@ const fileName = (number) => `${String(number || 'LR').replace(/[^a-z0-9-_]/gi, 
 
 export function LrPdfDownload({ shipment, className = 'btn secondary' }) {
   const root = useRef(null);
+  const goods = shipment?.lrDetails?.goods;
+  const pages = goods?.length ? Array.from({ length: Math.ceil(goods.length / 8) }, (_, index) => ({ ...shipment, lrDetails: { ...shipment.lrDetails, goods: goods.slice(index * 8, (index + 1) * 8).map((row, rowIndex) => ({ ...row, packageNumber: row.packageNumber || String(index * 8 + rowIndex + 1) })) } })) : [shipment];
   const [busy, setBusy] = useState(false);
   const run = async (view) => {
     const popup = view ? window.open('', '_blank') : null;
@@ -62,7 +64,7 @@ export function LrPdfDownload({ shipment, className = 'btn secondary' }) {
     <button type="button" className="btn secondary" disabled={busy} onClick={() => run(true)}><Eye size={16} /> {busy ? 'Preparing...' : 'View LR'}</button>
     <button type="button" className={className} disabled={busy} onClick={() => run(false)}><Download size={16} /> {busy ? 'Preparing...' : 'Download LR PDF'}</button>
     <div aria-hidden="true" style={{ position: 'fixed', left: '-1200px', top: 0, width: 1000, pointerEvents: 'none' }}>
-      <LrTemplate ref={root} shipment={shipment} />
+      <div ref={root}>{pages.map((page, index) => <LrTemplate key={index} shipment={page} />)}</div>
     </div>
   </>;
 }

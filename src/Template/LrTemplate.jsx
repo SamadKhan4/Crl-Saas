@@ -65,7 +65,8 @@ const date = (value) => value && !Number.isNaN(new Date(value).getTime())
 const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
   const s = { ...shipment, ...shipment.lrDetails };
   const customer = typeof s.customerId === "object" ? s.customerId : s.customer || {};
-  const charges = [s.freightCharges, s.fuelCharges, s.handlingCharges, s.fodCodCharges, s.rovCharges, s.docketCharges];
+  const charges = [s.freightCharges, s.fuelCharges, s.handlingCharges, s.fodCharges, s.codCharges, s.rovCharges, s.docketCharges];
+  const goods = s.goods?.length ? s.goods : [{ packageNumber: s.packageNumber || s.packageCount, description: s.goodsDescription || s.description, packageType: s.packageType, actualWeight: s.actualWeight ?? s.weightKg, chargedWeight: s.chargedWeight, dimensions: s.dimensions, volume: s.volume, declaredValue: s.declaredValue }];
   return (
     <div ref={ref} className="lr-print-root" style={{ width: 1000, background: "white", color: "black" }}>
       <style>{`.lr-print-root,.lr-print-root *{box-sizing:border-box}.lr-print-root .lr-party-fields{display:flex;flex-direction:column}.lr-print-root .lr-party-fields .lr-form-row{flex:1}.lr-print-root .lr-form-row>div{min-width:0;min-height:27px;padding:5px 7px}.lr-print-root .lr-form-row .lr-value{min-width:0;overflow-wrap:anywhere;line-height:1.25}.lr-print-root .lr-box-row{flex-shrink:0}.lr-print-root .lr-goods-table th,.lr-print-root .lr-goods-table td{vertical-align:middle;line-height:1.25}.lr-print-root .lr-goods-table td{overflow-wrap:anywhere}`}</style>
@@ -278,8 +279,8 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
                   "Pkg. Type",
                   "Actual Wt. (Kg.)",
                   "Charged Wt. (Kg.)",
-                  "Dimensions ( L x B x H) cm",
-                  "Volume",
+                  "Dimensions (L x B x H) / Qty",
+                  "Volume (CFT)",
                   "Declared Value (₹)",
                 ].map((h, i) => (
                   <th
@@ -292,8 +293,8 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
               </tr>
             </thead>
             <tbody>
-              <tr>{[s.packageNumber || s.packageCount, s.goodsDescription || s.description, s.packageType, s.actualWeight || s.weightKg, s.chargedWeight, s.dimensions, s.volume, s.declaredValue].map((item, index) => <td key={index} className="border border-black h-6 px-1 text-center">{display(item)}</td>)}</tr>
-              <tr>{Array.from({ length: 8 }).map((_, index) => <td key={index} className="border border-black h-6" />)}</tr>
+              {goods.map((row, rowIndex) => <tr key={rowIndex}>{[row.packageNumber || rowIndex + 1, row.description, row.packageType, row.actualWeight, row.chargedWeight, row.length ? `${row.length} x ${row.breadth} x ${row.height} ${row.dimensionUnit?.toLowerCase()} / ${row.quantity}` : row.dimensions || (row.quantity ? `Qty: ${row.quantity}` : ''), row.volume, row.declaredValue].map((item, index) => <td key={index} className="border border-black h-6 px-1 text-center">{display(item)}</td>)}</tr>)}
+              {s.goods?.length > 0 && <tr><td colSpan={8} className="border border-black px-1 py-[3px] font-semibold">Total actual: {display(s.actualWeight)} kg | Volumetric: {display(s.volumetricWeight)} kg | Chargeable weight for invoice: {display(s.chargedWeight)} kg</td></tr>}
             </tbody>
           </table>
 
@@ -376,7 +377,8 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
                 "FREIGHT CHARGES",
                 "FUEL CHARGES",
                 "HANDLING CHARGES",
-                "FOD / COD CHARGES",
+                "FOD CHARGES",
+                "COD CHARGES",
                 "ROV CHARGES",
                 "DOCKET CHARGES",
               ].map((c, index) => (
@@ -387,6 +389,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
                   <div className="px-1 py-[3px]">{display(charges[index])}</div>
                 </div>
               ))}
+              {s.fodCodCharges != null && s.fodCharges == null && s.codCharges == null && <div className="grid grid-cols-2 border-t border-black"><div className="px-1 py-[3px] border-r border-black font-semibold">FOD / COD (LEGACY)</div><div className="px-1 py-[3px]">{display(s.fodCodCharges)}</div></div>}
               <div className="grid grid-cols-2 border-t border-black">
                 <div className="px-1 py-[3px] border-r border-black font-semibold">
                   GST @ {display(s.gstRate)}%

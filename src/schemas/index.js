@@ -50,14 +50,16 @@ export const shipmentFields = z.object({
   receiverName: text(2, 120),
   receiverMobile: optional(mobile),
   packageCount: z.coerce.number().int().min(1).max(10000),
-  weightKg: z.coerce.number().positive().max(100000),
+  weightKg: z.coerce.number().min(0.01).max(100000),
   description: text(0, 500).optional(),
   expectedDeliveryDate: optional(
     z.string().refine((v) => !Number.isNaN(Date.parse(v)), 'Enter a valid date'),
   ),
 });
+const manualLrNumber = z.string().trim().toUpperCase().min(1, 'Enter LR number').max(50)
+  .regex(/^[A-Z0-9][A-Z0-9/._-]*$/, 'Use letters, numbers, /, ., _ or -');
 export const shipmentSchema = shipmentFields
-  .extend({ customerId: objectId, originBranchId: objectId, destinationBranchId: objectId })
+  .extend({ lrNumber: manualLrNumber, customerId: objectId, originBranchId: objectId, destinationBranchId: objectId })
   .refine((v) => v.originBranchId !== v.destinationBranchId, {
     path: ['destinationBranchId'],
     message: 'Destination must differ from origin',
@@ -75,7 +77,36 @@ const lrGstin = optional(
     .toUpperCase()
     .regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]\dZ[A-Z\d]$/, 'Enter a valid GST number'),
 );
+const goodsNumber = z.coerce.number().finite().positive().max(100000);
+const goodsDimension = z.preprocess((value) => value === '' ? undefined : value, goodsNumber.optional());
+export const goodsSchema = z.object({
+  packageNumber: z.string().trim().max(80).optional(),
+  description: z.string().trim().min(1, 'Enter goods description').max(500),
+  packageType: z.string().trim().max(120).optional(),
+  quantity: z.coerce.number().int().min(1).max(10000),
+  actualWeight: z.coerce.number().finite().min(0.01).max(100000),
+  length: goodsDimension, breadth: goodsDimension, height: goodsDimension,
+  dimensionUnit: z.enum(['CM', 'IN', 'FT']),
+  declaredValue: z.preprocess((value) => value === '' ? undefined : value, z.coerce.number().finite().min(0).max(100000000).optional()),
+  volume: z.number().finite().min(0).optional(),
+  volumetricWeight: z.number().finite().min(0).optional(),
+  chargedWeight: z.number().finite().min(0).optional(),
+}).strict().superRefine((row, ctx) => {
+  const dimensions = ['length', 'breadth', 'height'];
+  if (dimensions.some(key => row[key] !== undefined)) {
+    for (const key of dimensions) if (row[key] === undefined)
+      ctx.addIssue({ code: 'custom', path: [key], message: 'Enter all three dimensions' });
+  }
+});
+const goodsList = z.array(goodsSchema).min(1).max(100).superRefine((rows, ctx) => {
+  if (rows.reduce((sum, row) => sum + row.quantity, 0) > 10000)
+    ctx.addIssue({ code: 'custom', message: 'Maximum 10,000 packages per LR' });
+  if (rows.reduce((sum, row) => sum + row.actualWeight, 0) > 100000)
+    ctx.addIssue({ code: 'custom', message: 'Maximum total actual weight is 100,000 kg' });
+});
 const lrPrintFields = {
+  goods: goodsList.optional(),
+  volumetricWeight: lrAmount,
   consignorCode: lrPrintText,
   consignorAddress: lrPrintText,
   consignorAddress2: lrPrintText,
@@ -118,6 +149,8 @@ const lrPrintFields = {
   fuelCharges: lrAmount,
   handlingCharges: lrAmount,
   fodCodCharges: lrAmount,
+  fodCharges: lrAmount,
+  codCharges: lrAmount,
   rovCharges: lrAmount,
   docketCharges: lrAmount,
   gstRate: optional(z.coerce.number().finite().min(0).max(100)),
@@ -126,7 +159,7 @@ const lrPrintFields = {
 };
 export const lrPrintFieldNames = Object.freeze(Object.keys(lrPrintFields));
 export const lrCreateSchema = shipmentFields
-  .extend({ customerId: objectId, originBranchId: objectId, destinationBranchId: objectId, ...lrPrintFields })
+  .extend({ lrNumber: manualLrNumber, customerId: objectId, originBranchId: objectId, destinationBranchId: objectId, ...lrPrintFields, from: text(2, 250), to: text(2, 250), goods: goodsList })
   .refine((v) => v.originBranchId !== v.destinationBranchId, {
     path: ['destinationBranchId'],
     message: 'Destination must differ from origin',

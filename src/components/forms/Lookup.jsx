@@ -41,11 +41,11 @@ export default function Lookup({
               (x) =>
                 (!ownBranch || idOf(x) === ownBranch) &&
                 (!branchOptions ||
-                  `${x.branchCode} ${x.name} ${x.city}`.toLowerCase().includes(term.toLowerCase())),
+                  `${x.branchCode} ${x.name} ${x.city} ${x.pincode || ''} ${x.address || ''}`.toLowerCase().includes(term.toLowerCase())),
             )
             .map((x) => (
               <option key={idOf(x)} value={idOf(x)}>
-                {x.customerCode || x.branchCode} · {x.name}
+                {x.customerCode || x.branchCode} · {x.name}{x.pincode ? ` - ${x.pincode}` : ''}
               </option>
             ))}
         </select>

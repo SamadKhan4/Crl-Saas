@@ -50,6 +50,7 @@ export default function ShipmentDetailPage() {
             ['Current location', s.currentLocation],
             ['Expected delivery', date(s.expectedDeliveryDate)],
             ['Packages / Weight', `${s.packageCount} packages / ${s.weightKg} kg`],
+            ...(s.lrDetails?.chargedWeight != null ? [['Chargeable weight for invoice', `${s.lrDetails.chargedWeight} kg`]] : []),
           ].map(([key, value]) => (
             <div key={key}>
               <small>{key}</small>
@@ -94,6 +95,8 @@ export default function ShipmentDetailPage() {
                   [
                     ['Origin', s.originBranchId?.name],
                     ['Destination', s.destinationBranchId?.name],
+                    ['Delivery area', s.lrDetails?.to],
+                    ['Delivery PIN code', s.lrDetails?.consigneePincode],
                     ['Description', s.description],
                     ['Received', date(s.receivedAt)],
                   ],

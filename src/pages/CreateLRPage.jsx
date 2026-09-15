@@ -1,16 +1,21 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Copy, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { lrCreateSchema, lrPrintFieldNames, shipmentSchema } from '../schemas';
 import { shipmentsApi } from '../api/services';
-import { errorMessage, formErrors } from '../api/client';
+import { errorMessage, formErrors, get } from '../api/client';
 import { useAuth } from '../features/auth/AuthContext';
 import { PageHeader, FormField } from '../components/common/UI';
 import Lookup from '../components/forms/Lookup';
+import GoodsFields, { emptyGoods } from '../components/forms/GoodsFields';
+import ChargeTotals from '../components/forms/ChargeTotals';
+import DestinationLookup from '../components/forms/DestinationLookup';
+import { calculateCharges } from '../lib/charges';
+import { calculateGoods } from '../lib/goods';
 import { idOf } from '../lib/workflow';
 import { copyText } from '../lib/clipboard';
 import { LrPdfDownload } from '../Template/LrPdf';
@@ -19,13 +24,15 @@ function PrintInputGrid({ fields, register, errors }) {
   return (
     <div className="form-grid">
       {fields.map(([name, label, type = 'text']) => (
-        <FormField key={name} label={label} type={type} {...register(name)} error={errors[name]?.message} />
+        <FormField key={name} label={label} type={type} step={type === 'number' ? 'any' : undefined} min={type === 'number' ? 0 : undefined} {...register(name)} error={errors[name]?.message} />
       ))}
     </div>
   );
 }
 
 export function shipmentCreatePayload(values) {
+  const { packageCount, ...totals } = calculateGoods(values.goods);
+  values = { ...values, ...totals, ...calculateCharges(values), packageCount, weightKg: totals.actualWeight };
   const shipment = shipmentSchema.parse(values);
   const lrDetails = Object.fromEntries(
     lrPrintFieldNames
@@ -47,6 +54,7 @@ export default function CreateLRPage() {
     control,
     handleSubmit,
     reset,
+    setValue,
     setError: fieldError,
     formState: { errors, isSubmitting },
   } = useForm({
@@ -54,8 +62,20 @@ export default function CreateLRPage() {
     defaultValues: {
       originBranchId: user.role !== 'ADMIN' ? idOf(user.branchId) : '',
       packageCount: 1,
+      lrNumber: '',
+      goods: [emptyGoods()],
     },
   });
+  const [route, setRoute] = useState({ from: null, to: null });
+  const branches = useQuery({ queryKey: ['branches', 'route-options'], queryFn: () => get('/branches/options') });
+  useEffect(() => {
+    const options = branches.data?.data || [];
+    if (!options.length) return;
+    const originId = user.role === 'ADMIN' ? idOf(options.find((branch) => route.from && `${branch.name} ${branch.city}`.toLowerCase().includes(route.from.district.toLowerCase())) || options[0]) : idOf(user.branchId);
+    const destinationId = idOf(options.find((branch) => route.to && `${branch.name} ${branch.city}`.toLowerCase().includes(route.to.district.toLowerCase()) && idOf(branch) !== originId) || options.find((branch) => idOf(branch) !== originId));
+    if (originId) setValue('originBranchId', originId, { shouldValidate: true });
+    if (destinationId) setValue('destinationBranchId', destinationId, { shouldValidate: true });
+  }, [branches.data, route.from, route.to, setValue, user.branchId, user.role]);
   async function submit(values) {
     setError('');
     const shipmentPayload = shipmentCreatePayload(values);
@@ -75,13 +95,14 @@ export default function CreateLRPage() {
     } catch (e) {
       setError(errorMessage(e));
       formErrors(e, fieldError);
+      if (e.response?.data?.errorCode === 'LR_NUMBER_EXISTS') fieldError('lrNumber', { message: 'This LR number already exists' });
     }
   }
   if (created)
     return (
       <section className="panel success-panel">
         <CheckCircle2 size={48} />
-        <span className="eyebrow">LR GENERATED SUCCESSFULLY</span>
+        <span className="eyebrow">LR CREATED SUCCESSFULLY</span>
         <h1>{created.lrNumber}</h1>
         <p>Your shipment is booked and ready for dispatch.</p>
         <div className="actions">
@@ -104,6 +125,7 @@ export default function CreateLRPage() {
             onClick={() => {
               setCreated(null);
               reset();
+              setRoute({ from: null, to: null });
               request.current = { key: crypto.randomUUID(), body: null };
             }}
           >
@@ -134,6 +156,7 @@ export default function CreateLRPage() {
               <Plus size={16} /> New customer
             </Link>
           </div>
+          <FormField label="LR number" placeholder="Enter LR number" maxLength={50} {...register('lrNumber')} error={errors.lrNumber?.message} />
           <Controller
             control={control}
             name="customerId"
@@ -179,34 +202,23 @@ export default function CreateLRPage() {
             <span>03</span>
             <div>
               <h2>Route & shipment</h2>
-              <p>Choose your branches and package details.</p>
+              <p>Find Vidarbha From and To areas by name or PIN code.</p>
             </div>
           </div>
           <div className="form-grid">
-            {['originBranchId', 'destinationBranchId'].map((key) => (
-              <div key={key}>
-                <Controller
-                  control={control}
-                  name={key}
-                  render={({ field }) => (
-                    <Lookup
-                      resource="branches"
-                      label={key === 'originBranchId' ? 'Origin branch' : 'Destination branch'}
-                      branchOptions={key === 'destinationBranchId'}
-                      ownBranch={
-                        user.role !== 'ADMIN' && key === 'originBranchId'
-                          ? idOf(user.branchId)
-                          : undefined
-                      }
-                      {...field}
-                    />
-                  )}
-                />
-                <small className="field-error">{errors[key]?.message}</small>
-              </div>
-            ))}
+            <DestinationLookup label="From" value={route.from} error={errors.from?.message} onChange={(place) => {
+              setRoute((current) => ({ ...current, from: place }));
+              setValue('from', place ? `${place.name}, ${place.district} - ${place.pincode}` : '', { shouldValidate: true });
+              setValue('consignorPincode', place?.pincode || '', { shouldValidate: true });
+            }} />
+            <DestinationLookup label="To" value={route.to} error={errors.to?.message} onChange={(place) => {
+              setRoute((current) => ({ ...current, to: place }));
+              setValue('to', place ? `${place.name}, ${place.district} - ${place.pincode}` : '', { shouldValidate: true });
+              setValue('consigneePincode', place?.pincode || '', { shouldValidate: true });
+            }} />
             <FormField
               label="Package count"
+              readOnly
               type="number"
               min="1"
               max="10000"
@@ -215,6 +227,7 @@ export default function CreateLRPage() {
             />
             <FormField
               label="Total weight (kg)"
+              readOnly
               type="number"
               min="0.001"
               step="any"
@@ -239,8 +252,6 @@ export default function CreateLRPage() {
             fields={[
               ['bookingDate', 'Booking date', 'date'],
               ['bookingBranch', 'Booking branch'],
-              ['from', 'From'],
-              ['to', 'To'],
               ['deliveryAddress', 'Delivery address (if different)'],
               ['contactNo', 'Contact number'],
             ]}
@@ -263,19 +274,7 @@ export default function CreateLRPage() {
         </section>
         <section className="panel form-section">
           <div className="section-title"><span>05</span><div><h2>Goods details</h2><p>Fill each printed goods-table field.</p></div></div>
-          <PrintInputGrid
-            register={register}
-            errors={errors}
-            fields={[
-              ['packageNumber', 'Pkg. No.'],
-              ['packageType', 'Package type'],
-              ['actualWeight', 'Actual weight (kg)', 'number'],
-              ['chargedWeight', 'Charged weight (kg)', 'number'],
-              ['dimensions', 'Dimensions (L x B x H) cm'],
-              ['volume', 'Volume'],
-              ['declaredValue', 'Declared value (Rs)', 'number'],
-            ]}
-          />
+          <GoodsFields control={control} register={register} setValue={setValue} errors={errors} />
         </section>
         <section className="panel form-section">
           <div className="section-title"><span>06</span><div><h2>Payment, risk & charges</h2><p>These selections and amounts print in the lower-right LR grid.</p></div></div>
@@ -291,14 +290,14 @@ export default function CreateLRPage() {
               ['freightCharges', 'Freight charges', 'number'],
               ['fuelCharges', 'Fuel charges', 'number'],
               ['handlingCharges', 'Handling charges', 'number'],
-              ['fodCodCharges', 'FOD / COD charges', 'number'],
+              ['fodCharges', 'FOD charges', 'number'],
+              ['codCharges', 'COD charges', 'number'],
               ['rovCharges', 'ROV charges', 'number'],
               ['docketCharges', 'Docket charges', 'number'],
               ['gstRate', 'GST rate (%)', 'number'],
-              ['gstAmount', 'GST amount', 'number'],
-              ['totalAmount', 'Total amount', 'number'],
             ]}
           />
+          <ChargeTotals control={control} />
         </section>
         <section className="panel form-section">
           <div className="section-title"><span>07</span><div><h2>Signatures & remarks</h2><p>Enter the text that must print in the signature and remarks boxes.</p></div></div>
@@ -321,9 +320,9 @@ export default function CreateLRPage() {
           </p>
         )}
         <div className="form-actions">
-          <span>The LR number and booking date are generated automatically.</span>
+          <span>Enter your LR number. Chargeable weight uses the higher of total actual and volumetric weight.</span>
           <button className="btn" disabled={isSubmitting}>
-            {isSubmitting ? 'Creating LR…' : 'Generate LR'}
+            {isSubmitting ? 'Creating LR…' : 'Create LR'}
             <Plus size={17} />
           </button>
         </div>
