@@ -9,8 +9,10 @@ import {
   refreshSession,
   setSession,
 } from '../../api/client';
+import { readStorage, writeStorage } from '../../lib/storage';
 
 const AuthContext = createContext(null);
+const SESSION_MARKER = 'crl-session-active';
 
 export function AuthProvider({ children }) {
   const [store] = useState(createAppStore);
@@ -26,10 +28,15 @@ function SessionBridge({ children }) {
   useEffect(() => {
     onSessionChange((next) => {
       if (!next || store.getState().session.user?.id !== next.id) cache.clear();
+      writeStorage('localStorage', SESSION_MARKER, next ? 'true' : null);
       dispatch(sessionChanged(next));
     });
     let active = true;
     const restoreSession = async () => {
+      if (readStorage('localStorage', SESSION_MARKER) !== 'true') {
+        if (active) dispatch(sessionReady());
+        return;
+      }
       try {
         const session = await refreshSession();
         if (active) setSession(session);
