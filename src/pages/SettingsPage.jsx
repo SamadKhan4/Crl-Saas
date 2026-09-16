@@ -25,6 +25,7 @@ export default function SettingsPage() {
         <form
           className="settings-form"
           onSubmit={handleSubmit(async (values) => {
+            setError('');
             try {
               await post('/auth/change-password', values);
               setSession(null);
