@@ -34,9 +34,9 @@ export function Brand() {
       </span>
       <span>
         <b>
-          sk <span className="brand-dot">.</span>
+          CRL <span className="brand-dot">.</span>
         </b>
-        <small>logistic</small>
+        <small>transport</small>
       </span>
     </Link>
   );
