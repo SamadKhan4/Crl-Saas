@@ -108,7 +108,7 @@ export default function LoginPage() {
           <div className="login-help">Need access? Contact your crl  administrator.</div>
         </div>
         <small className="login-copyright">
-          SK Logistic Management System · Internal team access
+          CRL Transport Management System · Internal team access
         </small>
       </section>
     </div>

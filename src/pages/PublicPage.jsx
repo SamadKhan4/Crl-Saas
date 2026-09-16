@@ -26,7 +26,7 @@ export default function PublicPage() {
       </header>
       <main>{token ? <PublicUpload token={token} /> : <Tracking />}</main>
       <footer>
-        <ShieldCheck size={16} /> SK Logistic · Keeping you connected to every mile.
+        <ShieldCheck size={16} /> CRL Transport · Keeping you connected to every mile.
       </footer>
     </div>
   );

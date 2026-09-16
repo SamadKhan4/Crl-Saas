@@ -35,7 +35,7 @@ export default function ReportsPage() {
   async function exportCsv() {
     setBusy(true);
     try {
-      await download('/reports/shipments/export', 'sk-logistic-shipments.csv', dateRangeParams(filters));
+      await download('/reports/shipments/export', 'crl-transport-shipments.csv', dateRangeParams(filters));
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {

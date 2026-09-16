@@ -1,4 +1,4 @@
-# SK Logistic Management System
+# CRL Transport Management System
 
 React / JavaScript (JSX), Vite, Tailwind CSS, React Router, TanStack Query, Axios, React Hook Form, Zod, Recharts, Lucide and Sonner. Production pages call the existing backend; there is no demo data or demo login.
 
@@ -15,7 +15,7 @@ The frontend defaults to `http://localhost:5173`. Start the existing `../crl -Ba
 Environment variables:
 
 - `VITE_API_BASE_URL=/api`: browser-visible API prefix.
-- `VITE_APP_NAME=SK Logistic`: brand label.
+- `VITE_APP_NAME=CRL Transport`: brand label.
 - `API_PROXY_TARGET=http://localhost:5000`: development-only proxy target.
 
 In production, configure the web server to serve `dist`, rewrite application URLs to `index.html`, and proxy `/api` to the backend. Preserve `/api/auth` so the backend's HTTP-only refresh cookie path works. Use HTTPS and configure the backend's secure cookies and CORS appropriately. A same-origin deployment is recommended because the backend uses SameSite=Strict cookies. Do not put secrets in Vite variables.

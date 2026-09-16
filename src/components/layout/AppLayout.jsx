@@ -28,7 +28,7 @@ import { Suspense } from 'react';
 import { Loadingcrleleton } from '../common/UI';
 export function Brand() {
   return (
-    <Link className="brand" to="/" aria-label={import.meta.env.VITE_APP_NAME || 'SK Logistic'}>
+    <Link className="brand" to="/" aria-label={import.meta.env.VITE_APP_NAME || 'CRL Transport'}>
       <span className="brand-mark">
         <Truck size={25} />
       </span>
@@ -179,7 +179,7 @@ export default function AppLayout() {
             <span>Collapse sidebar</span>
           </button>
           <div className="sidebar-footer">
-            SK Logistic Management<span>Built for the road ahead.</span>
+            CRL Transport Management<span>Built for the road ahead.</span>
           </div>
         </div>
       </aside>
@@ -234,7 +234,7 @@ export default function AppLayout() {
           </RouteErrorBoundary>
         </main>
         <footer className="workspace-footer">
-          <span>© {new Date().getFullYear()} SK Logistic</span>
+          <span>© {new Date().getFullYear()} CRL Transport</span>
           <span>Shipment & logistics workspace</span>
         </footer>
       </div>
