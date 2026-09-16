@@ -6,7 +6,21 @@ const optional = (schema) =>
 const mobile = z.string().regex(/^\+?[1-9]\d{7,14}$/, 'Enter a valid mobile number');
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Select a valid record');
 export const loginSchema = z.object({ email: z.email(), password: password(8) });
+const customerCharge = z.coerce.number().finite().min(0).max(100000000);
+const creditChargesSchema = z.object({
+  freightBasis: z.enum(['PER_KG', 'PER_BOX']),
+  freightRate: customerCharge,
+  fuelRatePercent: customerCharge.max(100),
+  handlingCharges: customerCharge,
+  fodCharges: customerCharge,
+  codCharges: customerCharge,
+  rovRatePercent: customerCharge.max(100),
+  docketCharges: customerCharge,
+  gstRate: customerCharge.max(100),
+});
 export const customerSchema = z.object({
+  customerType: z.enum(['CREDIT', 'TO_PAY_PAID']),
+  creditCharges: creditChargesSchema.optional(),
   name: text(2, 120),
   companyName: text(0, 150).optional(),
   mobile,
@@ -23,6 +37,9 @@ export const customerSchema = z.object({
       .toUpperCase()
       .regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]\dZ[A-Z\d]$/, 'Enter a valid GST number'),
   ),
+}).superRefine((data, ctx) => {
+  if (data.customerType === 'CREDIT' && !data.creditCharges)
+    ctx.addIssue({ code: 'custom', path: ['creditCharges'], message: 'Enter credit customer charges' });
 });
 export const branchSchema = z.object({
   branchCode: z
@@ -59,11 +76,7 @@ export const shipmentFields = z.object({
 const manualLrNumber = z.string().trim().toUpperCase().min(1, 'Enter LR number').max(50)
   .regex(/^[A-Z0-9][A-Z0-9/._-]*$/, 'Use letters, numbers, /, ., _ or -');
 export const shipmentSchema = shipmentFields
-  .extend({ lrNumber: manualLrNumber, customerId: objectId, originBranchId: objectId, destinationBranchId: objectId })
-  .refine((v) => v.originBranchId !== v.destinationBranchId, {
-    path: ['destinationBranchId'],
-    message: 'Destination must differ from origin',
-  });
+  .extend({ lrNumber: manualLrNumber, customerId: objectId, originBranchId: objectId, destinationBranchId: objectId });
 const lrPrintText = optional(z.string().trim().max(250));
 const lrPrintDate = optional(
   z.string().refine((value) => !Number.isNaN(Date.parse(value)), 'Enter a valid date'),
@@ -159,11 +172,7 @@ const lrPrintFields = {
 };
 export const lrPrintFieldNames = Object.freeze(Object.keys(lrPrintFields));
 export const lrCreateSchema = shipmentFields
-  .extend({ lrNumber: manualLrNumber, customerId: objectId, originBranchId: objectId, destinationBranchId: objectId, ...lrPrintFields, from: text(2, 250), to: text(2, 250), goods: goodsList })
-  .refine((v) => v.originBranchId !== v.destinationBranchId, {
-    path: ['destinationBranchId'],
-    message: 'Destination must differ from origin',
-  });
+  .extend({ lrNumber: manualLrNumber, customerId: objectId, originBranchId: objectId, destinationBranchId: objectId, ...lrPrintFields, from: text(2, 250), to: text(2, 250), goods: goodsList });
 export const passwordSchema = z.object({
   currentPassword: password(8),
   newPassword: password(12),

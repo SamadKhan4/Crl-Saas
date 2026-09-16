@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -10,7 +10,7 @@ import { shipmentsApi } from '../api/services';
 import { errorMessage, formErrors, get } from '../api/client';
 import { useAuth } from '../features/auth/AuthContext';
 import { PageHeader, FormField } from '../components/common/UI';
-import Lookup from '../components/forms/Lookup';
+import CustomerCodeLookup from '../components/forms/CustomerCodeLookup';
 import GoodsFields, { emptyGoods } from '../components/forms/GoodsFields';
 import ChargeTotals from '../components/forms/ChargeTotals';
 import DestinationLookup from '../components/forms/DestinationLookup';
@@ -25,11 +25,14 @@ const today = () => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
-function PrintInputGrid({ fields, register, errors }) {
+const creditChargeNames = ['freightCharges', 'fuelCharges', 'handlingCharges', 'fodCharges', 'codCharges', 'rovCharges', 'docketCharges', 'gstRate'];
+const money = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+function PrintInputGrid({ fields, register, errors, readOnlyFields = [] }) {
   return (
     <div className="form-grid">
       {fields.map(([name, label, type = 'text']) => (
-        <FormField key={name} label={label} type={type} readOnly={name === 'bookingDate' || name === 'invoiceDate'} step={type === 'number' ? 'any' : undefined} min={type === 'number' ? 0 : undefined} {...register(name)} error={errors[name]?.message} />
+        <FormField key={name} label={label} type={type} readOnly={name === 'bookingDate' || name === 'invoiceDate' || readOnlyFields.includes(name)} step={type === 'number' ? 'any' : undefined} min={type === 'number' ? 0 : undefined} {...register(name)} error={errors[name]?.message} />
       ))}
     </div>
   );
@@ -53,6 +56,7 @@ export default function CreateLRPage() {
   const cache = useQueryClient();
   const request = useRef({ key: crypto.randomUUID(), body: null });
   const [created, setCreated] = useState(null),
+    [selectedCustomer, setSelectedCustomer] = useState(null),
     [error, setError] = useState('');
   const {
     register,
@@ -74,12 +78,46 @@ export default function CreateLRPage() {
     },
   });
   const [route, setRoute] = useState({ from: null, to: null });
+  const goods = useWatch({ control, name: 'goods' });
+  const isCreditCustomer = selectedCustomer?.customerType === 'CREDIT';
+  useEffect(() => {
+    if (!selectedCustomer) return;
+    const values = {
+      consignorCode: selectedCustomer.customerCode,
+      senderName: selectedCustomer.name,
+      consignorAddress: selectedCustomer.address || '',
+      consignorPincode: selectedCustomer.pincode || '',
+      consignorGstin: selectedCustomer.gstNumber || '',
+    };
+    for (const [name, value] of Object.entries(values)) setValue(name, value, { shouldValidate: true });
+    setValue('paymentMode', isCreditCustomer ? 'CREDIT' : '', { shouldValidate: true });
+    if (!isCreditCustomer)
+      for (const name of creditChargeNames) setValue(name, '', { shouldValidate: true });
+  }, [selectedCustomer, isCreditCustomer, setValue]);
+  useEffect(() => {
+    if (!isCreditCustomer) return;
+    const rates = selectedCustomer.creditCharges || {};
+    const totals = calculateGoods(goods);
+    const units = rates.freightBasis === 'PER_BOX' ? totals.packageCount : totals.chargedWeight;
+    const freightCharges = money(Number(rates.freightRate || 0) * Number(units || 0));
+    const charges = {
+      freightCharges,
+      fuelCharges: money(freightCharges * Number(rates.fuelRatePercent || 0) / 100),
+      handlingCharges: rates.handlingCharges || 0,
+      fodCharges: rates.fodCharges || 0,
+      codCharges: rates.codCharges || 0,
+      rovCharges: money(totals.declaredValue * Number(rates.rovRatePercent || 0) / 100),
+      docketCharges: rates.docketCharges || 0,
+      gstRate: rates.gstRate || 0,
+    };
+    for (const [name, value] of Object.entries(charges)) setValue(name, value, { shouldValidate: true });
+  }, [goods, isCreditCustomer, selectedCustomer, setValue]);
   const branches = useQuery({ queryKey: ['branches', 'route-options'], queryFn: () => get('/branches/options') });
   useEffect(() => {
     const options = branches.data?.data || [];
     if (!options.length) return;
     const originId = user.role === 'ADMIN' ? idOf(options.find((branch) => route.from && `${branch.name} ${branch.city}`.toLowerCase().includes(route.from.district.toLowerCase())) || options[0]) : idOf(user.branchId);
-    const destinationId = idOf(options.find((branch) => route.to && `${branch.name} ${branch.city}`.toLowerCase().includes(route.to.district.toLowerCase()) && idOf(branch) !== originId) || options.find((branch) => idOf(branch) !== originId));
+    const destinationId = idOf(options.find((branch) => route.to && `${branch.name} ${branch.city}`.toLowerCase().includes(route.to.district.toLowerCase()) && idOf(branch) !== originId) || options.find((branch) => idOf(branch) !== originId)) || originId;
     if (originId) setValue('originBranchId', originId, { shouldValidate: true });
     if (destinationId) setValue('destinationBranchId', destinationId, { shouldValidate: true });
   }, [branches.data, route.from, route.to, setValue, user.branchId, user.role]);
@@ -132,6 +170,7 @@ export default function CreateLRPage() {
             onClick={() => {
               setCreated(null);
               reset();
+              setSelectedCustomer(null);
               setRoute({ from: null, to: null });
               request.current = { key: crypto.randomUUID(), body: null };
             }}
@@ -167,7 +206,7 @@ export default function CreateLRPage() {
           <Controller
             control={control}
             name="customerId"
-            render={({ field }) => <Lookup resource="customers" label="Customer" {...field} />}
+            render={({ field }) => <CustomerCodeLookup {...field} onCustomer={setSelectedCustomer} />}
           />
           {errors.customerId && <small className="field-error">{errors.customerId.message}</small>}
         </section>
@@ -286,13 +325,14 @@ export default function CreateLRPage() {
         <section className="panel form-section">
           <div className="section-title"><span>06</span><div><h2>Payment, risk & charges</h2><p>These selections and amounts print in the lower-right LR grid.</p></div></div>
           <div className="form-grid">
-            <div className="field"><label htmlFor="paymentMode">Mode of payment</label><select id="paymentMode" {...register('paymentMode')}><option value="">Select</option><option value="PAID">Paid</option><option value="TO_PAY">To Pay</option><option value="CREDIT">Credit</option></select><small className="field-error">{errors.paymentMode?.message}</small></div>
+            <Controller control={control} name="paymentMode" render={({ field }) => <div className="field"><label htmlFor="paymentMode">Mode of payment</label><select id="paymentMode" {...field} disabled={isCreditCustomer}><option value="">Select</option><option value="PAID">Paid</option><option value="TO_PAY">To Pay</option><option value="CREDIT">Credit</option></select><small className="field-error">{errors.paymentMode?.message}</small></div>} />
             <div className="field"><label htmlFor="riskType">Risk type</label><select id="riskType" {...register('riskType')}><option value="">Select</option><option value="CARRIER_RISK">Carrier risk</option><option value="OWNER_RISK">Owner risk</option></select><small className="field-error">{errors.riskType?.message}</small></div>
             <div className="field"><label htmlFor="insuranceType">Insurance</label><select id="insuranceType" {...register('insuranceType')}><option value="">Select</option><option value="INSURED">Insured</option><option value="NOT_INSURED">Not insured</option></select><small className="field-error">{errors.insuranceType?.message}</small></div>
           </div>
           <PrintInputGrid
             register={register}
             errors={errors}
+            readOnlyFields={isCreditCustomer ? creditChargeNames : []}
             fields={[
               ['freightCharges', 'Freight charges', 'number'],
               ['fuelCharges', 'Fuel charges', 'number'],

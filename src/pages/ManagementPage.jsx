@@ -28,6 +28,7 @@ const configs = {
     singular: 'customer',
     schema: customerSchema,
     fields: [
+      ['customerType', 'Customer type', 'customerType'],
       ['name', 'Name'],
       ['companyName', 'Company'],
       ['mobile', 'Mobile'],
@@ -68,6 +69,17 @@ const configs = {
     ],
   },
 };
+const creditFields = [
+  ['creditCharges.freightBasis', 'Freight calculation', 'freightBasis'],
+  ['creditCharges.freightRate', 'Freight rate', 'number'],
+  ['creditCharges.fuelRatePercent', 'Fuel charges (% of freight)', 'number'],
+  ['creditCharges.handlingCharges', 'Handling charges', 'number'],
+  ['creditCharges.fodCharges', 'FOD charges', 'number'],
+  ['creditCharges.codCharges', 'COD charges', 'number'],
+  ['creditCharges.rovRatePercent', 'ROV (% of declared value)', 'number'],
+  ['creditCharges.docketCharges', 'Docket / LR charges', 'number'],
+  ['creditCharges.gstRate', 'GST rate (%)', 'number'],
+];
 configs.managers = { ...configs.users, title: 'Managers', singular: 'manager' };
 export default function ManagementPage() {
   const location = useLocation();
@@ -129,6 +141,7 @@ function Management({ resource }) {
                 { key: 'lastLoginAt', label: 'Last login', render: (r) => date(r.lastLoginAt) },
               ]
             : [
+                ...(resource === 'customers' ? [{ key: 'customerType', label: 'Type', render: (r) => r.customerType === 'CREDIT' ? 'Credit' : 'To Pay / Paid' }] : []),
                 { key: 'companyName', label: 'Company' },
                 { key: 'city', label: 'City' },
               ]),
@@ -269,27 +282,34 @@ function Editor({ resource, config, record, onClose }) {
     ['users', 'managers'].includes(resource) && editing
       ? config.schema.omit({ password: true })
       : config.schema;
-  const fields = config.fields.filter(([key]) => !(editing && key === 'password'));
+  const fields = [...config.fields, ...(resource === 'customers' ? creditFields : [])]
+    .filter(([key]) => !(editing && key === 'password'));
+  const valueAt = (source, path) => path.split('.').reduce((value, key) => value?.[key], source);
+  const defaultValues = Object.fromEntries(
+    config.fields
+      .filter(([key]) => !(editing && key === 'password'))
+      .map(([key]) => [key, key === 'branchId' ? idOf(record[key]) || '' : record[key] ?? (key === 'customerType' ? 'TO_PAY_PAID' : '')]),
+  );
+  if (resource === 'customers')
+    defaultValues.creditCharges = Object.fromEntries(
+      creditFields.map(([key]) => [key.split('.')[1], valueAt(record, key) ?? (key.endsWith('freightBasis') ? 'PER_KG' : 0)]),
+    );
   const {
     register,
     control,
     handleSubmit,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: Object.fromEntries(
-      fields.map(([key]) => [
-        key,
-        key === 'branchId' ? idOf(record[key]) || '' : record[key] || '',
-      ]),
-    ),
+    defaultValues,
   });
   const [error, setMessage] = useState('');
   const cache = useQueryClient();
   async function save(values) {
     if (editing) {
-      const cleared = fields.find(([key]) => record[key] && values[key] === undefined);
+      const cleared = fields.find(([key]) => valueAt(record, key) && valueAt(values, key) === undefined);
       if (cleared) {
         setError(cleared[0], {
           message: `${cleared[1]} cannot be cleared. Enter a replacement value.`,
@@ -316,7 +336,7 @@ function Editor({ resource, config, record, onClose }) {
     >
       <form onSubmit={handleSubmit(save)}>
         <div className="form-grid">
-          {fields.map(([key, caption, type]) => (
+          {fields.map(([key, caption, type]) => (!key.startsWith('creditCharges.') || watch('customerType') === 'CREDIT') && (
             <div key={key}>
               {key === 'branchId' ? (
                 <Controller
@@ -324,13 +344,33 @@ function Editor({ resource, config, record, onClose }) {
                   control={control}
                   render={({ field }) => <Lookup resource="branches" label="Branch" {...field} />}
                 />
+              ) : type === 'customerType' ? (
+                <div className="field">
+                  <label htmlFor={key}>{caption}</label>
+                  <select id={key} {...register(key)}>
+                    <option value="TO_PAY_PAID">To Pay / Paid</option>
+                    <option value="CREDIT">Credit</option>
+                  </select>
+                  {errors[key] && <small className="field-error">{errors[key].message}</small>}
+                </div>
+              ) : type === 'freightBasis' ? (
+                <div className="field">
+                  <label htmlFor={key}>{caption}</label>
+                  <select id={key} {...register(key)}>
+                    <option value="PER_KG">Per Kg</option>
+                    <option value="PER_BOX">Per Box</option>
+                  </select>
+                </div>
               ) : (
                 <FormField
                   label={caption}
                   type={type || 'text'}
                   autoComplete={type === 'password' ? 'new-password' : undefined}
+                  min={type === 'number' ? 0 : undefined}
+                  max={['creditCharges.fuelRatePercent', 'creditCharges.rovRatePercent', 'creditCharges.gstRate'].includes(key) ? 100 : undefined}
+                  step={type === 'number' ? 'any' : undefined}
                   {...register(key)}
-                  error={errors[key]?.message}
+                  error={valueAt(errors, key)?.message}
                 />
               )}
               {key === 'branchId' && <small className="field-error">{errors[key]?.message}</small>}

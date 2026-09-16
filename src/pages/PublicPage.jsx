@@ -188,7 +188,7 @@ export function RequestUploadPage() {
           >
             <label>
               Customer code
-              <input name="customerCode" required minLength={6} maxLength={30} />
+              <input name="customerCode" required inputMode="numeric" pattern="\d{5}" minLength={5} maxLength={5} />
             </label>
             <label>
               LR number

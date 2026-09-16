@@ -9,7 +9,6 @@ import {
   refreshSession,
   setSession,
 } from '../../api/client';
-import { writeStorage } from '../../lib/storage';
 
 const AuthContext = createContext(null);
 
@@ -31,18 +30,6 @@ function SessionBridge({ children }) {
     });
     let active = true;
     const restoreSession = async () => {
-      let shouldRestore = false;
-      try {
-        shouldRestore = window.localStorage.getItem('crl-remember') === 'true';
-      } catch {
-        // Storage can be blocked; the secure refresh cookie is only used when
-        // the user explicitly chose to stay signed in.
-      }
-      if (!shouldRestore) {
-        if (active) setSession(null);
-        if (active) dispatch(sessionReady());
-        return;
-      }
       try {
         const session = await refreshSession();
         if (active) setSession(session);
@@ -59,14 +46,12 @@ function SessionBridge({ children }) {
     };
   }, [cache, dispatch, store]);
 
-  const login = async (values, remember) => {
+  const login = async (values) => {
     const session = await authenticateDemo(values);
     cache.clear();
-    writeStorage('localStorage', 'crl-remember', String(remember));
     setSession(session);
   };
   const logout = async () => {
-    writeStorage('localStorage', 'crl-remember', null);
     cache.clear();
     await logoutSession();
   };

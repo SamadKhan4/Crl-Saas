@@ -10,8 +10,7 @@ import { Brand } from '../components/layout/AppLayout';
 import { errorMessage } from '../api/client';
 export default function LoginPage() {
   const { user, loading, login } = useAuth();
-  const [remember, setRemember] = useState(false),
-    [show, setShow] = useState(false),
+  const [show, setShow] = useState(false),
     [error, setError] = useState('');
   const {
     register,
@@ -64,7 +63,7 @@ export default function LoginPage() {
             onSubmit={handleSubmit(async (values) => {
               setError('');
               try {
-                await login(values, remember);
+                await login(values);
               } catch (e) {
                 setError(errorMessage(e));
               }
@@ -96,14 +95,6 @@ export default function LoginPage() {
                 {show ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-              />{' '}
-              Remember me
-            </label>
             {error && (
               <p role="alert" className="field-error">
                 {error}
