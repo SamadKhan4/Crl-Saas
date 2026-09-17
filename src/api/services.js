@@ -20,6 +20,15 @@ export const shipmentsApi = {
 };
 export const dashboardApi = { summary: () => get('/dashboard/summary') };
 export const reportsApi = { list: (params) => get('/reports/shipments', dateRangeParams(params)) };
+export const vendorsApi = resourceApi('vendors');
+export const manifestsApi = resourceApi('manifests');
+export const tripsApi = resourceApi('trips');
+export const drsApi = resourceApi('drs');
+export const invoicesApi = resourceApi('invoices');
+export const receiptsApi = resourceApi('money-receipts');
+export const quotationsApi = resourceApi('quotations');
+export const stationeryApi = resourceApi('stationery');
+export const receivablesApi = { summary: (params) => get('/receivables/summary', params) };
 export const publicApi = {
   track: (lr) =>
     logistic.get(`/public/track/${encodeURIComponent(lr)}`).then((r) => {
@@ -39,4 +48,5 @@ export const publicApi = {
     logistic
       .post(`/public/lr-upload/${encodeURIComponent(token)}`, body, { onUploadProgress })
       .then((r) => checkEnvelope(r.data)),
+  quotation: (body) => logistic.post('/public/quotations', body).then((r) => checkEnvelope(r.data)),
 };

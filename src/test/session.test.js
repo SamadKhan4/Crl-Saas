@@ -21,6 +21,7 @@ describe('Session logistic', () => {
   it('preserves explicit empty text so updates clear stored values', () => {
     expect(
       customerSchema.parse({
+        customerType: 'TO_PAY_PAID',
         name: 'Customer',
         mobile: '+919876543210',
         address: '',

@@ -41,9 +41,6 @@ export default function CustomerDetailPage() {
             </div>
           ))}
         </dl>
-        {c.customerType === 'CREDIT' && <dl className="detail-grid">
-          {Object.entries(c.creditCharges || {}).map(([key, value]) => <div key={key}><dt>{key.replace(/([A-Z])/g, ' $1')}</dt><dd>{value}</dd></div>)}
-        </dl>}
       </section>
       <section className="panel">
         <div className="panel-heading">

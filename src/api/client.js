@@ -2,9 +2,11 @@ import axios from 'axios';
 
 const configuredApiUrl = import.meta.env?.VITE_API_BASE_URL;
 const API_BASE_URL = (
-  import.meta.env.PROD && !/^https:\/\//.test(configuredApiUrl || '')
-    ? 'https://api.crl-transport.com/api'
-    : configuredApiUrl || '/api'
+  import.meta.env.DEV
+    ? '/api'
+    : !/^https:\/\//.test(configuredApiUrl || '')
+      ? 'https://api.crl-transport.com/api'
+      : configuredApiUrl
 ).replace(/\/$/, '');
 const AUTH_PATH = /^\/auth\/(login|refresh|logout)$/;
 

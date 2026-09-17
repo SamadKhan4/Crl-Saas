@@ -20,6 +20,10 @@ const Public = lazy(() => import('./pages/PublicPage'));
 const RequestUpload = lazy(() =>
   import('./pages/PublicPage').then((m) => ({ default: m.RequestUploadPage })),
 );
+const PublicQuotation = lazy(() => import('./pages/PublicQuotationPage'));
+const TmsModule = lazy(() => import('./pages/TmsModulePage'));
+const DrsWorkspace = lazy(() => import('./pages/DrsWorkspacePage'));
+const Receivables = lazy(() => import('./pages/ReceivablesPage'));
 export default function App() {
   return (
     <RouteErrorBoundary>
@@ -30,6 +34,7 @@ export default function App() {
           <Route path="/track" element={<Public />} />
           <Route path="/upload-lr/:token" element={<Public />} />
           <Route path="/request-upload" element={<RequestUpload />} />
+          <Route path="/get-quotation" element={<PublicQuotation />} />
           {['ADMIN', 'MANAGER', 'EMPLOYEE'].map((role) => (
             <Route key={role} element={<ProtectedRoute role={role} />}>
               <Route path={`/${role.toLowerCase()}`} element={<AppLayout />}>
@@ -41,11 +46,20 @@ export default function App() {
                 <Route path="customers" element={<Management />} />
                 <Route path="customers/:id" element={<CustomerDetail />} />
                 <Route path="documents" element={<Documents />} />
+                <Route path="manifests" element={<TmsModule />} />
+                <Route path="trips" element={<TmsModule />} />
+                <Route path="drs" element={<TmsModule />} />
+                <Route path="drs/:id" element={<DrsWorkspace />} />
                 {role === 'MANAGER' && (
                   <>
                     <Route path="employees" element={<Management />} />
                     <Route path="reports" element={<Reports />} />
                     <Route path="settings" element={<Settings />} />
+                    <Route path="money-receipts" element={<TmsModule />} />
+                    <Route path="invoices" element={<TmsModule />} />
+                    <Route path="quotations" element={<TmsModule />} />
+                    <Route path="stationery" element={<TmsModule />} />
+                    <Route path="receivables" element={<Receivables />} />
                   </>
                 )}
                 {role === 'ADMIN' ? (
@@ -56,6 +70,12 @@ export default function App() {
                     <Route path="reports" element={<Reports />} />
                     <Route path="audit" element={<Activity />} />
                     <Route path="settings" element={<Settings />} />
+                    <Route path="vendors" element={<TmsModule />} />
+                    <Route path="money-receipts" element={<TmsModule />} />
+                    <Route path="invoices" element={<TmsModule />} />
+                    <Route path="quotations" element={<TmsModule />} />
+                    <Route path="stationery" element={<TmsModule />} />
+                    <Route path="receivables" element={<Receivables />} />
                   </>
                 ) : (
                   <>

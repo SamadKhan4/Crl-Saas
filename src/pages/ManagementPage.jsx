@@ -69,17 +69,6 @@ const configs = {
     ],
   },
 };
-const creditFields = [
-  ['creditCharges.freightBasis', 'Freight calculation', 'freightBasis'],
-  ['creditCharges.freightRate', 'Freight rate', 'number'],
-  ['creditCharges.fuelRatePercent', 'Fuel charges (% of freight)', 'number'],
-  ['creditCharges.handlingCharges', 'Handling charges', 'number'],
-  ['creditCharges.fodCharges', 'FOD charges', 'number'],
-  ['creditCharges.codCharges', 'COD charges', 'number'],
-  ['creditCharges.rovRatePercent', 'ROV (% of declared value)', 'number'],
-  ['creditCharges.docketCharges', 'Docket / LR charges', 'number'],
-  ['creditCharges.gstRate', 'GST rate (%)', 'number'],
-];
 configs.managers = { ...configs.users, title: 'Managers', singular: 'manager' };
 export default function ManagementPage() {
   const location = useLocation();
@@ -282,7 +271,7 @@ function Editor({ resource, config, record, onClose }) {
     ['users', 'managers'].includes(resource) && editing
       ? config.schema.omit({ password: true })
       : config.schema;
-  const fields = [...config.fields, ...(resource === 'customers' ? creditFields : [])]
+  const fields = [...config.fields]
     .filter(([key]) => !(editing && key === 'password'));
   const valueAt = (source, path) => path.split('.').reduce((value, key) => value?.[key], source);
   const defaultValues = Object.fromEntries(
@@ -290,16 +279,11 @@ function Editor({ resource, config, record, onClose }) {
       .filter(([key]) => !(editing && key === 'password'))
       .map(([key]) => [key, key === 'branchId' ? idOf(record[key]) || '' : record[key] ?? (key === 'customerType' ? 'TO_PAY_PAID' : '')]),
   );
-  if (resource === 'customers')
-    defaultValues.creditCharges = Object.fromEntries(
-      creditFields.map(([key]) => [key.split('.')[1], valueAt(record, key) ?? (key.endsWith('freightBasis') ? 'PER_KG' : 0)]),
-    );
   const {
     register,
     control,
     handleSubmit,
     setError,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
@@ -336,7 +320,7 @@ function Editor({ resource, config, record, onClose }) {
     >
       <form onSubmit={handleSubmit(save)}>
         <div className="form-grid">
-          {fields.map(([key, caption, type]) => (!key.startsWith('creditCharges.') || watch('customerType') === 'CREDIT') && (
+          {fields.map(([key, caption, type]) => (
             <div key={key}>
               {key === 'branchId' ? (
                 <Controller
@@ -353,21 +337,12 @@ function Editor({ resource, config, record, onClose }) {
                   </select>
                   {errors[key] && <small className="field-error">{errors[key].message}</small>}
                 </div>
-              ) : type === 'freightBasis' ? (
-                <div className="field">
-                  <label htmlFor={key}>{caption}</label>
-                  <select id={key} {...register(key)}>
-                    <option value="PER_KG">Per Kg</option>
-                    <option value="PER_BOX">Per Box</option>
-                  </select>
-                </div>
               ) : (
                 <FormField
                   label={caption}
                   type={type || 'text'}
                   autoComplete={type === 'password' ? 'new-password' : undefined}
                   min={type === 'number' ? 0 : undefined}
-                  max={['creditCharges.fuelRatePercent', 'creditCharges.rovRatePercent', 'creditCharges.gstRate'].includes(key) ? 100 : undefined}
                   step={type === 'number' ? 'any' : undefined}
                   {...register(key)}
                   error={valueAt(errors, key)?.message}

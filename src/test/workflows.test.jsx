@@ -116,18 +116,22 @@ describe('Form validation', () => {
   });
   it('omits empty optional contact fields', () =>
     expect(
-      customerSchema.parse({ name: 'Customer', mobile: '+919876543210', email: '', pincode: '' })
+      customerSchema.parse({ customerType: 'TO_PAY_PAID', name: 'Customer', mobile: '+919876543210', email: '', pincode: '' })
         .email,
     ).toBeUndefined());
   it('nests LR print fields in the documented shipment contract', () => {
     const values = lrCreateSchema.parse({
       goods: [{ description: "Boxes", quantity: 1, actualWeight: 5, dimensionUnit: "CM" }],
       ...valid,
+      from: 'Nagpur',
+      to: 'Amravati',
       consignorCode: 'TEST-001',
       invoiceNo: 'INV-1001',
       actualWeight: '4.5',
       paymentMode: 'TO_PAY',
-      freightCharges: '1500',
+      freightBasis: 'PER_KG',
+      freightRate: '300',
+      fuelRatePercent: '10',
     });
     expect(shipmentCreatePayload(values)).toMatchObject({
       ...valid,
@@ -136,7 +140,11 @@ describe('Form validation', () => {
         invoiceNo: 'INV-1001',
         actualWeight: 5,
         paymentMode: 'TO_PAY',
+        freightBasis: 'PER_KG',
+        freightRate: 300,
         freightCharges: 1500,
+        fuelCharges: 150,
+        totalAmount: 1650,
       },
     });
     expect(shipmentCreatePayload(values).invoiceNo).toBeUndefined();

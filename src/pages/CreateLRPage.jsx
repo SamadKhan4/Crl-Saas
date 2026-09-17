@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Controller, useForm, useWatch } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -25,8 +25,7 @@ const today = () => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
-const creditChargeNames = ['freightCharges', 'fuelCharges', 'handlingCharges', 'fodCharges', 'codCharges', 'rovCharges', 'docketCharges', 'gstRate'];
-const money = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
+const pricingFieldNames = ['freightRate', 'fuelRatePercent', 'handlingCharges', 'fodCharges', 'codCharges', 'rovRatePercent', 'docketCharges', 'gstRate'];
 
 function PrintInputGrid({ fields, register, errors, readOnlyFields = [] }) {
   return (
@@ -38,9 +37,38 @@ function PrintInputGrid({ fields, register, errors, readOnlyFields = [] }) {
   );
 }
 
+function PricingFields({ register, errors, disabled = false }) {
+  return (
+    <div className="form-grid lr-pricing-fields">
+      <div className="field">
+        <label htmlFor="freightBasis">Freight calculation</label>
+        <select id="freightBasis" disabled={disabled} {...register('freightBasis')}>
+          <option value="PER_KG">Per charged kg</option>
+          <option value="PER_BOX">Per box</option>
+          <option value="FIXED">Fixed freight</option>
+        </select>
+        <small className="field-error">{errors.freightBasis?.message}</small>
+      </div>
+      {[
+        ['freightRate', 'Freight rate / fixed amount'],
+        ['fuelRatePercent', 'Fuel charge (% of freight)'],
+        ['handlingCharges', 'Handling charges'],
+        ['fodCharges', 'FOD charges'],
+        ['codCharges', 'COD charges'],
+        ['rovRatePercent', 'ROV (% of declared value)'],
+        ['docketCharges', 'Docket charges'],
+        ['gstRate', 'GST rate (%)'],
+      ].map(([name, label]) => (
+        <FormField key={name} label={label} type="number" min="0" max={name.endsWith('Percent') || name === 'gstRate' ? 100 : undefined} step="any" disabled={disabled} {...register(name)} error={errors[name]?.message} />
+      ))}
+    </div>
+  );
+}
+
 export function shipmentCreatePayload(values) {
   const { packageCount, ...totals } = calculateGoods(values.goods);
-  values = { ...values, ...totals, ...calculateCharges(values), packageCount, weightKg: totals.actualWeight };
+  const pricedValues = { ...values, ...totals, packageCount };
+  values = { ...pricedValues, ...calculateCharges(pricedValues), weightKg: totals.actualWeight };
   const shipment = shipmentSchema.parse(values);
   const lrDetails = Object.fromEntries(
     lrPrintFieldNames
@@ -74,11 +102,20 @@ export default function CreateLRPage() {
       lrNumber: '',
       bookingDate: today(),
       invoiceDate: today(),
+      paymentMode: '',
+      freightBasis: 'PER_KG',
+      freightRate: 0,
+      fuelRatePercent: 0,
+      handlingCharges: 0,
+      fodCharges: 0,
+      codCharges: 0,
+      rovRatePercent: 0,
+      docketCharges: 0,
+      gstRate: 0,
       goods: [emptyGoods()],
     },
   });
   const [route, setRoute] = useState({ from: null, to: null });
-  const goods = useWatch({ control, name: 'goods' });
   const isCreditCustomer = selectedCustomer?.customerType === 'CREDIT';
   useEffect(() => {
     if (!selectedCustomer) return;
@@ -91,27 +128,9 @@ export default function CreateLRPage() {
     };
     for (const [name, value] of Object.entries(values)) setValue(name, value, { shouldValidate: true });
     setValue('paymentMode', isCreditCustomer ? 'CREDIT' : '', { shouldValidate: true });
-    if (!isCreditCustomer)
-      for (const name of creditChargeNames) setValue(name, '', { shouldValidate: true });
+    setValue('freightBasis', 'PER_KG', { shouldValidate: true });
+    for (const name of pricingFieldNames) setValue(name, 0, { shouldValidate: true });
   }, [selectedCustomer, isCreditCustomer, setValue]);
-  useEffect(() => {
-    if (!isCreditCustomer) return;
-    const rates = selectedCustomer.creditCharges || {};
-    const totals = calculateGoods(goods);
-    const units = rates.freightBasis === 'PER_BOX' ? totals.packageCount : totals.chargedWeight;
-    const freightCharges = money(Number(rates.freightRate || 0) * Number(units || 0));
-    const charges = {
-      freightCharges,
-      fuelCharges: money(freightCharges * Number(rates.fuelRatePercent || 0) / 100),
-      handlingCharges: rates.handlingCharges || 0,
-      fodCharges: rates.fodCharges || 0,
-      codCharges: rates.codCharges || 0,
-      rovCharges: money(totals.declaredValue * Number(rates.rovRatePercent || 0) / 100),
-      docketCharges: rates.docketCharges || 0,
-      gstRate: rates.gstRate || 0,
-    };
-    for (const [name, value] of Object.entries(charges)) setValue(name, value, { shouldValidate: true });
-  }, [goods, isCreditCustomer, selectedCustomer, setValue]);
   const branches = useQuery({ queryKey: ['branches', 'route-options'], queryFn: () => get('/branches/options') });
   useEffect(() => {
     const options = branches.data?.data || [];
@@ -209,6 +228,13 @@ export default function CreateLRPage() {
             render={({ field }) => <CustomerCodeLookup {...field} onCustomer={setSelectedCustomer} />}
           />
           {errors.customerId && <small className="field-error">{errors.customerId.message}</small>}
+          {isCreditCustomer && (
+            <details className="credit-charge-box" open>
+              <summary>Enter charges for this credit LR</summary>
+              <p>These rates apply only to this LR and update Section 06 automatically.</p>
+              <PricingFields register={register} errors={errors} />
+            </details>
+          )}
         </section>
         <section className="panel form-section">
           <div className="section-title">
@@ -323,27 +349,16 @@ export default function CreateLRPage() {
           <GoodsFields control={control} register={register} setValue={setValue} errors={errors} />
         </section>
         <section className="panel form-section">
-          <div className="section-title"><span>06</span><div><h2>Payment, risk & charges</h2><p>These selections and amounts print in the lower-right LR grid.</p></div></div>
+          <div className="section-title"><span>06</span><div><h2>Payment, risk & charges</h2><p>Define this LR's rates after selecting the customer. Charge amounts calculate automatically.</p></div></div>
+          {selectedCustomer && <p className="form-hint">Pricing for <strong>{selectedCustomer.name}</strong> ({isCreditCustomer ? 'Credit' : 'To Pay / Paid'} customer)</p>}
           <div className="form-grid">
-            <Controller control={control} name="paymentMode" render={({ field }) => <div className="field"><label htmlFor="paymentMode">Mode of payment</label><select id="paymentMode" {...field} disabled={isCreditCustomer}><option value="">Select</option><option value="PAID">Paid</option><option value="TO_PAY">To Pay</option><option value="CREDIT">Credit</option></select><small className="field-error">{errors.paymentMode?.message}</small></div>} />
+            <Controller control={control} name="paymentMode" render={({ field }) => <div className="field"><label htmlFor="paymentMode">Mode of payment</label><select id="paymentMode" {...field} disabled={!selectedCustomer || isCreditCustomer}><option value="">Select</option><option value="PAID">Paid</option><option value="TO_PAY">To Pay</option>{isCreditCustomer && <option value="CREDIT">Credit</option>}</select><small className="field-error">{errors.paymentMode?.message}</small></div>} />
             <div className="field"><label htmlFor="riskType">Risk type</label><select id="riskType" {...register('riskType')}><option value="">Select</option><option value="CARRIER_RISK">Carrier risk</option><option value="OWNER_RISK">Owner risk</option></select><small className="field-error">{errors.riskType?.message}</small></div>
             <div className="field"><label htmlFor="insuranceType">Insurance</label><select id="insuranceType" {...register('insuranceType')}><option value="">Select</option><option value="INSURED">Insured</option><option value="NOT_INSURED">Not insured</option></select><small className="field-error">{errors.insuranceType?.message}</small></div>
           </div>
-          <PrintInputGrid
-            register={register}
-            errors={errors}
-            readOnlyFields={isCreditCustomer ? creditChargeNames : []}
-            fields={[
-              ['freightCharges', 'Freight charges', 'number'],
-              ['fuelCharges', 'Fuel charges', 'number'],
-              ['handlingCharges', 'Handling charges', 'number'],
-              ['fodCharges', 'FOD charges', 'number'],
-              ['codCharges', 'COD charges', 'number'],
-              ['rovCharges', 'ROV charges', 'number'],
-              ['docketCharges', 'Docket charges', 'number'],
-              ['gstRate', 'GST rate (%)', 'number'],
-            ]}
-          />
+          {!selectedCustomer && <p className="form-hint">Select a customer to define LR charges.</p>}
+          {selectedCustomer && !isCreditCustomer && <PricingFields register={register} errors={errors} />}
+          {isCreditCustomer && <p className="form-hint">Credit LR rates are entered in the compact charges box below the selected customer.</p>}
           <ChargeTotals control={control} />
         </section>
         <section className="panel form-section">

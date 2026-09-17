@@ -6,7 +6,10 @@ export default defineConfig(({ mode }) => ({
   server: {
     proxy: {
       '/api': {
-        target: loadEnv(mode, process.cwd(), '').API_PROXY_TARGET || 'http://localhost:5000',
+        target:
+          mode === 'development'
+            ? 'http://localhost:5000'
+            : loadEnv(mode, process.cwd(), '').API_PROXY_TARGET || 'http://localhost:5000',
         changeOrigin: true,
       },
     },

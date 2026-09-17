@@ -6,21 +6,8 @@ const optional = (schema) =>
 const mobile = z.string().regex(/^\+?[1-9]\d{7,14}$/, 'Enter a valid mobile number');
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Select a valid record');
 export const loginSchema = z.object({ email: z.email(), password: password(8) });
-const customerCharge = z.coerce.number().finite().min(0).max(100000000);
-const creditChargesSchema = z.object({
-  freightBasis: z.enum(['PER_KG', 'PER_BOX']),
-  freightRate: customerCharge,
-  fuelRatePercent: customerCharge.max(100),
-  handlingCharges: customerCharge,
-  fodCharges: customerCharge,
-  codCharges: customerCharge,
-  rovRatePercent: customerCharge.max(100),
-  docketCharges: customerCharge,
-  gstRate: customerCharge.max(100),
-});
 export const customerSchema = z.object({
   customerType: z.enum(['CREDIT', 'TO_PAY_PAID']),
-  creditCharges: creditChargesSchema.optional(),
   name: text(2, 120),
   companyName: text(0, 150).optional(),
   mobile,
@@ -37,9 +24,6 @@ export const customerSchema = z.object({
       .toUpperCase()
       .regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]\dZ[A-Z\d]$/, 'Enter a valid GST number'),
   ),
-}).superRefine((data, ctx) => {
-  if (data.customerType === 'CREDIT' && !data.creditCharges)
-    ctx.addIssue({ code: 'custom', path: ['creditCharges'], message: 'Enter credit customer charges' });
 });
 export const branchSchema = z.object({
   branchCode: z
@@ -158,6 +142,10 @@ const lrPrintFields = {
   paymentMode: optional(z.enum(['PAID', 'TO_PAY', 'CREDIT'])),
   riskType: optional(z.enum(['CARRIER_RISK', 'OWNER_RISK'])),
   insuranceType: optional(z.enum(['INSURED', 'NOT_INSURED'])),
+  freightBasis: optional(z.enum(['PER_KG', 'PER_BOX', 'FIXED'])),
+  freightRate: lrAmount,
+  fuelRatePercent: optional(z.coerce.number().finite().min(0).max(100)),
+  rovRatePercent: optional(z.coerce.number().finite().min(0).max(100)),
   freightCharges: lrAmount,
   fuelCharges: lrAmount,
   handlingCharges: lrAmount,

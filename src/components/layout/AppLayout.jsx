@@ -19,6 +19,13 @@ import {
   ArrowUpRight,
   PackageCheck,
   X,
+  ClipboardList,
+  Route,
+  MapPinned,
+  ReceiptIndianRupee,
+  FileText,
+  Warehouse,
+  HandCoins,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -84,34 +91,66 @@ export default function AppLayout() {
   const base = `/${user.role.toLowerCase()}`;
   const admin = user.role === 'ADMIN';
   const manager = user.role === 'MANAGER';
-  const items = [
-    ['dashboard', 'Dashboard', LayoutDashboard],
-    ['shipments', 'Shipments', Package],
-    ['shipments/create', 'Create LR', Plus],
-    ['customers', 'Customers', Users],
-    ...(admin
-      ? [
-        ['managers', 'Managers', Users],
-        ['employees', 'Employees', Users],
-        ['branches', 'Branches', Building2],
-      ]
-      : [['receive', 'Receive Parcel', PackageCheck]]),
-    ...(manager
-      ? [
-        ['employees', 'Employees', Users],
-        ['reports', 'Reports', ChartNoAxesCombined],
-        ['settings', 'Settings', Settings],
-      ]
-      : []),
-    ['documents', 'Documents', Files],
-    ...(admin
-      ? [
-        ['reports', 'Reports', ChartNoAxesCombined],
-        ['audit', 'Team Activity', History],
-        ['settings', 'Settings', Settings],
-      ]
-      : [['activity', manager ? 'Branch Activity' : 'My Activity', History]]),
-  ];
+  const navGroups = [
+    { label: 'Overview', items: [['dashboard', 'Dashboard', LayoutDashboard]] },
+    {
+      label: 'Operations',
+      items: [
+        ['shipments', 'Booking Register', Package],
+        ['shipments/create', 'Create LR', Plus],
+        ['manifests', 'Manifest', ClipboardList],
+        ['trips', 'Trips & Dispatch', Route],
+        ['drs', 'Delivery Run Sheet', MapPinned],
+        ...(!admin ? [['receive', 'Receive Parcel', PackageCheck]] : []),
+        ['documents', 'POD & Documents', Files],
+      ],
+    },
+    {
+      label: 'Masters',
+      items: [
+        ['customers', 'Customer Master', Users],
+        ...(admin
+          ? [
+              ['vendors', 'Vendor Master', Truck],
+              ['branches', 'Branch Master', Building2],
+              ['managers', 'Managers', Users],
+              ['employees', 'Employees', Users],
+            ]
+          : manager
+            ? [['employees', 'Employees', Users]]
+            : []),
+      ],
+    },
+    {
+      label: 'Commercial',
+      items:
+        admin || manager
+          ? [
+              ['money-receipts', 'Money Receipts', ReceiptIndianRupee],
+              ['invoices', 'Client Billing', FileText],
+              ['receivables', 'Receivables', HandCoins],
+              ['quotations', 'Quotations', FileText],
+              ['stationery', 'Stationery', Warehouse],
+            ]
+          : [],
+    },
+    {
+      label: 'Control',
+      items: [
+        ...(admin || manager ? [['reports', 'Reports & MIS', ChartNoAxesCombined]] : []),
+        [
+          admin ? 'audit' : 'activity',
+          admin ? 'Team Activity' : manager ? 'Branch Activity' : 'My Activity',
+          History,
+        ],
+        ...(admin || manager ? [['settings', 'Settings', Settings]] : []),
+      ],
+    },
+  ].filter((group) => group.items.length);
+  const items = navGroups.flatMap((group) => group.items);
+  useEffect(() => {
+    sidebarRef.current?.querySelector('nav a.active')?.scrollIntoView({ block: 'nearest' });
+  }, [location.pathname]);
   const title =
     items.find((x) => location.pathname === `${base}/${x[0]}`)?.[1] || 'Shipment workspace';
   async function signOut() {
@@ -147,28 +186,42 @@ export default function AppLayout() {
             <X size={20} />
           </button>
         </div>
-        <div className="workspace-pill">
-          <span className="live-dot" />
-          <span>
-            {admin ? 'Administration' : manager ? 'Manager workspace' : 'Branch operations'}
-          </span>
+        <div className="sidebar-scroll">
+          <div className="workspace-pill">
+            <span className="live-dot" />
+            <span>
+              {admin ? 'Administration' : manager ? 'Manager workspace' : 'Branch operations'}
+            </span>
+          </div>
+          <nav aria-label="Main navigation">
+            {navGroups.map((group) => (
+              <section
+                className="nav-group"
+                key={group.label}
+                aria-labelledby={`nav-${group.label}`}
+              >
+                <small className="nav-caption" id={`nav-${group.label}`}>
+                  {group.label}
+                </small>
+                <div className="nav-group-links">
+                  {group.items.map(([path, name, Icon]) => (
+                    <NavLink
+                      key={path}
+                      to={`${base}/${path}`}
+                      end={path === 'shipments'}
+                      title={name}
+                      onClick={() => setMobile(false)}
+                    >
+                      <Icon size={19} />
+                      <span>{name}</span>
+                      {path === 'shipments/create' && <small>+</small>}
+                    </NavLink>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </nav>
         </div>
-        <small className="nav-caption">WORKSPACE</small>
-        <nav aria-label="Main navigation">
-          {items.map(([path, name, Icon]) => (
-            <NavLink
-              key={path}
-              to={`${base}/${path}`}
-              end={path === 'shipments'}
-              title={name}
-              onClick={() => setMobile(false)}
-            >
-              <Icon size={19} />
-              <span>{name}</span>
-              {path === 'shipments/create' && <small>+</small>}
-            </NavLink>
-          ))}
-        </nav>
         <div className="sidebar-bottom">
           <Link to="/track">
             <ArrowUpRight size={17} />

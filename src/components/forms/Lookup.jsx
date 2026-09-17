@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { get, errorMessage } from '../../api/client';
 import { useDebounce } from '../../hooks/useList';
 import { idOf } from '../../lib/workflow';
+
 export default function Lookup({
   resource,
   value,
@@ -10,15 +11,20 @@ export default function Lookup({
   label,
   ownBranch,
   branchOptions = false,
+  activeOnly = true,
 }) {
   const [search, setSearch] = useState('');
   const term = useDebounce(search);
   const query = useQuery({
-    queryKey: [resource, 'lookup', term, branchOptions],
+    queryKey: [resource, 'lookup', term, branchOptions, activeOnly],
     queryFn: () =>
       branchOptions
         ? get('/branches/options')
-        : get(`/${resource}`, { search: term, status: 'ACTIVE', limit: 100 }),
+        : get(`/${resource}`, {
+            search: term,
+            ...(activeOnly && { status: 'ACTIVE' }),
+            limit: 100,
+          }),
   });
   return (
     <div className="field">
@@ -29,25 +35,43 @@ export default function Lookup({
           placeholder={`Search ${label.toLowerCase()}…`}
           value={search}
           maxLength={100}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(event) => setSearch(event.target.value)}
         />
-        <select aria-label={label} value={value || ''} onChange={(e) => onChange(e.target.value)}>
+        <select
+          aria-label={label}
+          value={value || ''}
+          onChange={(event) => onChange(event.target.value)}
+        >
           <option value="">Select {label.toLowerCase()}</option>
-          {value && !(query.data?.data || []).some((x) => idOf(x) === value) && (
+          {value && !(query.data?.data || []).some((item) => idOf(item) === value) && (
             <option value={value}>{value}</option>
           )}
           {(query.data?.data || [])
             .filter(
-              (x) =>
-                (!ownBranch || idOf(x) === ownBranch) &&
+              (item) =>
+                (!ownBranch || idOf(item) === ownBranch) &&
                 (!branchOptions ||
-                  `${x.branchCode} ${x.name} ${x.city} ${x.pincode || ''} ${x.address || ''}`.toLowerCase().includes(term.toLowerCase())),
+                  `${item.branchCode} ${item.name} ${item.city} ${item.pincode || ''} ${item.address || ''}`
+                    .toLowerCase()
+                    .includes(term.toLowerCase())),
             )
-            .map((x) => (
-              <option key={idOf(x)} value={idOf(x)}>
-                {x.customerCode || x.branchCode} · {x.name}{x.pincode ? ` - ${x.pincode}` : ''}
-              </option>
-            ))}
+            .map((item) => {
+              const code =
+                item.customerCode ||
+                item.branchCode ||
+                item.vendorCode ||
+                item.invoiceNumber ||
+                item.lrNumber;
+              const name =
+                item.name || item.leadName || item.receivedFrom || item.destination || 'Record';
+              return (
+                <option key={idOf(item)} value={idOf(item)}>
+                  {code ? `${code} · ` : ''}
+                  {name}
+                  {item.pincode ? ` - ${item.pincode}` : ''}
+                </option>
+              );
+            })}
         </select>
       </label>
       {query.isPending && <small>Loading choices…</small>}

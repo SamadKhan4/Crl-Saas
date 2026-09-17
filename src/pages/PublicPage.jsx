@@ -20,9 +20,14 @@ export default function PublicPage() {
     <div className="public-page">
       <header>
         <Brand />
-        <Link className="btn secondary" to="/login">
-          Team sign in <ArrowRight size={16} />
-        </Link>
+        <div className="actions">
+          <Link className="btn secondary" to="/get-quotation">
+            Get quotation
+          </Link>
+          <Link className="btn secondary" to="/login">
+            Team sign in <ArrowRight size={16} />
+          </Link>
+        </div>
       </header>
       <main>{token ? <PublicUpload token={token} /> : <Tracking />}</main>
       <footer>
@@ -114,7 +119,9 @@ function Tracking() {
 function PublicUpload({ token }) {
   const [success, setSuccess] = useState(false);
   if (!/^[a-f\d]{64}$/i.test(token))
-    return <ErrorState error="This upload link is invalid. Acrl your crl  branch for a new link." />;
+    return (
+      <ErrorState error="This upload link is invalid. Acrl your crl  branch for a new link." />
+    );
   return (
     <>
       <div className="public-heading">
@@ -140,7 +147,7 @@ function PublicUpload({ token }) {
             />
             <p className="public-note">
               This link is valid for one upload only. If it has expired or already been used,
-              request a new link from your crl  branch.
+              request a new link from your crl branch.
             </p>
           </>
         )}
@@ -156,7 +163,10 @@ export function RequestUploadPage() {
     <div className="public-page">
       <header>
         <Brand />
-        <Link to="/track">Track shipment</Link>
+        <div className="actions">
+          <Link to="/get-quotation">Get quotation</Link>
+          <Link to="/track">Track shipment</Link>
+        </div>
       </header>
       <main>
         <div className="public-heading">
@@ -188,7 +198,14 @@ export function RequestUploadPage() {
           >
             <label>
               Customer code
-              <input name="customerCode" required inputMode="numeric" pattern="\d{5}" minLength={5} maxLength={5} />
+              <input
+                name="customerCode"
+                required
+                inputMode="numeric"
+                pattern="\d{5}"
+                minLength={5}
+                maxLength={5}
+              />
             </label>
             <label>
               LR number
@@ -211,7 +228,7 @@ export function RequestUploadPage() {
             ) : (
               <p>
                 If your shipment is eligible, an upload session can be created. Please check your
-                details or contact your crl  branch.
+                details or contact your crl branch.
               </p>
             ))}
         </section>
