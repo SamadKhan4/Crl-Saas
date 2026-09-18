@@ -151,7 +151,12 @@ export function errorMessage(error) {
   if (error.code === 'ECONNABORTED') return 'The request timed out. Please try again.';
   if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError') return 'The request was cancelled.';
   const status = error.response?.status;
-  if (status === 401) return 'Your session has expired. Please sign in again.';
+  if (status === 401) {
+    const authCode = error.response?.data?.errorCode;
+    if (authCode === 'INVALID_CREDENTIALS' || authCode === 'USER_DISABLED')
+      return error.response?.data?.message || 'Invalid email or password.';
+    return 'Your session has expired. Please sign in again.';
+  }
   if (status === 403) return 'You do not have permission for this action.';
   if (status === 404) return 'The requested record was not found.';
   if (status === 409) return error.response?.data?.message || 'This record has changed. Refresh and try again.';
