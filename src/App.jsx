@@ -23,6 +23,7 @@ const RequestUpload = lazy(() =>
 const PublicQuotation = lazy(() => import('./pages/PublicQuotationPage'));
 const TmsModule = lazy(() => import('./pages/TmsModulePage'));
 const DrsWorkspace = lazy(() => import('./pages/DrsWorkspacePage'));
+const TmsPrint = lazy(() => import('./pages/TmsPrintPage'));
 const Receivables = lazy(() => import('./pages/ReceivablesPage'));
 export default function App() {
   return (
@@ -47,6 +48,7 @@ export default function App() {
                 <Route path="customers/:id" element={<CustomerDetail />} />
                 <Route path="documents" element={<Documents />} />
                 <Route path="manifests" element={<TmsModule />} />
+                <Route path="manifests/:id" element={<TmsPrint resource="manifests" />} />
                 <Route path="trips" element={<TmsModule />} />
                 <Route path="drs" element={<TmsModule />} />
                 <Route path="drs/:id" element={<DrsWorkspace />} />
@@ -57,7 +59,9 @@ export default function App() {
                     <Route path="settings" element={<Settings />} />
                     <Route path="money-receipts" element={<TmsModule />} />
                     <Route path="invoices" element={<TmsModule />} />
+                    <Route path="invoices/:id" element={<TmsPrint resource="invoices" />} />
                     <Route path="quotations" element={<TmsModule />} />
+                    <Route path="quotations/:id" element={<TmsPrint resource="quotations" />} />
                     <Route path="stationery" element={<TmsModule />} />
                     <Route path="receivables" element={<Receivables />} />
                   </>
@@ -73,7 +77,9 @@ export default function App() {
                     <Route path="vendors" element={<TmsModule />} />
                     <Route path="money-receipts" element={<TmsModule />} />
                     <Route path="invoices" element={<TmsModule />} />
+                    <Route path="invoices/:id" element={<TmsPrint resource="invoices" />} />
                     <Route path="quotations" element={<TmsModule />} />
+                    <Route path="quotations/:id" element={<TmsPrint resource="quotations" />} />
                     <Route path="stationery" element={<TmsModule />} />
                     <Route path="receivables" element={<Receivables />} />
                   </>

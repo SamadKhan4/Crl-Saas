@@ -107,6 +107,8 @@ const configs = {
     fields: [
       ['vendorId', 'Co-loader / transporter', 'lookup', 'vendors'],
       ['destination', 'Destination'],
+      ['vehicleNumber', 'Vehicle number'],
+      ['deliveryAgent', 'BA / delivery agent'],
       ['shipmentIds', 'LRs on manifest', 'shipments', ['BOOKED', 'IN_TRANSIT']],
       ['vendorReference', 'Vendor reference'],
       ['remarks', 'Remarks', 'textarea'],
@@ -263,8 +265,12 @@ const configs = {
       ['customerId', 'Existing customer', 'lookup', 'customers'],
       ['leadName', 'Contact name'],
       ['companyName', 'Company'],
+      ['billingAddress', 'Billing address', 'textarea'],
       ['mobile', 'Mobile', 'tel'],
       ['email', 'Email', 'email'],
+      ['paymentTerms', 'Payment terms'],
+      ['validityDays', 'Validity (days)', 'number'],
+      ['serviceType', 'Service type', 'select', option(['FTL', 'PTL', 'PACKERS_MOVERS'])],
       ['origin', 'Origin'],
       ['destination', 'Destination'],
       ['goodsDescription', 'Goods description', 'textarea'],
@@ -273,9 +279,55 @@ const configs = {
       ['estimatedFreight', 'Estimated freight', 'number'],
       ['gstRate', 'GST %', 'number'],
       ['validUntil', 'Valid until', 'date'],
+      ['rate1.origin', 'Rate 1 - origin'],
+      ['rate1.destination', 'Rate 1 - destination'],
+      ['rate1.mode', 'Rate 1 - mode', 'select', option(['FTL', 'PTL', 'PACKERS_MOVERS'])],
+      ['rate1.rateBasis', 'Rate 1 - basis', 'select', option(['PER_TRIP', 'PER_KG', 'PER_JOB'])],
+      ['rate1.rate', 'Rate 1 - amount', 'number'],
+      ['rate2.origin', 'Rate 2 - origin'],
+      ['rate2.destination', 'Rate 2 - destination'],
+      ['rate2.mode', 'Rate 2 - mode', 'select', option(['FTL', 'PTL', 'PACKERS_MOVERS'])],
+      ['rate2.rateBasis', 'Rate 2 - basis', 'select', option(['PER_TRIP', 'PER_KG', 'PER_JOB'])],
+      ['rate2.rate', 'Rate 2 - amount', 'number'],
+      ['rate3.origin', 'Rate 3 - origin'],
+      ['rate3.destination', 'Rate 3 - destination'],
+      ['rate3.mode', 'Rate 3 - mode', 'select', option(['FTL', 'PTL', 'PACKERS_MOVERS'])],
+      ['rate3.rateBasis', 'Rate 3 - basis', 'select', option(['PER_TRIP', 'PER_KG', 'PER_JOB'])],
+      ['rate3.rate', 'Rate 3 - amount', 'number'],
+      ['accessorialCharges.docketCharges', 'Docket / LR charges'],
+      ['accessorialCharges.rovOwnerRisk', 'ROV / owner risk'],
+      ['accessorialCharges.fod', 'FOD charges'],
+      ['accessorialCharges.codHandling', 'COD handling'],
+      ['accessorialCharges.pickupCharges', 'Pickup charges'],
+      ['accessorialCharges.odaRemoteArea', 'ODA / remote area'],
+      ['accessorialCharges.hamali', 'Hamali / loading / unloading'],
+      ['accessorialCharges.reattemptDelivery', 'Re-attempt delivery'],
+      ['accessorialCharges.appointmentDelivery', 'Appointment delivery'],
+      ['accessorialCharges.detention', 'Detention'],
+      ['accessorialCharges.storage', 'Storage / godown'],
+      ['accessorialCharges.specialHandling', 'Special / fragile handling'],
+      ['accessorialCharges.insurance', 'Insurance'],
+      ['accessorialCharges.gst', 'GST commercial term'],
       ['notes', 'Commercial notes', 'textarea'],
     ],
-    defaults: { packageCount: 1, estimatedFreight: 0, gstRate: 0 },
+    defaults: {
+      packageCount: 1,
+      estimatedFreight: 0,
+      gstRate: 0,
+      validityDays: 30,
+      paymentTerms: '15 / 30 Days',
+      serviceType: 'PTL',
+      rate1: { mode: 'PTL', rateBasis: 'PER_KG' },
+      rate2: { mode: 'PTL', rateBasis: 'PER_KG' },
+      rate3: { mode: 'PACKERS_MOVERS', rateBasis: 'PER_JOB' },
+      accessorialCharges: {
+        docketCharges: 'Rs.25 - Rs.50 per LR',
+        rovOwnerRisk: '0.10% of declared value (Min. Rs.25)',
+        specialHandling: 'As mutually agreed',
+        insurance: "Consignor's responsibility / Actual",
+        gst: 'As applicable',
+      },
+    },
     amount: 'totalAmount',
     action: {
       label: 'Update quote',
@@ -388,15 +440,22 @@ function prepare(resource, values) {
     payload.shipmentIds = [];
     delete payload.allocation;
   }
+  if (resource === 'quotations') {
+    payload.transportationRates = [payload.rate1, payload.rate2, payload.rate3]
+      .filter((row) => row?.origin && row?.destination && row?.mode && row?.rateBasis && row?.rate !== undefined);
+    delete payload.rate1;
+    delete payload.rate2;
+    delete payload.rate3;
+  }
   return payload;
 }
 
-function ShipmentPicker({ value = [], onChange, statuses }) {
+function ShipmentPicker({ value = [], onChange, statuses, customerId }) {
   const [search, setSearch] = useState('');
   const term = useDebounce(search);
   const query = useQuery({
-    queryKey: ['shipments', 'tms-picker', term],
-    queryFn: () => get('/shipments', { search: term, limit: 100 }),
+    queryKey: ['shipments', 'tms-picker', term, customerId],
+    queryFn: () => get('/shipments', { search: term, limit: 100, ...(customerId && { customerId }) }),
   });
   const rows = (query.data?.data || []).filter((row) => statuses.includes(row.currentStatus));
   return (
@@ -446,10 +505,15 @@ function ShipmentPicker({ value = [], onChange, statuses }) {
   );
 }
 
-function DynamicFields({ fields, values, setValues }) {
+function DynamicFields({ resource, fields, values, setValues }) {
   return fields.map(([name, caption, type = 'text', meta]) => {
     const value = valueAt(values, name) ?? '';
-    const change = (next) => setValues((current) => setAt(current, name, next));
+    const change = (next) => setValues((current) => {
+      const updated = setAt(current, name, next);
+      if (resource === 'invoices' && name === 'customerId' && current.customerId !== next)
+        updated.shipmentIds = [];
+      return updated;
+    });
     if (type === 'lookup')
       return (
         <Lookup
@@ -459,10 +523,11 @@ function DynamicFields({ fields, values, setValues }) {
           value={value}
           onChange={change}
           activeOnly={meta !== 'invoices'}
+          customerType={resource === 'invoices' && name === 'customerId' ? 'CREDIT' : undefined}
         />
       );
     if (type === 'shipments')
-      return <ShipmentPicker key={name} value={value || []} onChange={change} statuses={meta} />;
+      return <ShipmentPicker key={name} value={value || []} onChange={change} statuses={meta} customerId={resource === 'invoices' ? values.customerId : undefined} />;
     if (type === 'select')
       return (
         <div className="field" key={name}>
@@ -550,7 +615,7 @@ function RecordEditor({ resource, config, record, onClose }) {
               onChange={(value) => setValues((current) => ({ ...current, branchId: value }))}
             />
           )}
-          <DynamicFields fields={config.fields} values={values} setValues={setValues} />
+          <DynamicFields resource={resource} fields={config.fields} values={values} setValues={setValues} />
         </div>
         {error && (
           <p className="field-error" role="alert">
@@ -597,7 +662,7 @@ function StatusEditor({ resource, config, record, onClose }) {
     >
       <form onSubmit={save}>
         <div className="form-grid">
-          <DynamicFields fields={config.action.fields} values={values} setValues={setValues} />
+          <DynamicFields resource={resource} fields={config.action.fields} values={values} setValues={setValues} />
         </div>
         {error && (
           <p className="field-error" role="alert">
@@ -667,6 +732,11 @@ export default function TmsModulePage() {
         label: 'Actions',
         render: (row) => (
           <div className="row-actions">
+            {['manifests', 'quotations', 'invoices'].includes(resource) && (
+              <Link className="text-btn" to={`${base}/${resource}/${idOf(row)}`}>
+                View / Print
+              </Link>
+            )}
             {config.manage && (
               <Link className="text-btn" to={`${base}/drs/${idOf(row)}`}>
                 Manage POD

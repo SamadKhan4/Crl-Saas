@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { CheckCircle2, FileCheck2, Truck } from 'lucide-react';
+import { CheckCircle2, FileCheck2, Printer, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, errorMessage } from '../api/client';
 import { drsApi } from '../api/services';
+import { DeliveryManifestSheet } from '../components/tms/TransportPrintLayouts';
+import TransportPdfDownload from '../components/tms/TransportPdfDownload';
 import { useAuth } from '../features/auth/AuthContext';
 import { date, idOf, validateFile } from '../lib/workflow';
 import {
@@ -18,6 +20,7 @@ import {
 
 export default function DrsWorkspacePage() {
   const { id } = useParams();
+  const printRef = useRef(null);
   const { user } = useAuth();
   const cache = useQueryClient();
   const query = useQuery({ queryKey: ['drs', id], queryFn: () => drsApi.detail(id) });
@@ -69,8 +72,13 @@ export default function DrsWorkspacePage() {
         <Link className="btn secondary" to={`${base}/drs`}>
           Back to DRS
         </Link>
+        <button className="btn secondary" onClick={() => window.print()}><Printer size={16} /> Print DRS</button>
+        <TransportPdfDownload targetRef={printRef} documentNumber={drs.drsNumber} label="Download DRS PDF" />
         <StatusBadge status={drs.status} />
       </PageHeader>
+      <div className="transport-document-shell" ref={printRef}>
+        <DeliveryManifestSheet record={drs} />
+      </div>
       <section className="panel form-section">
         <div className="section-title">
           <span>

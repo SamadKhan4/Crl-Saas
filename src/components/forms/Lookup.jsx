@@ -12,6 +12,7 @@ export default function Lookup({
   ownBranch,
   branchOptions = false,
   activeOnly = true,
+  customerType,
 }) {
   const [search, setSearch] = useState('');
   const term = useDebounce(search);
@@ -49,6 +50,7 @@ export default function Lookup({
           {(query.data?.data || [])
             .filter(
               (item) =>
+                (!customerType || item.customerType === customerType) &&
                 (!ownBranch || idOf(item) === ownBranch) &&
                 (!branchOptions ||
                   `${item.branchCode} ${item.name} ${item.city} ${item.pincode || ''} ${item.address || ''}`

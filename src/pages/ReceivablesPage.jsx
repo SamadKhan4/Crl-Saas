@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { Banknote, CircleDollarSign, Clock3, ReceiptIndianRupee } from 'lucide-react';
 import { errorMessage } from '../api/client';
 import { invoicesApi, receivablesApi } from '../api/services';
 import { date } from '../lib/workflow';
+import { useAuth } from '../features/auth/AuthContext';
 import {
   DataTable,
   ErrorState,
@@ -15,6 +17,8 @@ import {
 const money = (value) =>
   Number(value || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
 export default function ReceivablesPage() {
+  const { user } = useAuth();
+  const base = `/${user.role.toLowerCase()}`;
   const summary = useQuery({ queryKey: ['receivables'], queryFn: () => receivablesApi.summary() });
   const invoices = useQuery({
     queryKey: ['invoices', 'outstanding'],
@@ -70,6 +74,7 @@ export default function ReceivablesPage() {
               render: (row) => <b>{money(row.balanceAmount)}</b>,
             },
             { key: 'dueDate', label: 'Due', render: (row) => date(row.dueDate) },
+            { key: 'actions', label: 'Actions', render: (row) => <Link className="text-btn" to={`${base}/invoices/${row.id || row._id}`}>View / Download</Link> },
           ]}
         />
       </section>
