@@ -6,10 +6,18 @@ import ChargeTotals from '../components/forms/ChargeTotals';
 import { calculateCharges } from '../lib/charges';
 import { customerSchema } from '../schemas';
 
-it('keeps customer type without customer-level commercial rates', () => {
-  const customer = { customerType: 'CREDIT', name: 'Credit Customer', mobile: '+919876543210' };
+it('requires location-wise per-kg rates for credit customers', () => {
+  const customer = {
+    customerType: 'CREDIT',
+    name: 'Credit Customer',
+    mobile: '+919876543210',
+    creditRateCard: [{ location: 'Gondia', transitDays: 1, ratePerKg: 28 }],
+    creditCharges: { fuelRatePercent: 10, handlingCharges: 50, gstRate: 18 },
+  };
   expect(customerSchema.safeParse(customer).success).toBe(true);
-  expect(customerSchema.parse({ ...customer, creditCharges: { freightRate: 10 } })).not.toHaveProperty('creditCharges');
+  expect(customerSchema.safeParse({ ...customer, creditRateCard: [] }).success).toBe(false);
+  expect(customerSchema.parse(customer).creditCharges).toMatchObject({ fuelRatePercent: 10, handlingCharges: 50, gstRate: 18 });
+  expect(customerSchema.parse({ ...customer, creditCharges: { freightRate: 10 } }).creditCharges).not.toHaveProperty('freightRate');
 });
 
 it('handles blank charges, decimals, zero GST and legacy FOD/COD', () => {

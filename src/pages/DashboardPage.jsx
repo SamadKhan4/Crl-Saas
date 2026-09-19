@@ -199,15 +199,19 @@ export default function DashboardPage() {
           </div>
           {!admin && (
             <div className="quick-actions">
-              <Link className="btn secondary" to={`${base}/receive`}>
-                Receive parcel <ArrowUpRight size={16} />
-              </Link>
+              {user.role === 'MANAGER' && (
+                <Link className="btn secondary" to={`${base}/receive`}>
+                  Receive parcel <ArrowUpRight size={16} />
+                </Link>
+              )}
               <Link className="btn secondary" to={`${base}/shipments`}>
                 Find shipment <ArrowUpRight size={16} />
               </Link>
-              <Link className="btn secondary" to={`${base}/shipments?status=RECEIVED`}>
-                Upload LR image <ArrowUpRight size={16} />
-              </Link>
+              {user.role === 'MANAGER' && (
+                <Link className="btn secondary" to={`${base}/shipments?status=RECEIVED`}>
+                  Upload LR image <ArrowUpRight size={16} />
+                </Link>
+              )}
             </div>
           )}
           <div className="chart-grid">

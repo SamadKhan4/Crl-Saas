@@ -737,7 +737,7 @@ export default function TmsModulePage() {
                 View / Print
               </Link>
             )}
-            {config.manage && (
+            {config.manage && user.role !== 'EMPLOYEE' && (
               <Link className="text-btn" to={`${base}/drs/${idOf(row)}`}>
                 Manage POD
               </Link>
@@ -747,7 +747,7 @@ export default function TmsModulePage() {
                 Edit
               </button>
             )}
-            {config.action && (
+            {config.action && user.role !== 'EMPLOYEE' && (
               <button className="text-btn" onClick={() => setAction(row)}>
                 {config.action.label}
               </button>

@@ -21,7 +21,7 @@ describe('LR goods and chargeable weight', () => {
     const undimensioned = { ...row, length: undefined, breadth: undefined, height: undefined };
     expect(calculateGoods([undimensioned]).chargedWeight).toBe(5);
     expect(goodsSchema.safeParse(undimensioned).success).toBe(true);
-    for (const patch of [{ length: -1 }, { height: undefined }, { quantity: 1.5 }, { actualWeight: 0 }, { dimensionUnit: 'M' }])
+    for (const patch of [{ length: -1 }, { height: undefined }, { quantity: 1.5 }, { actualWeight: 0 }, { dimensionUnit: 'M' }, { declaredValue: 100 }])
       expect(goodsSchema.safeParse({ ...row, ...patch }).success).toBe(false);
     expect(lrCreateSchema.safeParse({ lrNumber: '', goods: [row] }).success).toBe(false);
   });
@@ -32,9 +32,11 @@ describe('LR goods and chargeable weight', () => {
     }
     const user = userEvent.setup();
     render(<Form />);
+    expect(screen.getAllByLabelText('Total declared value (₹)')).toHaveLength(1);
     expect(screen.getAllByText('7 kg', { selector: 'strong' })).toHaveLength(2);
     await user.click(screen.getByRole('button', { name: 'Add goods' }));
     expect(screen.getAllByLabelText('Description of goods')).toHaveLength(2);
+    expect(screen.getAllByLabelText('Total declared value (₹)')).toHaveLength(1);
     await user.type(screen.getAllByLabelText('Actual weight for this row (kg)')[1], '20');
     expect(screen.getAllByText('25 kg', { selector: 'strong' })).toHaveLength(2);
     await user.click(screen.getByRole('button', { name: 'Remove goods 2' }));

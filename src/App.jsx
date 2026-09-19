@@ -40,18 +40,22 @@ export default function App() {
             <Route key={role} element={<ProtectedRoute role={role} />}>
               <Route path={`/${role.toLowerCase()}`} element={<AppLayout />}>
                 <Route index element={<HomeRoute />} />
-                <Route path="dashboard" element={<Dashboard />} />
+                {role !== 'EMPLOYEE' && <Route path="dashboard" element={<Dashboard />} />}
                 <Route path="shipments" element={<Shipments />} />
                 <Route path="shipments/create" element={<CreateLR />} />
                 <Route path="shipments/:id" element={<ShipmentDetail />} />
-                <Route path="customers" element={<Management />} />
-                <Route path="customers/:id" element={<CustomerDetail />} />
                 <Route path="documents" element={<Documents />} />
                 <Route path="manifests" element={<TmsModule />} />
                 <Route path="manifests/:id" element={<TmsPrint resource="manifests" />} />
                 <Route path="trips" element={<TmsModule />} />
                 <Route path="drs" element={<TmsModule />} />
-                <Route path="drs/:id" element={<DrsWorkspace />} />
+                {role !== 'EMPLOYEE' && <Route path="drs/:id" element={<DrsWorkspace />} />}
+                {role !== 'EMPLOYEE' && (
+                  <>
+                    <Route path="customers" element={<Management />} />
+                    <Route path="customers/:id" element={<CustomerDetail />} />
+                  </>
+                )}
                 {role === 'MANAGER' && (
                   <>
                     <Route path="employees" element={<Management />} />
@@ -83,12 +87,12 @@ export default function App() {
                     <Route path="stationery" element={<TmsModule />} />
                     <Route path="receivables" element={<Receivables />} />
                   </>
-                ) : (
+                ) : role === 'MANAGER' ? (
                   <>
                     <Route path="receive" element={<Receive />} />
                     <Route path="activity" element={<Activity />} />
                   </>
-                )}
+                ) : null}
               </Route>
             </Route>
           ))}

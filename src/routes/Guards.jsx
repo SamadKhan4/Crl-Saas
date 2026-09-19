@@ -1,6 +1,8 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthContext';
 import { Loadingcrleleton } from '../components/common/UI';
+export const roleHome = (role) =>
+  role === 'EMPLOYEE' ? '/employee/shipments' : `/${String(role || '').toLowerCase()}/dashboard`;
 export function ProtectedRoute({ role }) {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -9,7 +11,7 @@ export function ProtectedRoute({ role }) {
   if (user.status !== 'ACTIVE' || !['ADMIN', 'MANAGER', 'EMPLOYEE'].includes(user.role))
     return <Navigate to="/login" replace />;
   if (role && user.role !== role)
-    return <Navigate to={`/${user.role.toLowerCase()}/dashboard`} replace />;
+    return <Navigate to={roleHome(user.role)} replace />;
   return <Outlet />;
 }
 export function HomeRoute() {
@@ -17,7 +19,7 @@ export function HomeRoute() {
   return loading ? (
     <Loadingcrleleton />
   ) : (
-    <Navigate to={user ? `/${user.role.toLowerCase()}/dashboard` : '/login'} replace />
+    <Navigate to={user ? roleHome(user.role) : '/login'} replace />
   );
 }
 export function PermissionGuard({ allowed, children }) {

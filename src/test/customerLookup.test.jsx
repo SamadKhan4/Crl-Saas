@@ -29,8 +29,8 @@ it('searches customers by text, shows at most three choices and selects one', as
   }
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Form /></QueryClientProvider>);
   await userEvent.type(screen.getByRole('combobox'), 'Customer');
-  await waitFor(() => expect(request).toHaveBeenCalledWith('/customers', {
-    params: { search: 'Customer', status: 'ACTIVE', limit: 3 },
+  await waitFor(() => expect(request).toHaveBeenCalledWith('/customers/lookup', {
+    params: { search: 'Customer', limit: 3 },
   }));
   expect(await screen.findAllByRole('option')).toHaveLength(3);
   await userEvent.click(screen.getAllByRole('option')[0]);

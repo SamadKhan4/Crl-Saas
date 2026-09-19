@@ -14,8 +14,10 @@ import CustomerCodeLookup from '../components/forms/CustomerCodeLookup';
 import GoodsFields, { emptyGoods } from '../components/forms/GoodsFields';
 import ChargeTotals from '../components/forms/ChargeTotals';
 import DestinationLookup from '../components/forms/DestinationLookup';
+import CreditDestinationSelect from '../components/forms/CreditDestinationSelect';
 import { calculateCharges } from '../lib/charges';
 import { calculateGoods } from '../lib/goods';
+import { addTransitDays } from '../data/serviceLocations';
 import { idOf } from '../lib/workflow';
 import { copyText } from '../lib/clipboard';
 import { LrPdfDownload } from '../Template/LrPdf';
@@ -26,6 +28,9 @@ const today = () => {
 };
 
 const pricingFieldNames = ['freightRate', 'fuelRatePercent', 'handlingCharges', 'fodCharges', 'codCharges', 'rovRatePercent', 'docketCharges', 'gstRate'];
+const customerChargeFieldNames = pricingFieldNames.filter((name) => name !== 'freightRate');
+const signatureFieldNames = ['shipperSignature', 'receiverNamePrint', 'receiverMobilePrint', 'receiverDateTime', 'receiverSignature'];
+const nagpurOrigin = Object.freeze({ id: 'origin-nagpur', name: 'Nagpur', district: 'Nagpur' });
 
 function PrintInputGrid({ fields, register, errors, readOnlyFields = [] }) {
   return (
@@ -92,6 +97,8 @@ export default function CreateLRPage() {
     handleSubmit,
     reset,
     setValue,
+    getValues,
+    clearErrors,
     setError: fieldError,
     formState: { errors, isSubmitting },
   } = useForm({
@@ -112,11 +119,14 @@ export default function CreateLRPage() {
       rovRatePercent: 0,
       docketCharges: 0,
       gstRate: 0,
+      declaredValue: '',
+      from: 'Nagpur',
       goods: [emptyGoods()],
     },
   });
-  const [route, setRoute] = useState({ from: null, to: null });
+  const [route, setRoute] = useState({ from: nagpurOrigin, to: null });
   const isCreditCustomer = selectedCustomer?.customerType === 'CREDIT';
+  const signaturesLocked = user.role === 'EMPLOYEE';
   useEffect(() => {
     if (!selectedCustomer) return;
     const values = {
@@ -130,7 +140,15 @@ export default function CreateLRPage() {
     setValue('paymentMode', isCreditCustomer ? 'CREDIT' : '', { shouldValidate: true });
     setValue('freightBasis', 'PER_KG', { shouldValidate: true });
     for (const name of pricingFieldNames) setValue(name, 0, { shouldValidate: true });
-  }, [selectedCustomer, isCreditCustomer, setValue]);
+    if (isCreditCustomer) {
+      for (const name of customerChargeFieldNames)
+        setValue(name, Number(selectedCustomer.creditCharges?.[name] || 0), { shouldValidate: true });
+    }
+    setRoute((current) => ({ ...current, to: null }));
+    setValue('to', '', { shouldValidate: false });
+    clearErrors('to');
+    setValue('expectedDeliveryDate', '', { shouldValidate: true });
+  }, [selectedCustomer, isCreditCustomer, setValue, clearErrors]);
   const branches = useQuery({ queryKey: ['branches', 'route-options'], queryFn: () => get('/branches/options') });
   useEffect(() => {
     const options = branches.data?.data || [];
@@ -190,7 +208,7 @@ export default function CreateLRPage() {
               setCreated(null);
               reset();
               setSelectedCustomer(null);
-              setRoute({ from: null, to: null });
+              setRoute({ from: nagpurOrigin, to: null });
               request.current = { key: crypto.randomUUID(), body: null };
             }}
           >
@@ -217,9 +235,11 @@ export default function CreateLRPage() {
               <h2>Customer</h2>
               <p>Select the customer for this booking.</p>
             </div>
-            <Link className="table-action" to={`${base}/customers?create=true`}>
-              <Plus size={16} /> New customer
-            </Link>
+            {user.role !== 'EMPLOYEE' && (
+              <Link className="table-action" to={`${base}/customers?create=true`}>
+                <Plus size={16} /> New customer
+              </Link>
+            )}
           </div>
           <FormField label="LR number" placeholder="Enter LR number" maxLength={50} {...register('lrNumber')} error={errors.lrNumber?.message} />
           <Controller
@@ -228,13 +248,6 @@ export default function CreateLRPage() {
             render={({ field }) => <CustomerCodeLookup {...field} onCustomer={setSelectedCustomer} />}
           />
           {errors.customerId && <small className="field-error">{errors.customerId.message}</small>}
-          {isCreditCustomer && (
-            <details className="credit-charge-box" open>
-              <summary>Enter charges for this credit LR</summary>
-              <p>These rates apply only to this LR and update Section 06 automatically.</p>
-              <PricingFields register={register} errors={errors} />
-            </details>
-          )}
         </section>
         <section className="panel form-section">
           <div className="section-title">
@@ -274,20 +287,39 @@ export default function CreateLRPage() {
             <span>03</span>
             <div>
               <h2>Route & shipment</h2>
-              <p>Find Vidarbha From and To areas by name or PIN code.</p>
+              <p>From is fixed at Nagpur. Select To from CRL service locations.</p>
             </div>
           </div>
           <div className="form-grid">
-            <DestinationLookup label="From" value={route.from} error={errors.from?.message} onChange={(place) => {
-              setRoute((current) => ({ ...current, from: place }));
-              setValue('from', place ? `${place.name}, ${place.district} - ${place.pincode}` : '', { shouldValidate: true });
-              setValue('consignorPincode', place?.pincode || '', { shouldValidate: true });
-            }} />
-            <DestinationLookup label="To" value={route.to} error={errors.to?.message} onChange={(place) => {
-              setRoute((current) => ({ ...current, to: place }));
-              setValue('to', place ? `${place.name}, ${place.district} - ${place.pincode}` : '', { shouldValidate: true });
-              setValue('consigneePincode', place?.pincode || '', { shouldValidate: true });
-            }} />
+            <FormField label="From" readOnly {...register('from')} error={errors.from?.message} />
+            {isCreditCustomer ? (
+              <CreditDestinationSelect
+                rates={selectedCustomer.creditRateCard}
+                value={route.to}
+                error={errors.to ? 'Select a contracted location' : ''}
+                onChange={(place) => {
+                  setRoute((current) => ({ ...current, to: place }));
+                  setValue('to', place?.name || '', { shouldValidate: true });
+                  setValue('freightBasis', 'PER_KG', { shouldValidate: true });
+                  setValue('freightRate', place?.ratePerKg || 0, { shouldValidate: true });
+                  setValue(
+                    'expectedDeliveryDate',
+                    place ? addTransitDays(getValues('bookingDate'), place.transitDays) : '',
+                    { shouldValidate: true },
+                  );
+                }}
+              />
+            ) : (
+              <DestinationLookup label="To" value={route.to} error={errors.to?.message} onChange={(place) => {
+                setRoute((current) => ({ ...current, to: place }));
+                setValue('to', place?.name || '', { shouldValidate: true });
+                setValue(
+                  'expectedDeliveryDate',
+                  place ? addTransitDays(getValues('bookingDate'), place.transitDays) : '',
+                  { shouldValidate: true },
+                );
+              }} />
+            )}
             <FormField
               label="Package count"
               readOnly
@@ -349,7 +381,7 @@ export default function CreateLRPage() {
           <GoodsFields control={control} register={register} setValue={setValue} errors={errors} />
         </section>
         <section className="panel form-section">
-          <div className="section-title"><span>06</span><div><h2>Payment, risk & charges</h2><p>Define this LR's rates after selecting the customer. Charge amounts calculate automatically.</p></div></div>
+          <div className="section-title"><span>06</span><div><h2>Payment, risk & charges</h2><p>Freight calculates automatically from customer, destination and chargeable weight.</p></div></div>
           {selectedCustomer && <p className="form-hint">Pricing for <strong>{selectedCustomer.name}</strong> ({isCreditCustomer ? 'Credit' : 'To Pay / Paid'} customer)</p>}
           <div className="form-grid">
             <Controller control={control} name="paymentMode" render={({ field }) => <div className="field"><label htmlFor="paymentMode">Mode of payment</label><select id="paymentMode" {...field} disabled={!selectedCustomer || isCreditCustomer}><option value="">Select</option><option value="PAID">Paid</option><option value="TO_PAY">To Pay</option>{isCreditCustomer && <option value="CREDIT">Credit</option>}</select><small className="field-error">{errors.paymentMode?.message}</small></div>} />
@@ -358,14 +390,22 @@ export default function CreateLRPage() {
           </div>
           {!selectedCustomer && <p className="form-hint">Select a customer to define LR charges.</p>}
           {selectedCustomer && !isCreditCustomer && <PricingFields register={register} errors={errors} />}
-          {isCreditCustomer && <p className="form-hint">Credit LR rates are entered in the compact charges box below the selected customer.</p>}
+          {isCreditCustomer && (
+            <div className="credit-pricing-summary">
+              <div><small>Contracted location</small><strong>{route.to?.name || 'Select destination'}</strong></div>
+              <div><small>Freight rate</small><strong>{route.to ? `₹${Number(route.to.ratePerKg).toLocaleString('en-IN')} / kg` : '—'}</strong></div>
+              <div><small>Transit time</small><strong>{route.to ? `${route.to.transitDays} ${route.to.transitDays === 1 ? 'day' : 'days'}` : '—'}</strong></div>
+              <p>Freight and additional charges are locked from Customer Master. Chargeable weight uses the higher of actual and volumetric weight.</p>
+            </div>
+          )}
           <ChargeTotals control={control} />
         </section>
-        <section className="panel form-section">
-          <div className="section-title"><span>07</span><div><h2>Signatures & remarks</h2><p>Enter the text that must print in the signature and remarks boxes.</p></div></div>
+        <section className={`panel form-section ${signaturesLocked ? 'employee-locked-section' : ''}`} aria-disabled={signaturesLocked}>
+          <div className="section-title"><span>07</span><div><h2>Signatures & remarks</h2><p>{signaturesLocked ? 'Locked for Employee role. Admin or Manager can update this section.' : 'Enter the text that must print in the signature and remarks boxes.'}</p></div>{signaturesLocked && <strong className="locked-badge">Locked</strong>}</div>
           <PrintInputGrid
             register={register}
             errors={errors}
+            readOnlyFields={signaturesLocked ? signatureFieldNames : []}
             fields={[
               ['shipperSignature', 'Shipper signature'],
               ['receiverNamePrint', "Receiver's name"],
@@ -374,7 +414,7 @@ export default function CreateLRPage() {
               ['receiverSignature', 'Receiver signature'],
             ]}
           />
-          <div className="field"><label htmlFor="remarks">Remarks</label><textarea id="remarks" rows="3" maxLength="250" {...register('remarks')} /><small className="field-error">{errors.remarks?.message}</small></div>
+          <div className="field"><label htmlFor="remarks">Remarks</label><textarea id="remarks" rows="3" maxLength="250" readOnly={signaturesLocked} {...register('remarks')} /><small className="field-error">{errors.remarks?.message}</small></div>
         </section>
         {error && (
           <p className="field-error" role="alert">

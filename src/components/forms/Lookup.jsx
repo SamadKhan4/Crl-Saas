@@ -21,6 +21,8 @@ export default function Lookup({
     queryFn: () =>
       branchOptions
         ? get('/branches/options')
+        : resource === 'vendors'
+          ? get('/vendors/options', { search: term, limit: 100 })
         : get(`/${resource}`, {
             search: term,
             ...(activeOnly && { status: 'ACTIVE' }),

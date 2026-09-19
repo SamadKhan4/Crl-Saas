@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowRight, ShieldCheck, Truck, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../features/auth/AuthContext';
 import { loginSchema } from '../schemas';
+import { roleHome } from '../routes/Guards';
 import { FormField, Loadingcrleleton } from '../components/common/UI';
 import { Brand } from '../components/layout/AppLayout';
 import { errorMessage } from '../api/client';
@@ -19,7 +20,7 @@ export default function LoginPage() {
   } = useForm({ resolver: zodResolver(loginSchema) });
   if (loading) return <Loadingcrleleton />;
   if (user && user.status === 'ACTIVE')
-    return <Navigate to={`/${user.role.toLowerCase()}/dashboard`} replace />;
+    return <Navigate to={roleHome(user.role)} replace />;
   return (
     <div className="login-page">
       <section className="login-story">

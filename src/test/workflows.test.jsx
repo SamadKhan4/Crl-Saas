@@ -37,6 +37,7 @@ const employee = {
   status: 'ACTIVE',
   branchId: destination,
 };
+const branchManager = { ...employee, id: 'manager', name: 'Test Manager', role: 'MANAGER' };
 const shipment = {
   _id: 'd'.repeat(24),
   lrNumber: 'SK-NGP-2026-000001',
@@ -79,9 +80,9 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 describe('Branch and workflow permissions', () => {
-  it('allows receipt only at the destination', () => {
-    expect(actionsFor(shipment, employee)).toContain('receive');
-    expect(actionsFor(shipment, { ...employee, branchId: origin })).not.toContain('receive');
+  it('keeps employee operations create-and-view only', () => {
+    expect(actionsFor(shipment, employee)).toEqual([]);
+    expect(actionsFor(shipment, branchManager)).toContain('receive');
   });
   it('restricts verification and closure to admins', () => {
     expect(actionsFor({ ...shipment, currentStatus: 'LR_IMAGE_UPLOADED' }, employee)).toEqual([]);
@@ -182,17 +183,16 @@ describe('Authentication and routing', () => {
       user: employee,
       path: '/admin/employees',
       route: '/admin/employees',
-      extra: <Route path="/employee/dashboard" element={<h1>Employee home</h1>} />,
+      extra: <Route path="/employee/shipments" element={<h1>Employee home</h1>} />,
     });
     expect(await screen.findByText('Employee home')).toBeInTheDocument();
   });
 });
 describe('Operational pages', () => {
-  it('offers branch-scoped receipt directly from the shipment table', async () => {
+  it('shows shipment view without mutation controls to employees', async () => {
     mount(<ShipmentTable base="/employee" rows={[shipment]} />, { user: employee });
-    await userEvent.click(await screen.findByText('More actions'));
-    expect(screen.getByRole('button', { name: 'Receive parcel' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Cancel shipment' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: `View ${shipment.lrNumber}` })).toBeVisible();
+    expect(screen.queryByText('More actions')).not.toBeInTheDocument();
   });
   it('loads shipment records through the API boundary', async () => {
     vi.spyOn(api, 'get').mockResolvedValue({
@@ -218,7 +218,7 @@ describe('Operational pages', () => {
   it('requires receipt confirmation and sends the receiving contract', async () => {
     vi.spyOn(api, 'get').mockResolvedValue(result([shipment]));
     const mutation = vi.spyOn(api, 'post').mockResolvedValue(result(shipment));
-    mount(<ReceivePage />, { user: employee });
+    mount(<ReceivePage />, { user: branchManager });
     await userEvent.type(await screen.findByLabelText('LR number'), shipment.lrNumber);
     await userEvent.click(screen.getByRole('button', { name: 'Find shipment' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Receive parcel' }));
@@ -302,7 +302,7 @@ describe('Documents and public access', () => {
 });
 
 describe('Manager workspace', () => {
-  const manager = { ...employee, id: 'manager', name: 'Test Manager', role: 'MANAGER' };
+  const manager = branchManager;
   it('allows verification and closure only for destination managers', () => {
     expect(actionsFor({ ...shipment, currentStatus: 'LR_IMAGE_UPLOADED' }, manager)).toEqual([
       'verify',
@@ -383,7 +383,7 @@ describe('Activity feed', () => {
   });
   it('shows retry controls for a failed activity request', async () => {
     vi.spyOn(api, 'get').mockRejectedValue({ response: { status: 503 } });
-    mount(<ActivityPage />, { user: employee, path: '/employee/activity' });
+    mount(<ActivityPage />, { user: branchManager, path: '/manager/activity' });
     expect(
       await screen.findByText('The server could not complete this request. Please try again.'),
     ).toBeInTheDocument();

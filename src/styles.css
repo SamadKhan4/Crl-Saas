@@ -1413,6 +1413,264 @@ tbody tr:hover {
   margin-top: 7px;
   color: #397361;
 }
+.credit-rate-card {
+  overflow: hidden;
+  border: 1px solid #dce7e1;
+  border-radius: 10px;
+  background: #fbfdfc;
+}
+.goods-declared-value {
+  max-width: 360px;
+  margin-top: 18px;
+  padding: 14px 15px 8px;
+  border: 1px solid #dce7e1;
+  border-radius: 9px;
+  background: #f5faf7;
+}
+.goods-declared-value > small {
+  display: block;
+  margin-top: -2px;
+  color: #718078;
+  font-size: 10px;
+}
+.employee-locked-section {
+  border-color: #e4ded0;
+  background: #fcfaf5;
+}
+.employee-locked-section input[readonly],
+.employee-locked-section textarea[readonly] {
+  cursor: not-allowed;
+  border-color: #e2ded5;
+  background: #f1eee8;
+  color: #8a867e;
+}
+.locked-badge {
+  margin-left: auto;
+  padding: 5px 9px;
+  border: 1px solid #dfd5bd;
+  border-radius: 999px;
+  background: #f6efdf;
+  color: #7a6232;
+  font-size: 10px;
+}
+.credit-customer-charges {
+  overflow: hidden;
+  border: 1px solid #dce7e1;
+  border-radius: 10px;
+  background: #fbfdfc;
+}
+.credit-customer-charges > .form-grid {
+  padding: 17px;
+}
+.credit-rate-toolbar,
+.credit-rate-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.credit-rate-toolbar {
+  padding: 15px 17px;
+  border-bottom: 1px solid #e2ebe6;
+  background: #f3f8f5;
+}
+.credit-rate-toolbar strong,
+.credit-rate-toolbar small,
+.credit-rate-group-title strong,
+.credit-rate-group-title small {
+  display: block;
+}
+.credit-rate-toolbar small,
+.credit-rate-group-title small {
+  margin-top: 3px;
+  color: #718078;
+  font-size: 10px;
+}
+.credit-rate-toolbar > span {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #dfeee6;
+  color: #2e6655;
+  font-size: 10px;
+  font-weight: 700;
+}
+.credit-rate-actions {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, 190px) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 15px 17px;
+  border-bottom: 1px solid #e8eeeb;
+}
+.credit-rate-actions .customer-search-input input {
+  width: 100%;
+}
+.compact-field {
+  margin: 0;
+}
+.compact-field > span {
+  display: block;
+  margin-bottom: 7px;
+  color: #536273;
+  font-size: 10px;
+  font-weight: 650;
+}
+.credit-rate-group {
+  padding: 15px 17px 17px;
+  border-bottom: 1px solid #e8eeeb;
+}
+.credit-rate-group:last-of-type {
+  border-bottom: 0;
+}
+.credit-rate-group-title {
+  margin-bottom: 10px;
+}
+.credit-rate-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.credit-rate-row {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8e5;
+  border-radius: 7px;
+  background: #fff;
+}
+.credit-rate-row.selected {
+  border-color: #9fc8b8;
+  background: #f3faf6;
+}
+.credit-rate-row > label:first-child {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+}
+.credit-rate-row > label:first-child span,
+.credit-rate-row > label:first-child strong,
+.credit-rate-row > label:first-child small {
+  display: block;
+}
+.credit-rate-row > label:first-child small {
+  margin-top: 2px;
+  color: #7b8790;
+  font-size: 9px;
+}
+.credit-rate-row .rate-input {
+  display: flex;
+  flex: 0 0 126px;
+  align-items: center;
+  gap: 5px;
+}
+.credit-rate-row .rate-input > span {
+  color: #65746c;
+  font-size: 10px;
+}
+.credit-rate-row .rate-input input {
+  width: 88px;
+  padding: 7px 8px;
+}
+.credit-pricing-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin: 16px 0;
+  border: 1px solid #dce7e1;
+  border-radius: 9px;
+  background: #dce7e1;
+}
+.credit-pricing-summary > div {
+  padding: 13px 15px;
+  background: #f5faf7;
+}
+.credit-pricing-summary small,
+.credit-pricing-summary strong {
+  display: block;
+}
+.credit-pricing-summary small {
+  margin-bottom: 5px;
+  color: #708078;
+  font-size: 10px;
+}
+.credit-pricing-summary > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 9px 15px;
+  background: #fff;
+  color: #66736d;
+  font-size: 10px;
+}
+.customer-rate-summary {
+  margin-top: 22px;
+  padding-top: 4px;
+  border-top: 1px solid #e5ebe8;
+}
+.customer-rate-summary > .panel-heading {
+  padding: 16px 0 12px;
+}
+.customer-rate-summary > .panel-heading > strong {
+  color: #397361;
+  font-size: 11px;
+}
+.customer-rate-table {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.customer-rate-table > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 1px solid #e1e9e5;
+  border-radius: 7px;
+  background: #f8fbf9;
+}
+.customer-rate-table span,
+.customer-rate-table span > strong,
+.customer-rate-table span > small {
+  display: block;
+}
+.customer-rate-table span > small {
+  margin-top: 3px;
+  color: #77847d;
+  font-size: 9px;
+}
+.customer-rate-table > div > strong {
+  flex: 0 0 auto;
+  color: #2e6655;
+  font-size: 11px;
+}
+.customer-charge-table {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.customer-charge-table > div {
+  padding: 10px 12px;
+  border: 1px solid #e1e9e5;
+  border-radius: 7px;
+  background: #fff;
+}
+.customer-charge-table small,
+.customer-charge-table strong {
+  display: block;
+}
+.customer-charge-table small {
+  margin-bottom: 4px;
+  color: #77847d;
+  font-size: 9px;
+}
 .credit-charge-box {
   max-width: 760px;
   margin-top: 16px;
@@ -2312,6 +2570,29 @@ progress {
   }
   .credit-charge-box .form-grid {
     grid-template-columns: 1fr;
+  }
+  .credit-rate-actions,
+  .credit-rate-list,
+  .credit-pricing-summary,
+  .customer-rate-table {
+    grid-template-columns: 1fr;
+  }
+  .credit-rate-actions .btn {
+    width: 100%;
+  }
+  .credit-rate-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .credit-rate-row .rate-input {
+    width: 100%;
+    flex-basis: auto;
+  }
+  .credit-rate-row .rate-input input {
+    width: 100%;
+  }
+  .credit-pricing-summary > p {
+    grid-column: auto;
   }
   .tms-span-2 {
     grid-column: auto;

@@ -4,7 +4,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { FormField } from '../common/UI';
 import { calculateGoods } from '../../lib/goods';
 
-export const emptyGoods = () => ({ description: '', packageNumber: '', packageType: '', quantity: 1, actualWeight: '', length: '', breadth: '', height: '', dimensionUnit: 'CM', declaredValue: '' });
+export const emptyGoods = () => ({ description: '', packageNumber: '', packageType: '', quantity: 1, actualWeight: '', length: '', breadth: '', height: '', dimensionUnit: 'CM' });
 
 export default function GoodsFields({ control, register, setValue, errors }) {
   const { fields, append, remove } = useFieldArray({ control, name: 'goods' });
@@ -23,7 +23,6 @@ export default function GoodsFields({ control, register, setValue, errors }) {
           ['packageNumber', 'Pkg. No.'], ['description', 'Description of goods'], ['packageType', 'Package type'],
           ['quantity', 'Package quantity', 'number'], ['actualWeight', 'Actual weight for this row (kg)', 'number'],
           ['length', 'Length', 'number'], ['breadth', 'Breadth', 'number'], ['height', 'Height', 'number'],
-          ['declaredValue', 'Declared value (Rs)', 'number'],
         ].map(([name, label, type = 'text']) => <FormField key={name} label={label} type={type}
           min={type === 'number' ? (name === 'quantity' ? 1 : 0) : undefined} step={name === 'quantity' ? '1' : 'any'}
           {...register(`goods.${index}.${name}`)} error={errors.goods?.[index]?.[name]?.message} />)}
@@ -42,6 +41,18 @@ export default function GoodsFields({ control, register, setValue, errors }) {
     </fieldset>)}
     <small className="field-error">{errors.goods?.message || errors.goods?.root?.message}</small>
     <button type="button" className="btn secondary" style={{ marginTop: 16 }} disabled={fields.length >= 100} onClick={() => append(emptyGoods())}><Plus size={16} /> Add goods</button>
+    <div className="goods-declared-value">
+      <FormField
+        label="Total declared value (₹)"
+        type="number"
+        min="0"
+        max="100000000"
+        step="any"
+        {...register('declaredValue')}
+        error={errors.declaredValue?.message}
+      />
+      <small>Enter once for the complete LR after adding all goods.</small>
+    </div>
     <div className="summary-grid" aria-live="polite" style={{ marginTop: 16 }}>
       <div><small>Total actual weight</small><strong>{totals.actualWeight} kg</strong></div>
       <div><small>Total volumetric weight</small><strong>{totals.volumetricWeight} kg</strong></div>

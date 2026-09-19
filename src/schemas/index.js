@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { serviceLocationNames } from '../data/serviceLocations';
 const text = (min, max) => z.string().trim().min(min).max(max);
 const password = (min) => z.string().min(min).max(128);
 const optional = (schema) =>
@@ -6,6 +7,22 @@ const optional = (schema) =>
 const mobile = z.string().regex(/^\+?[1-9]\d{7,14}$/, 'Enter a valid mobile number');
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Select a valid record');
 export const loginSchema = z.object({ email: z.email(), password: password(8) });
+const creditRateSchema = z.object({
+  location: z.enum(serviceLocationNames),
+  transitDays: z.coerce.number().int().min(1).max(30),
+  ratePerKg: z.coerce.number().finite().positive('Enter a rate greater than zero').max(1000000),
+});
+const customerCharge = z.coerce.number().finite().min(0).max(100000000).default(0);
+const customerPercent = z.coerce.number().finite().min(0).max(100).default(0);
+const creditChargesSchema = z.object({
+  fuelRatePercent: customerPercent,
+  handlingCharges: customerCharge,
+  fodCharges: customerCharge,
+  codCharges: customerCharge,
+  rovRatePercent: customerPercent,
+  docketCharges: customerCharge,
+  gstRate: customerPercent,
+}).default({});
 export const customerSchema = z.object({
   customerType: z.enum(['CREDIT', 'TO_PAY_PAID']),
   name: text(2, 120),
@@ -24,6 +41,11 @@ export const customerSchema = z.object({
       .toUpperCase()
       .regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]\dZ[A-Z\d]$/, 'Enter a valid GST number'),
   ),
+  creditRateCard: z.array(creditRateSchema).max(serviceLocationNames.length).default([]),
+  creditCharges: creditChargesSchema,
+}).superRefine((customer, ctx) => {
+  if (customer.customerType === 'CREDIT' && !customer.creditRateCard.length)
+    ctx.addIssue({ code: 'custom', path: ['creditRateCard'], message: 'Select at least one location and enter its rate' });
 });
 export const branchSchema = z.object({
   branchCode: z
@@ -84,7 +106,6 @@ export const goodsSchema = z.object({
   actualWeight: z.coerce.number().finite().min(0.01).max(100000),
   length: goodsDimension, breadth: goodsDimension, height: goodsDimension,
   dimensionUnit: z.enum(['CM', 'IN', 'FT']),
-  declaredValue: z.preprocess((value) => value === '' ? undefined : value, z.coerce.number().finite().min(0).max(100000000).optional()),
   volume: z.number().finite().min(0).optional(),
   volumetricWeight: z.number().finite().min(0).optional(),
   chargedWeight: z.number().finite().min(0).optional(),

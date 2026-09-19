@@ -21,6 +21,8 @@ import {
 } from '../components/common/UI';
 import SearchInput from '../components/forms/SearchInput';
 import Lookup from '../components/forms/Lookup';
+import CreditRateCardField from '../components/forms/CreditRateCardField';
+import CreditChargesFields from '../components/forms/CreditChargesFields';
 import { date, idOf } from '../lib/workflow';
 const configs = {
   customers: {
@@ -39,6 +41,8 @@ const configs = {
       ['state', 'State'],
       ['pincode', 'Pincode'],
       ['gstNumber', 'GST number'],
+      ['creditRateCard', 'Location-wise credit rates', 'creditRateCard'],
+      ['creditCharges', 'Additional contracted charges', 'creditCharges'],
     ],
   },
   branches: {
@@ -130,7 +134,10 @@ function Management({ resource }) {
                 { key: 'lastLoginAt', label: 'Last login', render: (r) => date(r.lastLoginAt) },
               ]
             : [
-                ...(resource === 'customers' ? [{ key: 'customerType', label: 'Type', render: (r) => r.customerType === 'CREDIT' ? 'Credit' : 'To Pay / Paid' }] : []),
+                ...(resource === 'customers' ? [
+                  { key: 'customerType', label: 'Type', render: (r) => r.customerType === 'CREDIT' ? 'Credit' : 'To Pay / Paid' },
+                  { key: 'creditRateCard', label: 'Rates', render: (r) => r.customerType === 'CREDIT' ? `${r.creditRateCard?.length || 0} locations` : '—' },
+                ] : []),
                 { key: 'companyName', label: 'Company' },
                 { key: 'city', label: 'City' },
               ]),
@@ -277,19 +284,30 @@ function Editor({ resource, config, record, onClose }) {
   const defaultValues = Object.fromEntries(
     config.fields
       .filter(([key]) => !(editing && key === 'password'))
-      .map(([key]) => [key, key === 'branchId' ? idOf(record[key]) || '' : record[key] ?? (key === 'customerType' ? 'TO_PAY_PAID' : '')]),
+      .map(([key]) => [
+        key,
+        key === 'branchId'
+          ? idOf(record[key]) || ''
+          : key === 'creditRateCard'
+            ? record[key] || []
+            : key === 'creditCharges'
+              ? record[key] || {}
+            : record[key] ?? (key === 'customerType' ? 'TO_PAY_PAID' : ''),
+      ]),
   );
   const {
     register,
     control,
     handleSubmit,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues,
   });
   const [error, setMessage] = useState('');
+  const customerType = resource === 'customers' ? watch('customerType') : undefined;
   const cache = useQueryClient();
   async function save(values) {
     if (editing) {
@@ -302,6 +320,10 @@ function Editor({ resource, config, record, onClose }) {
       }
     }
     try {
+      if (resource === 'customers' && values.customerType !== 'CREDIT') {
+        values.creditRateCard = [];
+        values.creditCharges = {};
+      }
       const api = resourceApi(resource);
       if (editing) await api.update(idOf(record), values);
       else await api.create(values);
@@ -321,7 +343,7 @@ function Editor({ resource, config, record, onClose }) {
       <form onSubmit={handleSubmit(save)}>
         <div className="form-grid">
           {fields.map(([key, caption, type]) => (
-            <div key={key}>
+            <div key={key} className={['creditRateCard', 'creditCharges'].includes(type) ? 'tms-span-2' : undefined}>
               {key === 'branchId' ? (
                 <Controller
                   name={key}
@@ -337,6 +359,14 @@ function Editor({ resource, config, record, onClose }) {
                   </select>
                   {errors[key] && <small className="field-error">{errors[key].message}</small>}
                 </div>
+              ) : type === 'creditRateCard' ? (
+                customerType === 'CREDIT' ? (
+                  <CreditRateCardField control={control} error={errors.creditRateCard} />
+                ) : null
+              ) : type === 'creditCharges' ? (
+                customerType === 'CREDIT' ? (
+                  <CreditChargesFields register={register} errors={errors.creditCharges} />
+                ) : null
               ) : (
                 <FormField
                   label={caption}

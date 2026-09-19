@@ -92,7 +92,7 @@ export default function AppLayout() {
   const admin = user.role === 'ADMIN';
   const manager = user.role === 'MANAGER';
   const navGroups = [
-    { label: 'Overview', items: [['dashboard', 'Dashboard', LayoutDashboard]] },
+    { label: 'Overview', items: admin || manager ? [['dashboard', 'Dashboard', LayoutDashboard]] : [] },
     {
       label: 'Operations',
       items: [
@@ -101,25 +101,26 @@ export default function AppLayout() {
         ['manifests', 'Manifest', ClipboardList],
         ['trips', 'Trips & Dispatch', Route],
         ['drs', 'Delivery Run Sheet', MapPinned],
-        ...(!admin ? [['receive', 'Receive Parcel', PackageCheck]] : []),
+        ...(manager ? [['receive', 'Receive Parcel', PackageCheck]] : []),
         ['documents', 'POD & Documents', Files],
       ],
     },
     {
       label: 'Masters',
-      items: [
-        ['customers', 'Customer Master', Users],
-        ...(admin
+      items:
+        admin || manager
           ? [
-              ['vendors', 'Vendor Master', Truck],
-              ['branches', 'Branch Master', Building2],
-              ['managers', 'Managers', Users],
-              ['employees', 'Employees', Users],
+              ['customers', 'Customer Master', Users],
+              ...(admin
+                ? [
+                    ['vendors', 'Vendor Master', Truck],
+                    ['branches', 'Branch Master', Building2],
+                    ['managers', 'Managers', Users],
+                    ['employees', 'Employees', Users],
+                  ]
+                : [['employees', 'Employees', Users]]),
             ]
-          : manager
-            ? [['employees', 'Employees', Users]]
-            : []),
-      ],
+          : [],
     },
     {
       label: 'Commercial',
@@ -136,15 +137,14 @@ export default function AppLayout() {
     },
     {
       label: 'Control',
-      items: [
-        ...(admin || manager ? [['reports', 'Reports & MIS', ChartNoAxesCombined]] : []),
-        [
-          admin ? 'audit' : 'activity',
-          admin ? 'Team Activity' : manager ? 'Branch Activity' : 'My Activity',
-          History,
-        ],
-        ...(admin || manager ? [['settings', 'Settings', Settings]] : []),
-      ],
+      items:
+        admin || manager
+          ? [
+              ['reports', 'Reports & MIS', ChartNoAxesCombined],
+              [admin ? 'audit' : 'activity', admin ? 'Team Activity' : 'Branch Activity', History],
+              ['settings', 'Settings', Settings],
+            ]
+          : [],
     },
   ].filter((group) => group.items.length);
   const items = navGroups.flatMap((group) => group.items);

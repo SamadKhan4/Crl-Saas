@@ -13,7 +13,7 @@ export default function CustomerCodeLookup({ value, onChange, onCustomer }) {
   const term = useDebounce(search.trim());
   const query = useQuery({
     queryKey: ['customers', 'lr-search', term],
-    queryFn: () => get('/customers', { search: term, status: 'ACTIVE', limit: 3 }),
+    queryFn: () => get('/customers/lookup', { search: term, limit: 3 }),
     enabled: !selected && term.length > 0,
     retry: false,
   });

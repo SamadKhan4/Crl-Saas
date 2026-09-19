@@ -41,6 +41,45 @@ export default function CustomerDetailPage() {
             </div>
           ))}
         </dl>
+        {c.customerType === 'CREDIT' && (
+          <div className="customer-rate-summary">
+            <div className="panel-heading">
+              <div>
+                <h2>Location-wise freight rates</h2>
+                <p>Freight uses the higher of actual and volumetric weight.</p>
+              </div>
+              <strong>{c.creditRateCard?.length || 0} locations</strong>
+            </div>
+            {c.creditRateCard?.length ? (
+              <div className="customer-rate-table">
+                {c.creditRateCard.map((rate) => (
+                  <div key={rate.location}>
+                    <span><strong>{rate.location}</strong><small>{rate.transitDays} {rate.transitDays === 1 ? 'day' : 'days'} transit</small></span>
+                    <strong>₹{Number(rate.ratePerKg).toLocaleString('en-IN')} / kg</strong>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="field-error">No credit location rate configured.</p>
+            )}
+            <div className="customer-charge-table">
+              {[
+                ['fuelRatePercent', 'Fuel charge', '%'],
+                ['handlingCharges', 'Handling charge', '₹'],
+                ['fodCharges', 'FOD charge', '₹'],
+                ['codCharges', 'COD charge', '₹'],
+                ['rovRatePercent', 'ROV', '%'],
+                ['docketCharges', 'Docket charge', '₹'],
+                ['gstRate', 'GST', '%'],
+              ].map(([key, label, unit]) => (
+                <div key={key}>
+                  <small>{label}</small>
+                  <strong>{unit === '₹' ? '₹' : ''}{Number(c.creditCharges?.[key] || 0).toLocaleString('en-IN')}{unit === '%' ? '%' : ''}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
       <section className="panel">
         <div className="panel-heading">
