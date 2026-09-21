@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import LrBarcode from './LrBarcode';
 
 const show = (input) => (input === 0 || input ? String(input) : '-');
 const branch = (input) => input?.name || input?.city || show(input);
@@ -50,7 +51,7 @@ const LrTemplate3 = forwardRef(function LrTemplate3({ shipment = {} }, ref) {
         .lr3-root .lr3-header{height:90px;display:grid;grid-template-columns:2.15fr .85fr;border-bottom:1px solid #111}
         .lr3-root .lr3-company{display:grid;grid-template-columns:122px 1fr;align-items:center;padding:8px 12px;border-right:1px solid #111;background:#f2f3f3}
         .lr3-root .lr3-company img{width:108px;height:48px;object-fit:contain}.lr3-root .lr3-company h1{margin:0 0 5px;font-size:21px;line-height:1;font-weight:900;letter-spacing:.4px}.lr3-root .lr3-company p{margin:0;font-size:8px;line-height:1.35;color:#111}
-        .lr3-root .lr3-note{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:7px}.lr3-root .lr3-note small{font-size:7px;font-weight:900;letter-spacing:1.2px}.lr3-root .lr3-note strong{font-size:22px;line-height:1.15;margin:5px 0;overflow-wrap:anywhere}.lr3-root .lr3-note span{font-size:7px;font-weight:800}
+        .lr3-root .lr3-note{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:5px 7px}.lr3-root .lr3-note small{font-size:7px;font-weight:900;letter-spacing:1.2px}.lr3-root .lr3-note strong{font-size:22px;line-height:1.15;margin:5px 0;overflow-wrap:anywhere}.lr3-root .lr3-note .lr3-barcode{display:block;width:100%;max-width:245px;height:55px;margin:1px auto}.lr3-root .lr3-note span{font-size:7px;font-weight:800}
         .lr3-root .lr3-route{height:60px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1.1fr;border-bottom:1px solid #111;background:#f6f7f7}
         .lr3-root .lr3-route div{padding:7px 8px;border-right:1px solid #777;overflow:hidden}.lr3-root .lr3-route div:last-child{border:0}.lr3-root .lr3-route span,.lr3-root .lr3-field span{display:block;font-size:6.5px;line-height:7px;font-weight:900;text-transform:uppercase;letter-spacing:.35px;margin-bottom:4px}.lr3-root .lr3-route strong{display:block;height:27px;font-size:9px;line-height:27px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .lr3-root .lr3-body{height:445px;display:grid;grid-template-columns:36% 35% 29%;border-bottom:1px solid #111}
@@ -78,7 +79,7 @@ const LrTemplate3 = forwardRef(function LrTemplate3({ shipment = {} }, ref) {
             <img src="/crl-logo.png" alt="Chaple Roadlines logo" width="108" height="48" />
             <div><h1>CHAPLE ROADLINES PVT. LTD.</h1><p>Shop No. 3, Opp. Joshi Clinic, Beside Pushpa Mobile, Wadi, Nagpur - 440023 (MH.)</p><p>Mobile: 7499358403 | info@crl-transport.com | www.crl-transport.com</p><p>GST: 27AANCC4313N1ZC | PAN: AANCC4313N | Transporter ID: 27AANCC4313N1ZC</p></div>
           </div>
-          <div className="lr3-note"><small>CONSIGNMENT NOTE</small><strong>{show(s.lrNumber)}</strong><span>TRANSPORTER COPY</span></div>
+          <div className="lr3-note"><small>CONSIGNMENT NOTE</small><LrBarcode value={s.lrNumber} className="lr3-barcode" /><span>TRANSPORTER COPY</span></div>
         </header>
 
         <section className="lr3-route">

@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import LrBarcode from './LrBarcode';
 
 const show = (value) => (value === 0 || value ? String(value) : '-');
 const branch = (value) => value?.name || value?.city || show(value);
@@ -78,9 +79,10 @@ const LrTemplate2 = forwardRef(function LrTemplate2({ shipment = {} }, ref) {
         .lr-system-template .lr2-brand img{width:116px;height:54px;object-fit:contain;flex:none}
         .lr-system-template .lr2-brand h1{font-size:22px;line-height:1;margin:0 0 7px;color:#0f5f4d;letter-spacing:.2px}
         .lr-system-template .lr2-brand p{font-size:10px;line-height:1.45;margin:0;color:#000}
-        .lr-system-template .lr2-number{padding:15px 18px;text-align:right;display:flex;flex-direction:column;justify-content:center}
+        .lr-system-template .lr2-number{padding:10px 18px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
         .lr-system-template .lr2-number span{font-size:9px;letter-spacing:1.5px;font-weight:700;color:#000}
         .lr-system-template .lr2-number strong{font-size:25px;color:#172033;margin:5px 0 7px;overflow-wrap:anywhere}
+        .lr-system-template .lr2-number .lr2-barcode{display:block;width:100%;max-width:285px;height:54px;margin:4px auto 3px}
         .lr-system-template .lr2-number small{font-size:10px;color:#000}
         .lr-system-template .lr2-route{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #cbd5e1;background:#172033;color:#fff}
         .lr-system-template .lr2-route div{padding:8px 18px}.lr-system-template .lr2-route div:last-child{text-align:right}
@@ -138,7 +140,7 @@ const LrTemplate2 = forwardRef(function LrTemplate2({ shipment = {} }, ref) {
           </div>
           <div className="lr2-number">
             <span>SYSTEM GENERATED CONSIGNMENT NOTE</span>
-            <strong>{show(s.lrNumber)}</strong>
+            <LrBarcode value={s.lrNumber} className="lr2-barcode" />
             <small>Booking: {date(s.bookingDate || s.createdAt)} &nbsp; | &nbsp; Expected: {date(s.expectedDeliveryDate)}</small>
           </div>
         </header>
