@@ -60,4 +60,12 @@ describe('LR goods and chargeable weight', () => {
     expect(screen.getByText('Goods 9')).toBeInTheDocument();
     expect(container.querySelectorAll('.lr-print-root')[1].querySelector('tbody td').textContent).toBe('9');
   });
+  it('switches view and download output to the system-generated template', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<LrPdfDownload shipment={{ lrNumber: '123', senderName: 'Sender', receiverName: 'Receiver', lrDetails: { goods: [row] } }} />);
+    expect(container.querySelector('.lr-system-template')).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'LR Template' }), '2');
+    expect(container.querySelector('.lr-system-template')).toBeInTheDocument();
+    expect(screen.getByText('SYSTEM GENERATED CONSIGNMENT NOTE')).toBeInTheDocument();
+  });
 });

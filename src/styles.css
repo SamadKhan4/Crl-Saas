@@ -193,6 +193,19 @@ input[aria-invalid='true'] {
   flex-wrap: wrap;
   gap: 10px;
 }
+.lr-template-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 235px;
+}
+.lr-template-select span {
+  white-space: nowrap;
+}
+.lr-template-select select {
+  min-height: 41px;
+  padding: 9px 34px 9px 11px;
+}
 .eyebrow {
   font-size: 10px;
   font-weight: 700;
