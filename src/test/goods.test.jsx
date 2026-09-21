@@ -68,4 +68,14 @@ describe('LR goods and chargeable weight', () => {
     expect(container.querySelector('.lr-system-template')).toBeInTheDocument();
     expect(screen.getByText('SYSTEM GENERATED CONSIGNMENT NOTE')).toBeInTheDocument();
   });
+  it('renders the classic single-copy template with six goods rows per page', async () => {
+    const user = userEvent.setup();
+    const goods = Array.from({ length: 7 }, (_, index) => ({ ...row, description: `Classic goods ${index + 1}` }));
+    const { container } = render(<LrPdfDownload shipment={{ lrNumber: '123', lrDetails: { goods } }} />);
+    await user.selectOptions(screen.getByRole('combobox', { name: 'LR Template' }), '3');
+    const pages = container.querySelectorAll('.lr3-root');
+    expect(pages).toHaveLength(2);
+    expect(pages[0]).toHaveStyle({ width: '1000px', height: '670px' });
+    expect(pages[0].querySelectorAll('tbody tr')).toHaveLength(6);
+  });
 });

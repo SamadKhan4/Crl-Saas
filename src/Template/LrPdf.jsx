@@ -5,6 +5,7 @@ import { Download, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import LrTemplate from './LrTemplate';
 import LrTemplate2 from './LrTemplate2';
+import LrTemplate3 from './LrTemplate3';
 
 export async function createLrPdfBlob(root) {
   if (!root) throw new Error('LR is not ready. Please try again.');
@@ -27,15 +28,16 @@ export async function createLrPdfBlob(root) {
   return pdf.output('blob');
 }
 
-const fileName = (number, template) => `${String(number || 'LR').replace(/[^a-z0-9-_]/gi, '_')}${template === '2' ? '_template-2' : ''}.pdf`;
+const fileName = (number, template) => `${String(number || 'LR').replace(/[^a-z0-9-_]/gi, '_')}${template === '1' ? '' : `_template-${template}`}.pdf`;
 
 export function LrPdfDownload({ shipment, className = 'btn secondary' }) {
   const root = useRef(null);
   const [template, setTemplate] = useState('1');
   const goods = shipment?.lrDetails?.goods;
-  const pages = goods?.length ? Array.from({ length: Math.ceil(goods.length / 8) }, (_, index) => ({ ...shipment, lrDetails: { ...shipment.lrDetails, goods: goods.slice(index * 8, (index + 1) * 8).map((row, rowIndex) => ({ ...row, packageNumber: row.packageNumber || String(index * 8 + rowIndex + 1) })) } })) : [shipment];
+  const rowsPerPage = template === '3' ? 6 : 8;
+  const pages = goods?.length ? Array.from({ length: Math.ceil(goods.length / rowsPerPage) }, (_, index) => ({ ...shipment, lrDetails: { ...shipment.lrDetails, goods: goods.slice(index * rowsPerPage, (index + 1) * rowsPerPage).map((row, rowIndex) => ({ ...row, packageNumber: row.packageNumber || String(index * rowsPerPage + rowIndex + 1) })) } })) : [shipment];
   const [busy, setBusy] = useState(false);
-  const Template = template === '2' ? LrTemplate2 : LrTemplate;
+  const Template = template === '2' ? LrTemplate2 : template === '3' ? LrTemplate3 : LrTemplate;
   const run = async (view) => {
     const popup = view ? window.open('', '_blank') : null;
     if (popup) popup.opener = null;
@@ -69,6 +71,7 @@ export function LrPdfDownload({ shipment, className = 'btn secondary' }) {
       <select value={template} disabled={busy} onChange={(event) => setTemplate(event.target.value)} aria-label="LR Template">
         <option value="1">Template 1</option>
         <option value="2">Template 2 - System Generated</option>
+        <option value="3">Template 3 - CRL Classic</option>
       </select>
     </label>
     <button type="button" className="btn secondary" disabled={busy} onClick={() => run(true)}><Eye size={16} /> {busy ? 'Preparing...' : 'View LR'}</button>
