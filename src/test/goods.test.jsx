@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useForm } from 'react-hook-form';
@@ -7,6 +7,10 @@ import { goodsSchema, lrCreateSchema } from '../schemas';
 import GoodsFields, { emptyGoods } from '../components/forms/GoodsFields';
 import LrTemplate from '../Template/LrTemplate';
 import { LrPdfDownload } from '../Template/LrPdf';
+
+vi.mock('../Template/LrBarcode', () => ({
+  default: ({ value, className }) => <svg aria-label={`Barcode ${value}`} className={className} />,
+}));
 
 const row = { description: 'Cartons', quantity: 1, actualWeight: 5, length: 30, breadth: 30, height: 30, dimensionUnit: 'CM' };
 
@@ -56,23 +60,14 @@ describe('LR goods and chargeable weight', () => {
     const totals = calculateGoods(Array.from({ length: 9 }, (_, index) => ({ ...row, description: `Goods ${index + 1}` })));
     const { container } = render(<LrPdfDownload shipment={{ lrNumber: '123', lrDetails: totals }} />);
     expect(container.querySelectorAll('.lr-print-root')).toHaveLength(2);
-    expect(container.querySelectorAll('tbody tr')).toHaveLength(11);
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(12);
     expect(screen.getByText('Goods 9')).toBeInTheDocument();
-    expect(container.querySelectorAll('.lr-print-root')[1].querySelector('tbody td').textContent).toBe('9');
+    expect(container.querySelectorAll('.lr-print-root')[1].querySelector('tbody td').textContent).toBe('7');
   });
-  it('switches view and download output to the system-generated template', async () => {
-    const user = userEvent.setup();
-    const { container } = render(<LrPdfDownload shipment={{ lrNumber: '123', senderName: 'Sender', receiverName: 'Receiver', lrDetails: { goods: [row] } }} />);
-    expect(container.querySelector('.lr-system-template')).not.toBeInTheDocument();
-    await user.selectOptions(screen.getByRole('combobox', { name: 'LR Template' }), '2');
-    expect(container.querySelector('.lr-system-template')).toBeInTheDocument();
-    expect(screen.getByText('SYSTEM GENERATED CONSIGNMENT NOTE')).toBeInTheDocument();
-  });
-  it('renders the classic single-copy template with six goods rows per page', async () => {
-    const user = userEvent.setup();
+  it('uses only the final classic template with six goods rows per page', () => {
     const goods = Array.from({ length: 7 }, (_, index) => ({ ...row, description: `Classic goods ${index + 1}` }));
     const { container } = render(<LrPdfDownload shipment={{ lrNumber: '123', lrDetails: { goods } }} />);
-    await user.selectOptions(screen.getByRole('combobox', { name: 'LR Template' }), '3');
+    expect(screen.queryByRole('combobox', { name: 'LR Template' })).not.toBeInTheDocument();
     const pages = container.querySelectorAll('.lr3-root');
     expect(pages).toHaveLength(2);
     expect(pages[0]).toHaveStyle({ width: '1000px', height: '670px' });

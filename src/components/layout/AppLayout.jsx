@@ -26,6 +26,7 @@ import {
   FileText,
   Warehouse,
   HandCoins,
+  FileCheck2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -91,17 +92,36 @@ export default function AppLayout() {
   const base = `/${user.role.toLowerCase()}`;
   const admin = user.role === 'ADMIN';
   const manager = user.role === 'MANAGER';
-  const navGroups = [
+  const hr = user.role === 'HR';
+  const vendor = user.role === 'VENDOR';
+  const navGroups = (vendor ? [{ label: 'Vendor Workspace', items: [['portal', 'Vendor Portal', Truck], ['settings', 'Account Settings', Settings]] }] : hr ? [
+    {
+      label: 'Human Resources',
+      items: [
+        ['employees', 'Employee Onboarding', Users],
+        ['payslips', 'Payslips', FileText],
+        ['settings', 'Account Settings', Settings],
+      ],
+    },
+  ] : [
     { label: 'Overview', items: admin || manager ? [['dashboard', 'Dashboard', LayoutDashboard]] : [] },
     {
       label: 'Operations',
       items: [
-        ['shipments', 'Booking Register', Package],
+        ['bookings', 'Booking / Order', ClipboardList],
         ['shipments/create', 'Create LR', Plus],
+        ['shipments', 'Booking Register', Package],
+        ['package-barcodes', 'Box Barcode / Scan', PackageCheck],
+        ['pickups', 'Pickup / First Mile', PackageCheck],
+        ['hubs', 'Hub Management', Warehouse],
+        ['handling', 'Loading / Unloading', HandCoins],
         ['manifests', 'Manifest', ClipboardList],
+        ['ptl-operations', 'PTL Operations', Package],
+        ['ftl-operations', 'FTL Operations', Truck],
         ['trips', 'Trips & Dispatch', Route],
-        ['drs', 'Delivery Run Sheet', MapPinned],
         ...(manager ? [['receive', 'Receive Parcel', PackageCheck]] : []),
+        ['drs', 'Delivery Run Sheet', MapPinned],
+        ...(admin || manager ? [['drs-closure', 'DRS Closure', FileCheck2]] : []),
         ['documents', 'POD & Documents', Files],
       ],
     },
@@ -111,14 +131,25 @@ export default function AppLayout() {
         admin || manager
           ? [
               ['customers', 'Customer Master', Users],
+              ['company', 'Company Master', Building2],
+              ['locations', 'Location Master', MapPinned],
+              ['routes', 'Route Master', Route],
+              ['items', 'Item / Goods Master', Package],
+              ['package-types', 'Package Master', PackageCheck],
+              ['fleet', 'Vehicle / Fleet', Truck],
+              ['drivers', 'Driver Master', Users],
               ...(admin
                 ? [
                     ['vendors', 'Vendor Master', Truck],
                     ['branches', 'Branch Master', Building2],
                     ['managers', 'Managers', Users],
+                    ['hr-users', 'HR Users', Users],
+                    ['vendor-users', 'Vendor Users', Users],
+                    ['permissions', 'User Permissions', Settings],
                     ['employees', 'Employees', Users],
                   ]
                 : [['employees', 'Employees', Users]]),
+              ...(manager ? [['onboarding', 'Onboarding Approval', PackageCheck]] : []),
             ]
           : [],
     },
@@ -130,8 +161,13 @@ export default function AppLayout() {
               ['money-receipts', 'Money Receipts', ReceiptIndianRupee],
               ['invoices', 'Client Billing', FileText],
               ['receivables', 'Receivables', HandCoins],
+              ['vendor-settlements', 'Vendor Settlement', ReceiptIndianRupee],
+              ['eway-gst', 'E-Way Bill / GST', FileText],
+              ['accounting', 'Accounting', ReceiptIndianRupee],
               ['quotations', 'Quotations', FileText],
               ['stationery', 'Stationery', Warehouse],
+              ['rate-engine', 'Rate Engine', HandCoins],
+              ['profitability', 'Profitability', ChartNoAxesCombined],
             ]
           : [],
     },
@@ -141,12 +177,16 @@ export default function AppLayout() {
         admin || manager
           ? [
               ['reports', 'Reports & MIS', ChartNoAxesCombined],
+              ['hr', 'Employee / HR', Users],
+              ['claims', 'Claims / Damage', Package],
+              ['notifications', 'Notifications', History],
+              ['system-settings', 'Operational Settings', Settings],
               [admin ? 'audit' : 'activity', admin ? 'Team Activity' : 'Branch Activity', History],
               ['settings', 'Settings', Settings],
             ]
           : [],
     },
-  ].filter((group) => group.items.length);
+  ]).filter((group) => group.items.length);
   const items = navGroups.flatMap((group) => group.items);
   useEffect(() => {
     sidebarRef.current?.querySelector('nav a.active')?.scrollIntoView({ block: 'nearest' });

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router-dom';
 import { Plus, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { api, errorMessage, get } from '../api/client';
+import { errorMessage, get } from '../api/client';
 import {
   drsApi,
   invoicesApi,
@@ -13,6 +13,7 @@ import {
   stationeryApi,
   tripsApi,
   vendorsApi,
+  registerApi,
 } from '../api/services';
 import { useAuth } from '../features/auth/AuthContext';
 import { useDebounce, useList } from '../hooks/useList';
@@ -35,6 +36,28 @@ const money = (value) =>
     ? '—'
     : Number(value).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
 const option = (values) => values.map((value) => [value, label(value)]);
+const registerStatuses = option([
+  'OPEN', 'PLANNED', 'IN_PROGRESS', 'COMPLETED', 'APPROVED', 'PAID', 'REJECTED', 'CANCELLED', 'INACTIVE',
+]);
+const registerConfig = ({ title, singular, description, fields, amount, count = false }) => ({
+  title,
+  singular,
+  service: registerApi(singular),
+  number: 'recordNumber',
+  description,
+  primary: (row) => row.title,
+  secondary: (row) => [row.reference, row.origin && row.destination ? `${row.origin} → ${row.destination}` : '', row.vehicleNumber].filter(Boolean).join(' · ') || label(row.status),
+  fields,
+  defaults: { operationDate: today(), status: 'OPEN', quantity: 0, amount: 0, taxAmount: 0 },
+  amount,
+  count,
+  edit: true,
+  action: {
+    label: 'Update status',
+    path: 'status',
+    fields: [['status', 'Status', 'select', registerStatuses], ['remarks', 'Remarks', 'textarea']],
+  },
+});
 
 const configs = {
   vendors: {
@@ -54,10 +77,15 @@ const configs = {
         option(['TRANSPORTER', 'CO_LOADER', 'VEHICLE_OWNER', 'LAST_MILE']),
       ],
       ['name', 'Vendor / company name'],
+      ['legalName', 'Legal name'],
+      ['ownerName', 'Owner name'],
       ['contactPerson', 'Contact person'],
       ['mobile', 'Mobile', 'tel'],
       ['email', 'Email', 'email'],
       ['gstNumber', 'GSTIN'],
+      ['panNumber', 'PAN'],
+      ['gstType', 'GST type'],
+      ['registrationType', 'Registration type'],
       ['address', 'Address'],
       ['city', 'City'],
       ['state', 'State'],
@@ -74,6 +102,16 @@ const configs = {
       ['commercial.detentionPerDay', 'Detention / day', 'number'],
       ['commercial.creditDays', 'Credit days', 'number'],
       ['commercial.gstRate', 'GST %', 'number'],
+      ['bank.bankName', 'Bank name'],
+      ['bank.accountName', 'Account name'],
+      ['bank.accountNumber', 'Account number'],
+      ['bank.ifsc', 'IFSC'],
+      ['bank.branch', 'Bank branch'],
+      ['bank.upi', 'UPI'],
+      ['servicesCsv', 'Services (FM, MM, LM, PTL, FTL...)'],
+      ['document.type', 'Document type'],
+      ['document.number', 'Document number'],
+      ['document.expiresAt', 'Document expiry', 'date'],
       ['vehicle.vehicleNumber', 'Mapped vehicle number'],
       ['vehicle.vehicleType', 'Vehicle type'],
       ['vehicle.capacityKg', 'Vehicle capacity (kg)', 'number'],
@@ -156,9 +194,15 @@ const configs = {
       ['shipmentIds', 'LRs on trip', 'shipments', ['BOOKED']],
       ['freightAmount', 'Vendor freight', 'number'],
       ['advanceAmount', 'Advance paid', 'number'],
+      ['startKm', 'Start KM', 'number'],
+      ['endKm', 'End KM', 'number'],
+      ['dieselAmount', 'Diesel expense', 'number'],
+      ['tollAmount', 'Toll expense', 'number'],
+      ['otherExpense', 'Other expense', 'number'],
+      ['revenueAmount', 'Trip revenue', 'number'],
       ['remarks', 'Remarks', 'textarea'],
     ],
-    defaults: { departureDate: today(), freightAmount: 0, advanceAmount: 0 },
+    defaults: { departureDate: today(), freightAmount: 0, advanceAmount: 0, startKm: 0, dieselAmount: 0, tollAmount: 0, otherExpense: 0, revenueAmount: 0 },
     action: {
       label: 'Move trip',
       path: 'status',
@@ -374,6 +418,62 @@ const configs = {
       transactionDate: today(),
     },
   },
+  pickups: registerConfig({
+    title: 'Pickup / First Mile', singular: 'pickups', description: 'Plan pickups and first-mile handover against selected LRs.', count: true,
+    fields: [['title', 'Pickup run / party'], ['operationDate', 'Pickup date', 'date'], ['origin', 'Pickup location'], ['destination', 'Receiving hub'], ['vehicleNumber', 'Vehicle number'], ['driverName', 'Driver / FE name'], ['driverMobile', 'Driver mobile', 'tel'], ['shipmentIds', 'LRs for pickup', 'shipments', ['BOOKED']], ['reference', 'Pickup reference'], ['remarks', 'Remarks', 'textarea']],
+  }),
+  'ptl-operations': registerConfig({
+    title: 'PTL Operations', singular: 'ptl-operations', description: 'Control part-truck-load consolidation and movement.', count: true,
+    fields: [['title', 'PTL load / lane'], ['operationDate', 'Operation date', 'date'], ['origin', 'Origin hub'], ['destination', 'Destination hub'], ['vehicleNumber', 'Vehicle number'], ['vendorId', 'Co-loader / vendor', 'lookup', 'vendors'], ['shipmentIds', 'PTL LRs', 'shipments', ['BOOKED', 'IN_TRANSIT']], ['quantity', 'Packages', 'number'], ['amount', 'Operational cost', 'number'], ['remarks', 'Remarks', 'textarea']],
+  }),
+  'ftl-operations': registerConfig({
+    title: 'FTL Operations', singular: 'ftl-operations', description: 'Control dedicated full-truck-load movements.', count: true,
+    fields: [['title', 'FTL load / customer'], ['operationDate', 'Dispatch date', 'date'], ['origin', 'Origin'], ['destination', 'Destination'], ['vehicleNumber', 'Vehicle number'], ['driverName', 'Driver name'], ['driverMobile', 'Driver mobile', 'tel'], ['vendorId', 'Vehicle vendor', 'lookup', 'vendors'], ['shipmentIds', 'FTL LRs', 'shipments', ['BOOKED', 'IN_TRANSIT']], ['amount', 'Trip cost', 'number'], ['remarks', 'Remarks', 'textarea']],
+  }),
+  hubs: registerConfig({
+    title: 'Hub Management', singular: 'hubs', description: 'Record inward, sorting, staging and outward hub activity.', count: true,
+    fields: [['title', 'Hub activity'], ['operationDate', 'Activity date', 'date'], ['reference', 'Hub / bay reference'], ['origin', 'Received from'], ['destination', 'Forward to'], ['shipmentIds', 'Handled LRs', 'shipments', ['IN_TRANSIT', 'RECEIVED']], ['quantity', 'Package quantity', 'number'], ['description', 'Activity details', 'textarea'], ['remarks', 'Exception / remarks', 'textarea']],
+  }),
+  handling: registerConfig({
+    title: 'Loading / Unloading', singular: 'handling', description: 'Record loading, unloading, labour and package handling.', count: true,
+    fields: [['title', 'Handling activity'], ['operationDate', 'Activity date', 'date'], ['reference', 'Dock / batch reference'], ['vehicleNumber', 'Vehicle number'], ['shipmentIds', 'Handled LRs', 'shipments', ['BOOKED', 'IN_TRANSIT', 'RECEIVED']], ['quantity', 'Packages handled', 'number'], ['amount', 'Labour / hamali amount', 'number'], ['description', 'Handling details', 'textarea'], ['remarks', 'Remarks', 'textarea']],
+  }),
+  fleet: registerConfig({
+    title: 'Vehicle / Fleet', singular: 'fleet', description: 'Maintain owned and attached vehicle records and compliance.',
+    fields: [['title', 'Vehicle type / owner'], ['vehicleNumber', 'Vehicle number'], ['operationDate', 'Registration / start date', 'date'], ['dueDate', 'Insurance / permit expiry', 'date'], ['vendorId', 'Mapped vendor', 'lookup', 'vendors'], ['reference', 'RC / permit reference'], ['quantity', 'Capacity (kg)', 'number'], ['description', 'Insurance / fitness details', 'textarea'], ['remarks', 'Remarks', 'textarea']],
+  }),
+  drivers: registerConfig({
+    title: 'Driver Master', singular: 'drivers', description: 'Maintain driver identity, licence and validity details.',
+    fields: [['title', 'Driver name'], ['driverMobile', 'Mobile', 'tel'], ['operationDate', 'Joining date', 'date'], ['dueDate', 'Licence expiry', 'date'], ['documentNumber', 'Driving licence number'], ['vehicleNumber', 'Default vehicle'], ['vendorId', 'Vendor / owner', 'lookup', 'vendors'], ['description', 'Address / emergency contact', 'textarea'], ['remarks', 'Remarks', 'textarea']],
+  }),
+  'vendor-settlements': registerConfig({
+    title: 'Vendor Billing / Settlement', singular: 'vendor-settlements', description: 'Record vendor bills, deductions, approvals and payments.', amount: 'amount',
+    fields: [['title', 'Bill / settlement title'], ['vendorId', 'Vendor', 'lookup', 'vendors'], ['operationDate', 'Bill date', 'date'], ['dueDate', 'Payment due date', 'date'], ['documentNumber', 'Vendor invoice number'], ['reference', 'Trip / manifest reference'], ['metadata.baseAmount', 'Base vendor freight', 'number'], ['metadata.detention', 'Detention', 'number'], ['metadata.loading', 'Loading / unloading', 'number'], ['metadata.otherCharge', 'Other charge', 'number'], ['metadata.tds', 'TDS deduction', 'number'], ['metadata.advance', 'Advance paid', 'number'], ['description', 'Deductions / details', 'textarea'], ['remarks', 'Remarks', 'textarea']],
+  }),
+  'eway-gst': registerConfig({
+    title: 'E-Way Bill / GST Register', singular: 'eway-gst', description: 'Track statutory document validity, vehicle and tax details.',
+    fields: [['title', 'Consignor / document'], ['metadata.operation', 'Operation', 'select', option(['GENERATE', 'UPDATE_VEHICLE', 'EXTEND', 'CANCEL', 'CHECK_STATUS'])], ['documentNumber', 'E-Way bill / GST document number'], ['operationDate', 'Document date', 'date'], ['dueDate', 'Valid until', 'date'], ['customerId', 'Customer', 'lookup', 'customers'], ['shipmentIds', 'Linked LRs', 'shipments', ['BOOKED', 'IN_TRANSIT', 'RECEIVED']], ['reference', 'Invoice reference'], ['vehicleNumber', 'Part B vehicle number'], ['amount', 'Taxable value', 'number'], ['taxAmount', 'GST amount', 'number'], ['metadata.validityAlertHours', 'Alert before expiry (hours)', 'number'], ['remarks', 'Remarks', 'textarea']],
+  }),
+  accounting: registerConfig({
+    title: 'Accounting Register', singular: 'accounting', description: 'Record branch expenses, income, advances and adjustments.', amount: 'amount',
+    fields: [['title', 'Ledger / transaction'], ['operationDate', 'Transaction date', 'date'], ['reference', 'Voucher / bank reference'], ['customerId', 'Customer', 'lookup', 'customers'], ['vendorId', 'Vendor', 'lookup', 'vendors'], ['amount', 'Amount', 'number'], ['taxAmount', 'Tax amount', 'number'], ['description', 'Narration', 'textarea'], ['remarks', 'Remarks', 'textarea']],
+  }),
+  hr: registerConfig({
+    title: 'Employee / HR Register', singular: 'hr', description: 'Maintain employee HR events, attendance and documents.',
+    fields: [['title', 'Employee / HR event'], ['userId', 'System employee', 'lookup', 'users'], ['operationDate', 'Effective date', 'date'], ['dueDate', 'Review / expiry date', 'date'], ['reference', 'Employee / document reference'], ['quantity', 'Days / units', 'number'], ['amount', 'Amount / advance', 'number'], ['description', 'HR details', 'textarea'], ['remarks', 'Remarks', 'textarea']],
+  }),
+  claims: registerConfig({
+    title: 'Claims / Damage', singular: 'claims', description: 'Register shortage, damage and claim settlement cases.', amount: 'amount', count: true,
+    fields: [['title', 'Claim title'], ['operationDate', 'Incident date', 'date'], ['shipmentIds', 'Affected LRs', 'shipments', ['IN_TRANSIT', 'RECEIVED', 'COMPLETED', 'CLOSED']], ['customerId', 'Customer', 'lookup', 'customers'], ['vendorId', 'Responsible vendor', 'lookup', 'vendors'], ['reference', 'Claim reference'], ['documentNumber', 'Box barcode'], ['metadata.damageType', 'Damage / loss type'], ['metadata.responsibleParty', 'Responsible party'], ['quantity', 'Damaged / short packages', 'number'], ['amount', 'Claim amount', 'number'], ['metadata.photoUrls', 'Photo URLs / references', 'textarea'], ['description', 'Investigation details', 'textarea'], ['remarks', 'Approval / settlement remarks', 'textarea']],
+  }),
+  notifications: registerConfig({
+    title: 'Notifications', singular: 'notifications', description: 'Create and track operational reminders and alerts.',
+    fields: [['title', 'Notification subject'], ['operationDate', 'Schedule date', 'date'], ['dueDate', 'Expiry date', 'date'], ['userId', 'Assigned employee', 'lookup', 'users'], ['customerId', 'Related customer', 'lookup', 'customers'], ['reference', 'LR / task reference'], ['description', 'Message', 'textarea'], ['remarks', 'Internal notes', 'textarea']],
+  }),
+  'system-settings': registerConfig({
+    title: 'Operational Settings', singular: 'system-settings', description: 'Maintain branch-level operational rules and controlled values.',
+    fields: [['title', 'Setting name'], ['reference', 'Setting key'], ['operationDate', 'Effective date', 'date'], ['description', 'Setting value / rule', 'textarea'], ['remarks', 'Change reason', 'textarea']],
+  }),
 };
 
 const valueAt = (source, path) => path.split('.').reduce((value, key) => value?.[key], source);
@@ -412,6 +512,8 @@ function prepare(resource, values) {
     return {
       vendorType: payload.vendorType,
       name: payload.name,
+      legalName: payload.legalName,
+      ownerName: payload.ownerName,
       contactPerson: payload.contactPerson,
       mobile: payload.mobile,
       email: payload.email,
@@ -420,6 +522,12 @@ function prepare(resource, values) {
       state: payload.state,
       pincode: payload.pincode,
       gstNumber: payload.gstNumber,
+      panNumber: payload.panNumber,
+      gstType: payload.gstType,
+      registrationType: payload.registrationType,
+      bank: payload.bank,
+      services: String(payload.servicesCsv || '').split(',').map((value) => value.trim().toUpperCase()).filter(Boolean),
+      documents: payload.document?.type ? [{ ...payload.document, verified: false }] : [],
       commercial: payload.commercial,
       vehicles: payload.vehicle?.vehicleNumber ? [{ ...payload.vehicle, status: 'ACTIVE' }] : [],
     };
@@ -576,6 +684,8 @@ function RecordEditor({ resource, config, record, onClose }) {
       ? {
           ...record,
           vehicle: record.vehicles?.[0] || {},
+          servicesCsv: record.services?.join(', ') || '',
+          document: record.documents?.[0] || {},
         }
       : structuredClone(config.defaults || {}),
   );
@@ -645,7 +755,7 @@ function StatusEditor({ resource, config, record, onClose }) {
     setBusy(true);
     setError('');
     try {
-      await api.patch(`/${resource}/${idOf(record)}/${config.action.path}`, clean(values));
+      await config.service.status(idOf(record), clean(values));
       cache.invalidateQueries({ queryKey: [resource] });
       toast.success('Status updated');
       onClose();

@@ -23,7 +23,9 @@ import SearchInput from '../components/forms/SearchInput';
 import Lookup from '../components/forms/Lookup';
 import CreditRateCardField from '../components/forms/CreditRateCardField';
 import CreditChargesFields from '../components/forms/CreditChargesFields';
+import { CustomerBillingField, CustomerContactsField, CustomerLocationsField, CustomerServicesField } from '../components/forms/CustomerBusinessFields';
 import { date, idOf } from '../lib/workflow';
+import { useAuth } from '../features/auth/AuthContext';
 const configs = {
   customers: {
     title: 'Customers',
@@ -33,6 +35,9 @@ const configs = {
       ['customerType', 'Customer type', 'customerType'],
       ['name', 'Name'],
       ['companyName', 'Company'],
+      ['legalName', 'Legal name'],
+      ['tradeName', 'Trade name'],
+      ['industry', 'Industry'],
       ['mobile', 'Mobile'],
       ['alternateMobile', 'Alternate mobile'],
       ['email', 'Email', 'email'],
@@ -41,6 +46,15 @@ const configs = {
       ['state', 'State'],
       ['pincode', 'Pincode'],
       ['gstNumber', 'GST number'],
+      ['panNumber', 'PAN'],
+      ['gstType', 'GST type'],
+      ['billingState', 'Billing state'],
+      ['billingAddress', 'Billing address'],
+      ['pickupLocations', 'Pickup locations', 'customerLocations'],
+      ['deliveryLocations', 'Delivery locations', 'customerLocations'],
+      ['services', 'Enabled services', 'customerServices'],
+      ['billing', 'Billing & credit', 'customerBilling'],
+      ['contacts', 'Contact persons', 'customerContacts'],
       ['creditRateCard', 'Location-wise credit rates', 'creditRateCard'],
       ['creditCharges', 'Additional contracted charges', 'creditCharges'],
     ],
@@ -74,6 +88,8 @@ const configs = {
   },
 };
 configs.managers = { ...configs.users, title: 'Managers', singular: 'manager' };
+configs['hr-users'] = { ...configs.users, title: 'HR Users', singular: 'HR user' };
+configs['vendor-users'] = { ...configs.users, title: 'Vendor Users', singular: 'vendor user', fields: [...configs.users.fields.slice(0, 4), ['vendorId', 'Vendor', 'vendorLookup'], configs.users.fields.at(-1)] };
 export default function ManagementPage() {
   const location = useLocation();
   const pathname = location.pathname.replace(/\/+$/, '');
@@ -81,6 +97,7 @@ export default function ManagementPage() {
   return <Management key={resource} resource={resource} />;
 }
 function Management({ resource }) {
+  const { user } = useAuth();
   const config = configs[resource],
     service = resourceApi(resource);
   const { query, filters, update, clear, sort } = useList(resource, service);
@@ -123,7 +140,7 @@ function Management({ resource }) {
       : [
           { key: 'email', label: 'Email' },
           { key: 'mobile', label: 'Mobile' },
-          ...(['users', 'managers'].includes(resource)
+          ...(['users', 'managers', 'hr-users'].includes(resource)
             ? [
                 {
                   key: 'branchId',
@@ -161,7 +178,7 @@ function Management({ resource }) {
           >
             {r.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
           </button>
-          {['users', 'managers'].includes(resource) && (
+          {['users', 'managers', 'hr-users', 'vendor-users'].includes(resource) && (
             <button
               className="text-btn"
               onClick={() => {
@@ -207,9 +224,11 @@ function Management({ resource }) {
         title={config.title}
         description={`Manage your ${config.singular} directory and keep operations connected.`}
       >
-        <button className="btn" onClick={() => setEditor({})}>
-          <Plus size={17} /> Add {config.singular}
-        </button>
+        {!(resource === 'users' && user.role === 'MANAGER') && (
+          <button className="btn" onClick={() => setEditor({})}>
+            <Plus size={17} /> Add {config.singular}
+          </button>
+        )}
       </PageHeader>
       <section className="panel">
         <div className="filter-bar">
@@ -275,7 +294,7 @@ function Management({ resource }) {
 function Editor({ resource, config, record, onClose }) {
   const editing = !!idOf(record);
   const schema =
-    ['users', 'managers'].includes(resource) && editing
+    ['users', 'managers', 'hr-users', 'vendor-users'].includes(resource) && editing
       ? config.schema.omit({ password: true })
       : config.schema;
   const fields = [...config.fields]
@@ -286,13 +305,17 @@ function Editor({ resource, config, record, onClose }) {
       .filter(([key]) => !(editing && key === 'password'))
       .map(([key]) => [
         key,
-        key === 'branchId'
+        key === 'branchId' || key === 'vendorId'
           ? idOf(record[key]) || ''
           : key === 'creditRateCard'
             ? record[key] || []
             : key === 'creditCharges'
               ? record[key] || {}
-            : record[key] ?? (key === 'customerType' ? 'TO_PAY_PAID' : ''),
+            : ['pickupLocations', 'deliveryLocations', 'services', 'contacts', 'documents'].includes(key)
+              ? record[key] || []
+              : key === 'billing'
+                ? record[key] || { creditLimit: 0, creditDays: 0, gstRate: 0, tdsRate: 0 }
+                : record[key] ?? (key === 'customerType' ? 'TO_PAY_PAID' : ''),
       ]),
   );
   const {
@@ -343,13 +366,15 @@ function Editor({ resource, config, record, onClose }) {
       <form onSubmit={handleSubmit(save)}>
         <div className="form-grid">
           {fields.map(([key, caption, type]) => (
-            <div key={key} className={['creditRateCard', 'creditCharges'].includes(type) ? 'tms-span-2' : undefined}>
+            <div key={key} className={['creditRateCard', 'creditCharges', 'customerLocations', 'customerServices', 'customerBilling', 'customerContacts'].includes(type) ? 'tms-span-2' : undefined}>
               {key === 'branchId' ? (
                 <Controller
                   name={key}
                   control={control}
                   render={({ field }) => <Lookup resource="branches" label="Branch" {...field} />}
                 />
+              ) : type === 'vendorLookup' ? (
+                <Controller name={key} control={control} render={({ field }) => <Lookup resource="vendors" label="Vendor" {...field} />} />
               ) : type === 'customerType' ? (
                 <div className="field">
                   <label htmlFor={key}>{caption}</label>
@@ -367,6 +392,14 @@ function Editor({ resource, config, record, onClose }) {
                 customerType === 'CREDIT' ? (
                   <CreditChargesFields register={register} errors={errors.creditCharges} />
                 ) : null
+              ) : type === 'customerLocations' ? (
+                <CustomerLocationsField control={control} register={register} name={key} label={caption} />
+              ) : type === 'customerServices' ? (
+                <CustomerServicesField control={control} />
+              ) : type === 'customerBilling' ? (
+                <CustomerBillingField register={register} />
+              ) : type === 'customerContacts' ? (
+                <CustomerContactsField control={control} register={register} />
               ) : (
                 <FormField
                   label={caption}

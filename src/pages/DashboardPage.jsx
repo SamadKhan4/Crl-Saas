@@ -124,6 +124,7 @@ export default function DashboardPage() {
     ['Completed', 'completed', CheckCheck],
     ['Closed', 'closed', Archive],
   ];
+  const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
   const distribution = data
     ? [
         ['Booked', 'booked'],
@@ -182,6 +183,16 @@ export default function DashboardPage() {
             {cards.map(([name, key, Icon]) => (
               <StatCard key={key} label={name} value={data[key]} icon={Icon} />
             ))}
+          </div>
+          <div className="stats-grid">
+            <StatCard label="Boxes" value={data.totalBoxes} />
+            <StatCard label="Out for delivery" value={data.outForDeliveryBoxes} />
+            <StatCard label="Delivered boxes" value={data.deliveredBoxes} />
+            <StatCard label="Exceptions" value={data.exceptionBoxes} />
+            <StatCard label="Revenue" value={money(data.revenue)} />
+            <StatCard label="Expense" value={money(data.expense)} />
+            <StatCard label="Margin" value={money(data.margin)} />
+            <StatCard label="Outstanding" value={money(data.outstanding)} />
           </div>
           <div className="daily-strip">
             <span>

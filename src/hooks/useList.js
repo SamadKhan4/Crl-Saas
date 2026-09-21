@@ -18,6 +18,7 @@ export function useList(resource, service, extra = {}) {
     'sortBy',
     'sortOrder',
     'status',
+    ...(resource === 'payslips' ? ['employeeId', 'salaryMonth'] : []),
     ...(resource === 'shipments'
       ? ['customerId', 'originBranchId', 'destinationBranchId', 'lrNumber', 'dateFrom', 'dateTo']
       : []),

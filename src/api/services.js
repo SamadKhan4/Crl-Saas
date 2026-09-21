@@ -5,9 +5,10 @@ export const resourceApi = (resource) => ({
   detail: (id) => get(`/${resource}/${id}`),
   create: (body) => post(`/${resource}`, body),
   update: (id, body) => api.put(`/${resource}/${id}`, body).then((r) => checkEnvelope(r.data)),
-  status: (id, status) =>
-    api.patch(`/${resource}/${id}/status`, { status }).then((r) => checkEnvelope(r.data)),
+  status: (id, body) =>
+    api.patch(`/${resource}/${id}/status`, typeof body === 'string' ? { status: body } : body).then((r) => checkEnvelope(r.data)),
 });
+export const registerApi = (resource) => resourceApi(`tms-registers/${resource}`);
 export const customersApi = resourceApi('customers');
 export const branchesApi = resourceApi('branches');
 export const usersApi = resourceApi('users');
@@ -29,6 +30,33 @@ export const receiptsApi = resourceApi('money-receipts');
 export const quotationsApi = resourceApi('quotations');
 export const stationeryApi = resourceApi('stationery');
 export const receivablesApi = { summary: (params) => get('/receivables/summary', params) };
+export const masterDataApi = {
+  ...resourceApi('master-data'),
+  expiring: (params) => get('/master-data/expiring-documents', params),
+};
+export const rateCardsApi = {
+  ...resourceApi('rate-cards'),
+  quote: (body) => post('/rate-cards/quote', body),
+};
+export const packageBarcodesApi = {
+  list: (params) => get('/package-barcodes', params),
+  detail: (barcode) => get(`/package-barcodes/${encodeURIComponent(barcode)}`),
+  scan: (barcode, body) => post(`/package-barcodes/${encodeURIComponent(barcode)}/scan`, body),
+  reprint: (barcode) => post(`/package-barcodes/${encodeURIComponent(barcode)}/reprint`, {}),
+};
+export const profitabilityApi = { summary: (params) => get('/profitability', dateRangeParams(params)) };
+export const accountingSummaryApi = { summary: (params) => get('/accounting/summary', params) };
+export const bookingsApi = {
+  ...resourceApi('bookings'),
+  generateLr: (id, body) => post(`/bookings/${id}/generate-lr`, body),
+};
+export const payslipsApi = resourceApi('payslips');
+export const onboardingApi = {
+  ...resourceApi('employee-onboarding'),
+  upload: (id, documentType, body, onUploadProgress) => api.post(`/employee-onboarding/${id}/documents/${documentType}`, body, { onUploadProgress }).then((r) => checkEnvelope(r.data)),
+  review: (id, body) => post(`/employee-onboarding/${id}/review`, body),
+  download: (id, documentId) => api.get(`/employee-onboarding/${id}/documents/${documentId}/file`, { responseType: 'blob' }),
+};
 export const publicApi = {
   track: (lr) =>
     logistic.get(`/public/track/${encodeURIComponent(lr)}`).then((r) => {

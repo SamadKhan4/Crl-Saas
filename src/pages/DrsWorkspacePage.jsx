@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { CheckCircle2, FileCheck2, Printer, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, errorMessage } from '../api/client';
@@ -20,6 +20,7 @@ import {
 
 export default function DrsWorkspacePage() {
   const { id } = useParams();
+  const location = useLocation();
   const printRef = useRef(null);
   const { user } = useAuth();
   const cache = useQueryClient();
@@ -27,6 +28,7 @@ export default function DrsWorkspacePage() {
   const [vehicle, setVehicle] = useState('');
   const [eWayBillNo, setEWayBillNo] = useState('');
   const [files, setFiles] = useState({});
+  const [proofs, setProofs] = useState({});
   const [error, setError] = useState('');
   const refresh = () => {
     cache.invalidateQueries({ queryKey: ['drs', id] });
@@ -45,6 +47,13 @@ export default function DrsWorkspacePage() {
       if (invalid) throw new Error(invalid);
       const body = new FormData();
       body.append('pod', file);
+      const proof = proofs[idOf(shipment)] || {};
+      body.append('receiverName', proof.receiverName || shipment.receiverName || '');
+      body.append('receiverMobile', proof.receiverMobile || shipment.receiverMobile || '');
+      body.append('otpReference', proof.otpReference || '');
+      body.append('signatureName', proof.signatureName || proof.receiverName || shipment.receiverName || '');
+      body.append('remarks', proof.remarks || '');
+      body.append('deliveredAt', new Date().toISOString());
       return api.post(`/drs/${id}/pod/${idOf(shipment)}`, body);
     },
     onSuccess: (_data, variables) => {
@@ -69,8 +78,8 @@ export default function DrsWorkspacePage() {
   return (
     <>
       <PageHeader title={drs.drsNumber} description={`${drs.route} · ${date(drs.deliveryDate)}`}>
-        <Link className="btn secondary" to={`${base}/drs`}>
-          Back to DRS
+        <Link className="btn secondary" to={`${base}/${location.state?.from === 'closure' ? 'drs-closure' : 'drs'}`}>
+          Back to {location.state?.from === 'closure' ? 'DRS closure' : 'DRS'}
         </Link>
         <button className="btn secondary" onClick={() => window.print()}><Printer size={16} /> Print DRS</button>
         <TransportPdfDownload targetRef={printRef} documentNumber={drs.drsNumber} label="Download DRS PDF" />
@@ -138,7 +147,25 @@ export default function DrsWorkspacePage() {
                   {done ? (
                     <StatusBadge status="POD_UPLOADED" />
                   ) : (
-                    <div className="actions">
+                    <div className="tms-epod-fields">
+                      <input
+                        aria-label={`Receiver name for ${shipment.lrNumber}`}
+                        placeholder="Receiver name"
+                        value={proofs[idOf(shipment)]?.receiverName || ''}
+                        onChange={(event) => setProofs((current) => ({ ...current, [idOf(shipment)]: { ...current[idOf(shipment)], receiverName: event.target.value } }))}
+                      />
+                      <input
+                        aria-label={`Receiver mobile for ${shipment.lrNumber}`}
+                        placeholder="Receiver mobile"
+                        value={proofs[idOf(shipment)]?.receiverMobile || ''}
+                        onChange={(event) => setProofs((current) => ({ ...current, [idOf(shipment)]: { ...current[idOf(shipment)], receiverMobile: event.target.value } }))}
+                      />
+                      <input
+                        aria-label={`OTP reference for ${shipment.lrNumber}`}
+                        placeholder="OTP / delivery reference"
+                        value={proofs[idOf(shipment)]?.otpReference || ''}
+                        onChange={(event) => setProofs((current) => ({ ...current, [idOf(shipment)]: { ...current[idOf(shipment)], otpReference: event.target.value } }))}
+                      />
                       <input
                         type="file"
                         accept=".jpg,.jpeg,.png,.webp,.pdf"

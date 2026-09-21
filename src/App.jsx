@@ -23,8 +23,21 @@ const RequestUpload = lazy(() =>
 const PublicQuotation = lazy(() => import('./pages/PublicQuotationPage'));
 const TmsModule = lazy(() => import('./pages/TmsModulePage'));
 const DrsWorkspace = lazy(() => import('./pages/DrsWorkspacePage'));
+const DrsClosure = lazy(() => import('./pages/DrsClosurePage'));
 const TmsPrint = lazy(() => import('./pages/TmsPrintPage'));
 const Receivables = lazy(() => import('./pages/ReceivablesPage'));
+const Payslips = lazy(() => import('./pages/PayslipsPage'));
+const PayslipDetail = lazy(() => import('./pages/PayslipDetailPage'));
+const EmployeeOnboarding = lazy(() => import('./pages/EmployeeOnboardingPage'));
+const MasterData = lazy(() => import('./pages/MasterDataPage'));
+const RateEngine = lazy(() => import('./pages/RateEnginePage'));
+const BarcodeOperations = lazy(() => import('./pages/BarcodeOperationsPage'));
+const Profitability = lazy(() => import('./pages/ProfitabilityPage'));
+const Bookings = lazy(() => import('./pages/BookingsPage'));
+const VendorPortal = lazy(() => import('./pages/VendorPortalPage'));
+const NotificationOutbox = lazy(() => import('./pages/NotificationOutboxPage'));
+const Permissions = lazy(() => import('./pages/PermissionsPage'));
+const AccountingWorkspace = lazy(() => import('./pages/AccountingWorkspacePage'));
 export default function App() {
   return (
     <RouteErrorBoundary>
@@ -42,23 +55,48 @@ export default function App() {
                 <Route index element={<HomeRoute />} />
                 {role !== 'EMPLOYEE' && <Route path="dashboard" element={<Dashboard />} />}
                 <Route path="shipments" element={<Shipments />} />
+                <Route path="bookings" element={<Bookings />} />
                 <Route path="shipments/create" element={<CreateLR />} />
                 <Route path="shipments/:id" element={<ShipmentDetail />} />
                 <Route path="documents" element={<Documents />} />
+                <Route path="package-barcodes" element={<BarcodeOperations />} />
+                <Route path="pickups" element={<TmsModule />} />
+                <Route path="ptl-operations" element={<TmsModule />} />
+                <Route path="ftl-operations" element={<TmsModule />} />
+                <Route path="hubs" element={<TmsModule />} />
+                <Route path="handling" element={<TmsModule />} />
                 <Route path="manifests" element={<TmsModule />} />
                 <Route path="manifests/:id" element={<TmsPrint resource="manifests" />} />
                 <Route path="trips" element={<TmsModule />} />
                 <Route path="drs" element={<TmsModule />} />
                 {role !== 'EMPLOYEE' && <Route path="drs/:id" element={<DrsWorkspace />} />}
+                {role !== 'EMPLOYEE' && <Route path="drs-closure" element={<DrsClosure />} />}
                 {role !== 'EMPLOYEE' && (
                   <>
                     <Route path="customers" element={<Management />} />
                     <Route path="customers/:id" element={<CustomerDetail />} />
+                    <Route path="fleet" element={<TmsModule />} />
+                    <Route path="drivers" element={<TmsModule />} />
+                    <Route path="company" element={<MasterData />} />
+                    <Route path="locations" element={<MasterData />} />
+                    <Route path="routes" element={<MasterData />} />
+                    <Route path="items" element={<MasterData />} />
+                    <Route path="package-types" element={<MasterData />} />
+                    <Route path="rate-engine" element={<RateEngine />} />
+                    <Route path="profitability" element={<Profitability />} />
+                    <Route path="vendor-settlements" element={<TmsModule />} />
+                    <Route path="eway-gst" element={<TmsModule />} />
+                    <Route path="accounting" element={<AccountingWorkspace />} />
+                    <Route path="hr" element={<TmsModule />} />
+                    <Route path="claims" element={<TmsModule />} />
+                    <Route path="notifications" element={<NotificationOutbox />} />
+                    <Route path="system-settings" element={<TmsModule />} />
                   </>
                 )}
                 {role === 'MANAGER' && (
                   <>
                     <Route path="employees" element={<Management />} />
+                    <Route path="onboarding" element={<EmployeeOnboarding />} />
                     <Route path="reports" element={<Reports />} />
                     <Route path="settings" element={<Settings />} />
                     <Route path="money-receipts" element={<TmsModule />} />
@@ -73,6 +111,9 @@ export default function App() {
                 {role === 'ADMIN' ? (
                   <>
                     <Route path="managers" element={<Management />} />
+                    <Route path="hr-users" element={<Management />} />
+                    <Route path="vendor-users" element={<Management />} />
+                    <Route path="permissions" element={<Permissions />} />
                     <Route path="employees" element={<Management />} />
                     <Route path="branches" element={<Management />} />
                     <Route path="reports" element={<Reports />} />
@@ -96,6 +137,22 @@ export default function App() {
               </Route>
             </Route>
           ))}
+          <Route element={<ProtectedRoute role="HR" />}>
+            <Route path="/hr" element={<AppLayout />}>
+              <Route index element={<HomeRoute />} />
+              <Route path="employees" element={<EmployeeOnboarding />} />
+              <Route path="payslips" element={<Payslips />} />
+              <Route path="payslips/:id" element={<PayslipDetail />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+          </Route>
+          <Route element={<ProtectedRoute role="VENDOR" />}>
+            <Route path="/vendor" element={<AppLayout />}>
+              <Route index element={<HomeRoute />} />
+              <Route path="portal" element={<VendorPortal />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+          </Route>
           <Route
             path="*"
             element={
