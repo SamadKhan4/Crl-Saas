@@ -322,13 +322,56 @@ input[aria-invalid='true'] {
 .nav-group-links {
   gap: 4px;
 }
-.sidebar nav a {
+.sidebar nav a,
+.sidebar nav .nav-disabled,
+.sidebar nav .nav-dropdown-toggle {
   display: flex;
   align-items: center;
   gap: 12px;
   border-radius: 6px;
   padding: 11px 14px;
   font-size: 12px;
+}
+.sidebar nav .nav-disabled {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: not-allowed;
+  opacity: 0.42;
+  text-align: left;
+}
+.sidebar nav .nav-dropdown-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.sidebar nav .nav-dropdown-toggle > svg:last-child {
+  margin-left: auto;
+  transition: transform 160ms ease;
+}
+.sidebar nav .nav-dropdown-toggle > svg:last-child.is-open {
+  transform: rotate(180deg);
+}
+.sidebar nav .nav-dropdown-toggle:hover,
+.sidebar nav .nav-dropdown.is-active > .nav-dropdown-toggle {
+  background: #ffffff09;
+  color: white;
+}
+.nav-submenu {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 3px 0 2px 17px;
+  padding-left: 10px;
+  border-left: 1px solid #ffffff1f;
+}
+.sidebar nav .nav-submenu a {
+  padding: 9px 10px;
+  font-size: 11px;
 }
 .sidebar nav a.active {
   background: #233e43;
@@ -339,7 +382,8 @@ input[aria-invalid='true'] {
   background: #ffffff09;
   color: white;
 }
-.sidebar nav a small {
+.sidebar nav a small,
+.sidebar nav .nav-disabled small {
   margin-left: auto;
 }
 .sidebar-bottom {
@@ -1255,6 +1299,139 @@ tbody tr:hover {
   text-align: right;
 }
 .invoice-page > footer {
+  position: absolute;
+  right: 10mm;
+  bottom: 7mm;
+  left: 10mm;
+  display: flex;
+  justify-content: space-between;
+  padding-top: 6px;
+  border-top: 1px solid #c80000;
+  color: #666;
+}
+.receipt-page {
+  position: relative;
+  min-height: 297mm;
+  padding: 10mm 10mm 14mm;
+}
+.receipt-brand {
+  margin-bottom: 12px;
+}
+.receipt-heading {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.8fr;
+  border: 1px solid #cfcfcf;
+}
+.receipt-heading > div,
+.receipt-payment-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-right: 1px solid #cfcfcf;
+}
+.receipt-heading > div:last-child,
+.receipt-payment-grid > div:last-child {
+  border-right: 0;
+}
+.receipt-heading b,
+.receipt-payment-grid b {
+  color: #666;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+.receipt-heading strong {
+  font-size: 11px;
+}
+.receipt-party {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #cfcfcf;
+}
+.receipt-party h3,
+.receipt-section-title {
+  margin: -10px -10px 6px;
+  padding: 6px 9px;
+  background: #333;
+  color: #fff;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.receipt-amount {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 5px 18px;
+  margin: 10px 0;
+  padding: 14px;
+  border: 2px solid #333;
+}
+.receipt-amount span {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.receipt-amount strong {
+  font-size: 22px;
+}
+.receipt-amount small {
+  grid-column: 1 / -1;
+  color: #444;
+  font-size: 9px;
+}
+.receipt-payment-grid {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr 1fr;
+  border: 1px solid #cfcfcf;
+}
+.receipt-section-title {
+  margin: 12px 0 0;
+}
+.receipt-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.receipt-table th,
+.receipt-table td {
+  padding: 7px;
+  border: 1px solid #cfcfcf;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.receipt-table th {
+  background: #ededed;
+  font-size: 9px;
+}
+.receipt-table .number-cell {
+  text-align: right;
+}
+.receipt-remarks {
+  margin: 12px 0 0;
+  padding: 9px;
+  border: 1px solid #cfcfcf;
+  color: #222;
+}
+.receipt-signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  margin-top: 55px;
+}
+.receipt-signatures > div {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-top: 7px;
+  border-top: 1px solid #555;
+}
+.receipt-signatures > div:last-child {
+  text-align: right;
+}
+.receipt-page > footer {
   position: absolute;
   right: 10mm;
   bottom: 7mm;
@@ -2444,11 +2621,16 @@ progress {
 }
 .collapsed .sidebar .brand > span:last-child,
 .collapsed .sidebar nav a > span,
+.collapsed .sidebar nav .nav-disabled > span,
+.collapsed .sidebar nav .nav-dropdown-toggle > span,
 .collapsed .workspace-pill,
 .collapsed .nav-caption,
 .collapsed .sidebar-bottom span,
 .collapsed .sidebar-footer,
-.collapsed .sidebar nav a small {
+.collapsed .sidebar nav a small,
+.collapsed .sidebar nav .nav-disabled small,
+.collapsed .sidebar nav .nav-dropdown-toggle > svg:last-child,
+.collapsed .sidebar nav .nav-submenu {
   display: none;
 }
 .collapsed .sidebar nav {
@@ -2462,7 +2644,9 @@ progress {
 .collapsed .nav-group-links {
   gap: 5px;
 }
-.collapsed .sidebar nav a {
+.collapsed .sidebar nav a,
+.collapsed .sidebar nav .nav-disabled,
+.collapsed .sidebar nav .nav-dropdown-toggle {
   justify-content: center;
   padding: 12px;
 }

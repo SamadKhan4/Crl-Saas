@@ -23,6 +23,7 @@ export const dashboardApi = { summary: () => get('/dashboard/summary') };
 export const reportsApi = { list: (params) => get('/reports/shipments', dateRangeParams(params)) };
 export const vendorsApi = resourceApi('vendors');
 export const manifestsApi = resourceApi('manifests');
+export const segregationsApi = resourceApi('segregations');
 export const tripsApi = resourceApi('trips');
 export const drsApi = resourceApi('drs');
 export const invoicesApi = resourceApi('invoices');
@@ -48,6 +49,7 @@ export const profitabilityApi = { summary: (params) => get('/profitability', dat
 export const accountingSummaryApi = { summary: (params) => get('/accounting/summary', params) };
 export const bookingsApi = {
   ...resourceApi('bookings'),
+  linkLr: (id, shipmentId) => post(`/bookings/${id}/link-lr`, { shipmentId }),
   generateLr: (id, body) => post(`/bookings/${id}/generate-lr`, body),
 };
 export const payslipsApi = resourceApi('payslips');

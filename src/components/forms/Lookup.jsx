@@ -23,6 +23,8 @@ export default function Lookup({
         ? get('/branches/options')
         : resource === 'vendors'
           ? get('/vendors/options', { search: term, limit: 100 })
+        : resource === 'segregations'
+          ? get('/segregations/options', { search: term, limit: 100 })
         : get(`/${resource}`, {
             search: term,
             ...(activeOnly && { status: 'ACTIVE' }),
@@ -60,14 +62,19 @@ export default function Lookup({
                     .includes(term.toLowerCase())),
             )
             .map((item) => {
-              const code =
+              const rawCode =
                 item.customerCode ||
                 item.branchCode ||
                 item.vendorCode ||
+                item.segregationNumber ||
                 item.invoiceNumber ||
                 item.lrNumber;
-              const name =
-                item.name || item.leadName || item.receivedFrom || item.destination || 'Record';
+              const rawName =
+                item.name || item.leadName || item.receivedFrom || item.destination || item.driverName || 'Record';
+              const code = typeof rawCode === 'string' || typeof rawCode === 'number' ? rawCode : '';
+              const name = typeof rawName === 'string' || typeof rawName === 'number'
+                ? rawName
+                : rawName?.name || rawName?.city || rawName?.branchCode || 'Record';
               return (
                 <option key={idOf(item)} value={idOf(item)}>
                   {code ? `${code} · ` : ''}

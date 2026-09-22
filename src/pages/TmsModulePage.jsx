@@ -10,6 +10,7 @@ import {
   manifestsApi,
   quotationsApi,
   receiptsApi,
+  segregationsApi,
   stationeryApi,
   tripsApi,
   vendorsApi,
@@ -133,6 +134,25 @@ const configs = {
     },
     edit: true,
   },
+  segregations: {
+    title: 'LR segregation',
+    singular: 'segregation',
+    service: segregationsApi,
+    number: 'segregationNumber',
+    description: 'Segregate booked LR inventory vendor-wise and driver-wise before manifestation.',
+    primary: (row) => row.destination,
+    secondary: (row) => `${row.vendorId?.name || 'Vendor'} · ${row.driverName}`,
+    count: true,
+    fields: [
+      ['vendorId', 'Assigned vendor', 'lookup', 'vendors'],
+      ['driverName', 'Assigned driver'],
+      ['driverMobile', 'Driver mobile', 'tel'],
+      ['vehicleNumber', 'Vehicle number'],
+      ['destination', 'Destination'],
+      ['shipmentIds', 'LR inventory to segregate', 'shipments', ['BOOKED']],
+      ['remarks', 'Remarks', 'textarea'],
+    ],
+  },
   manifests: {
     title: 'Manifestation',
     singular: 'manifest',
@@ -143,11 +163,9 @@ const configs = {
     secondary: (row) => row.vendorId?.name || 'Co-loader',
     count: true,
     fields: [
-      ['vendorId', 'Co-loader / transporter', 'lookup', 'vendors'],
-      ['destination', 'Destination'],
+      ['segregationId', 'Ready segregation batch', 'lookup', 'segregations'],
       ['vehicleNumber', 'Vehicle number'],
       ['deliveryAgent', 'BA / delivery agent'],
-      ['shipmentIds', 'LRs on manifest', 'shipments', ['BOOKED', 'IN_TRANSIT']],
       ['vendorReference', 'Vendor reference'],
       ['remarks', 'Remarks', 'textarea'],
     ],
@@ -191,7 +209,7 @@ const configs = {
       ['destination', 'Destination'],
       ['departureDate', 'Departure date', 'date'],
       ['expectedArrival', 'Expected arrival', 'date'],
-      ['shipmentIds', 'LRs on trip', 'shipments', ['BOOKED']],
+      ['shipmentIds', 'LRs on trip', 'shipments', ['BOOKED', 'IN_TRANSIT']],
       ['freightAmount', 'Vendor freight', 'number'],
       ['advanceAmount', 'Advance paid', 'number'],
       ['startKm', 'Start KM', 'number'],
@@ -290,6 +308,7 @@ const configs = {
       ['paymentMode', 'Payment mode', 'select', option(['CASH', 'UPI', 'BANK_TRANSFER', 'CHEQUE'])],
       ['transactionReference', 'Transaction / cheque reference'],
       ['receiptDate', 'Receipt date', 'date'],
+      ['shipmentIds', 'LRs covered by receipt', 'shipments', ['BOOKED', 'IN_TRANSIT']],
       ['allocation.invoiceId', 'Allocate to invoice', 'lookup', 'invoices'],
       ['allocation.amount', 'Allocation amount', 'number'],
       ['remarks', 'Remarks', 'textarea'],
@@ -476,6 +495,42 @@ const configs = {
   }),
 };
 
+const registerResources = new Set([
+  'pickups', 'ptl-operations', 'ftl-operations', 'hubs', 'handling', 'fleet', 'drivers',
+  'vendor-settlements', 'eway-gst', 'accounting', 'hr', 'claims', 'notifications', 'system-settings',
+]);
+function nextStatuses(resource, record) {
+  if (resource === 'trips')
+    return ({ PLANNED: ['DISPATCHED', 'CANCELLED'], DISPATCHED: ['ARRIVED'], ARRIVED: ['CLOSED'] })[record.status] || [];
+  if (resource === 'manifests')
+    return ({
+      BOOKED: ['PICKED_UP', 'IN_TRANSIT', 'EXCEPTION'],
+      PICKED_UP: ['IN_TRANSIT', 'EXCEPTION'],
+      IN_TRANSIT: ['AT_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED', 'EXCEPTION'],
+      AT_HUB: ['IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'EXCEPTION'],
+      OUT_FOR_DELIVERY: ['DELIVERED', 'EXCEPTION'],
+      EXCEPTION: ['IN_TRANSIT', 'AT_HUB', 'OUT_FOR_DELIVERY'],
+    })[record.coLoaderStatus] || [];
+  if (resource === 'invoices')
+    return ({ DRAFT: ['ISSUED', 'CANCELLED'], ISSUED: ['CANCELLED'] })[record.status] || [];
+  if (resource === 'quotations')
+    return ['ACCEPTED', 'REJECTED', 'EXPIRED'].includes(record.status)
+      ? []
+      : ['QUOTED', 'ACCEPTED', 'REJECTED', 'EXPIRED'].filter((status) => status !== record.status);
+  if (registerResources.has(resource))
+    return ['COMPLETED', 'PAID', 'CANCELLED'].includes(record.status)
+      ? []
+      : registerStatuses.map(([status]) => status).filter((status) => status !== record.status);
+  return [];
+}
+function statusFields(resource, config, record) {
+  const statuses = nextStatuses(resource, record);
+  return config.action.fields.map(([name, caption, type, meta]) =>
+    type === 'select' && ['status', 'coLoaderStatus'].includes(name)
+      ? [name, caption, type, option(statuses)]
+      : [name, caption, type, meta]);
+}
+
 const valueAt = (source, path) => path.split('.').reduce((value, key) => value?.[key], source);
 const setAt = (source, path, value) => {
   const keys = path.split('.');
@@ -545,7 +600,7 @@ function prepare(resource, values) {
           },
         ]
       : [];
-    payload.shipmentIds = [];
+    payload.shipmentIds = payload.shipmentIds || [];
     delete payload.allocation;
   }
   if (resource === 'quotations') {
@@ -558,12 +613,17 @@ function prepare(resource, values) {
   return payload;
 }
 
-function ShipmentPicker({ value = [], onChange, statuses, customerId }) {
+function ShipmentPicker({ value = [], onChange, statuses, customerId, resource, branchId }) {
   const [search, setSearch] = useState('');
   const term = useDebounce(search);
   const query = useQuery({
-    queryKey: ['shipments', 'tms-picker', term, customerId],
-    queryFn: () => get('/shipments', { search: term, limit: 100, ...(customerId && { customerId }) }),
+    queryKey: ['shipments', 'tms-picker', resource, term, customerId, branchId],
+    queryFn: () => get(resource === 'segregations' ? '/segregations/inventory' : '/shipments', {
+      search: term,
+      limit: 100,
+      ...(customerId && { customerId }),
+      ...(resource === 'segregations' && branchId && { branchId }),
+    }),
   });
   const rows = (query.data?.data || []).filter((row) => statuses.includes(row.currentStatus));
   return (
@@ -618,7 +678,7 @@ function DynamicFields({ resource, fields, values, setValues }) {
     const value = valueAt(values, name) ?? '';
     const change = (next) => setValues((current) => {
       const updated = setAt(current, name, next);
-      if (resource === 'invoices' && name === 'customerId' && current.customerId !== next)
+      if (['invoices', 'money-receipts'].includes(resource) && name === 'customerId' && current.customerId !== next)
         updated.shipmentIds = [];
       return updated;
     });
@@ -635,7 +695,7 @@ function DynamicFields({ resource, fields, values, setValues }) {
         />
       );
     if (type === 'shipments')
-      return <ShipmentPicker key={name} value={value || []} onChange={change} statuses={meta} customerId={resource === 'invoices' ? values.customerId : undefined} />;
+      return <ShipmentPicker key={name} value={value || []} onChange={change} statuses={meta} customerId={['invoices', 'money-receipts'].includes(resource) ? values.customerId : undefined} resource={resource} branchId={values.branchId} />;
     if (type === 'select')
       return (
         <div className="field" key={name}>
@@ -746,7 +806,11 @@ function RecordEditor({ resource, config, record, onClose }) {
 }
 
 function StatusEditor({ resource, config, record, onClose }) {
-  const [values, setValues] = useState({});
+  const fields = statusFields(resource, config, record);
+  const statusField = fields.find(([name]) => ['status', 'coLoaderStatus'].includes(name));
+  const [values, setValues] = useState(() => statusField?.[3]?.[0]
+    ? { [statusField[0]]: statusField[3][0][0] }
+    : {});
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   const cache = useQueryClient();
@@ -772,7 +836,7 @@ function StatusEditor({ resource, config, record, onClose }) {
     >
       <form onSubmit={save}>
         <div className="form-grid">
-          <DynamicFields resource={resource} fields={config.action.fields} values={values} setValues={setValues} />
+          <DynamicFields resource={resource} fields={fields} values={values} setValues={setValues} />
         </div>
         {error && (
           <p className="field-error" role="alert">
@@ -842,7 +906,7 @@ export default function TmsModulePage() {
         label: 'Actions',
         render: (row) => (
           <div className="row-actions">
-            {['manifests', 'quotations', 'invoices'].includes(resource) && (
+            {['manifests', 'quotations', 'invoices', 'money-receipts'].includes(resource) && (
               <Link className="text-btn" to={`${base}/${resource}/${idOf(row)}`}>
                 View / Print
               </Link>
@@ -857,7 +921,7 @@ export default function TmsModulePage() {
                 Edit
               </button>
             )}
-            {config.action && user.role !== 'EMPLOYEE' && (
+            {config.action && user.role !== 'EMPLOYEE' && nextStatuses(resource, row).length > 0 && (
               <button className="text-btn" onClick={() => setAction(row)}>
                 {config.action.label}
               </button>

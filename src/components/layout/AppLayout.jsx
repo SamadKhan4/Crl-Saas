@@ -27,6 +27,7 @@ import {
   Warehouse,
   HandCoins,
   FileCheck2,
+  ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -54,7 +55,8 @@ export default function AppLayout() {
   const collapsed = useSelector((state) => state.workspace.sidebarCollapsed);
   const dispatch = useDispatch();
   const [mobile, setMobile] = useState(false),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [hubMenuOpen, setHubMenuOpen] = useState(false);
   const location = useLocation();
   const sidebarRef = useRef(null);
   useEffect(() => {
@@ -94,6 +96,16 @@ export default function AppLayout() {
   const manager = user.role === 'MANAGER';
   const hr = user.role === 'HR';
   const vendor = user.role === 'VENDOR';
+  const hubItems = [
+    ['hubs', 'Hub Operations', Warehouse],
+    ['segregations', 'LR Segregation', PackageCheck],
+    ['pickups', 'Pickup / First Mile', PackageCheck],
+    ['handling', 'Loading / Unloading', HandCoins],
+  ];
+  const hubMenuActive = hubItems.some(([path]) => location.pathname === `${base}/${path}`);
+  useEffect(() => {
+    if (hubMenuActive) setHubMenuOpen(true);
+  }, [hubMenuActive]);
   const navGroups = (vendor ? [{ label: 'Vendor Workspace', items: [['portal', 'Vendor Portal', Truck], ['settings', 'Account Settings', Settings]] }] : hr ? [
     {
       label: 'Human Resources',
@@ -111,10 +123,8 @@ export default function AppLayout() {
         ['bookings', 'Booking / Order', ClipboardList],
         ['shipments/create', 'Create LR', Plus],
         ['shipments', 'Booking Register', Package],
-        ['package-barcodes', 'Box Barcode / Scan', PackageCheck],
-        ['pickups', 'Pickup / First Mile', PackageCheck],
-        ['hubs', 'Hub Management', Warehouse],
-        ['handling', 'Loading / Unloading', HandCoins],
+        ['hub-management', 'Hub Management', Warehouse, false, hubItems],
+        ...(admin ? [['package-barcodes', 'Box Barcode / Scan', PackageCheck, true]] : []),
         ['manifests', 'Manifest', ClipboardList],
         ['ptl-operations', 'PTL Operations', Package],
         ['ftl-operations', 'FTL Operations', Truck],
@@ -135,7 +145,6 @@ export default function AppLayout() {
               ['locations', 'Location Master', MapPinned],
               ['routes', 'Route Master', Route],
               ['items', 'Item / Goods Master', Package],
-              ['package-types', 'Package Master', PackageCheck],
               ['fleet', 'Vehicle / Fleet', Truck],
               ['drivers', 'Driver Master', Users],
               ...(admin
@@ -144,7 +153,6 @@ export default function AppLayout() {
                     ['branches', 'Branch Master', Building2],
                     ['managers', 'Managers', Users],
                     ['hr-users', 'HR Users', Users],
-                    ['vendor-users', 'Vendor Users', Users],
                     ['permissions', 'User Permissions', Settings],
                     ['employees', 'Employees', Users],
                   ]
@@ -177,7 +185,6 @@ export default function AppLayout() {
         admin || manager
           ? [
               ['reports', 'Reports & MIS', ChartNoAxesCombined],
-              ['hr', 'Employee / HR', Users],
               ['claims', 'Claims / Damage', Package],
               ['notifications', 'Notifications', History],
               ['system-settings', 'Operational Settings', Settings],
@@ -187,7 +194,9 @@ export default function AppLayout() {
           : [],
     },
   ]).filter((group) => group.items.length);
-  const items = navGroups.flatMap((group) => group.items);
+  const items = navGroups.flatMap((group) =>
+    group.items.flatMap((item) => item[4] || [item]),
+  );
   useEffect(() => {
     sidebarRef.current?.querySelector('nav a.active')?.scrollIntoView({ block: 'nearest' });
   }, [location.pathname]);
@@ -244,19 +253,55 @@ export default function AppLayout() {
                   {group.label}
                 </small>
                 <div className="nav-group-links">
-                  {group.items.map(([path, name, Icon]) => (
-                    <NavLink
-                      key={path}
-                      to={`${base}/${path}`}
-                      end={path === 'shipments'}
-                      title={name}
-                      onClick={() => setMobile(false)}
-                    >
-                      <Icon size={19} />
-                      <span>{name}</span>
-                      {path === 'shipments/create' && <small>+</small>}
-                    </NavLink>
-                  ))}
+                  {group.items.map(([path, name, Icon, disabled, children]) => {
+                    if (children) {
+                      return (
+                        <div className={`nav-dropdown ${hubMenuActive ? 'is-active' : ''}`} key={path}>
+                          <button
+                            type="button"
+                            className="nav-dropdown-toggle"
+                            aria-expanded={hubMenuOpen}
+                            onClick={() => {
+                              if (collapsed) dispatch(expandSidebar());
+                              setHubMenuOpen((open) => !open);
+                            }}
+                          >
+                            <Icon size={19} />
+                            <span>{name}</span>
+                            <ChevronDown className={hubMenuOpen ? 'is-open' : ''} size={16} />
+                          </button>
+                          {hubMenuOpen && (
+                            <div className="nav-submenu">
+                              {children.map(([childPath, childName, ChildIcon]) => (
+                                <NavLink
+                                  key={childPath}
+                                  to={`${base}/${childPath}`}
+                                  title={childName}
+                                  onClick={() => setMobile(false)}
+                                >
+                                  <ChildIcon size={17} />
+                                  <span>{childName}</span>
+                                </NavLink>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                    return disabled ? (
+                      <button key={path} type="button" className="nav-disabled" disabled title={`${name} · Coming soon`}>
+                        <Icon size={19} />
+                        <span>{name}</span>
+                        <small>Soon</small>
+                      </button>
+                    ) : (
+                      <NavLink key={path} to={`${base}/${path}`} end={path === 'shipments'} title={name} onClick={() => setMobile(false)}>
+                        <Icon size={19} />
+                        <span>{name}</span>
+                        {path === 'shipments/create' && <small>+</small>}
+                      </NavLink>
+                    );
+                  })}
                 </div>
               </section>
             ))}

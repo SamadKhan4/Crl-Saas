@@ -160,7 +160,15 @@ export function errorMessage(error) {
   if (status === 403) return 'You do not have permission for this action.';
   if (status === 404) return 'The requested record was not found.';
   if (status === 409) return error.response?.data?.message || 'This record has changed. Refresh and try again.';
-  if (status === 422) return error.response?.data?.message || 'Please correct the highlighted fields.';
+  if (status === 422) {
+    const validationErrors = error.response?.data?.errors;
+    const firstError = Array.isArray(validationErrors) ? validationErrors[0] : undefined;
+    if (typeof firstError?.message === 'string') {
+      const field = typeof firstError.field === 'string' && firstError.field ? `${firstError.field}: ` : '';
+      return `${field}${firstError.message}`;
+    }
+    return error.response?.data?.message || 'Please correct the highlighted fields.';
+  }
   if (status && status >= 500) return 'The server could not complete this request. Please try again.';
   return typeof error.response?.data?.message === 'string' && !error.response.data.message.includes('<')
     ? error.response.data.message

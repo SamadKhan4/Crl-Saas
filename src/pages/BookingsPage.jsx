@@ -1,24 +1,109 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { bookingsApi } from '../api/services';
 import { errorMessage } from '../api/client';
-import Lookup from '../components/forms/Lookup';
 import { DataTable, ErrorState, Loadingcrleleton, Modal, PageHeader, StatusBadge } from '../components/common/UI';
+import CustomerCodeLookup from '../components/forms/CustomerCodeLookup';
+import { useAuth } from '../features/auth/AuthContext';
 import { date } from '../lib/workflow';
 
-const today = () => new Date().toLocaleDateString('en-CA');
+const partyFields = [
+  ['consignorCode', 'Consignor code'],
+  ['consignor', 'Consignor name', true],
+  ['consignorAddress', 'Consignor address - line 1'],
+  ['consignorAddress2', 'Consignor address - line 2'],
+  ['consignorPincode', 'Consignor PIN code'],
+  ['consignorGstin', 'Consignor GSTIN'],
+  ['consignee', 'Consignee name', true],
+  ['consigneeMobile', 'Consignee mobile'],
+  ['consigneeAddress', 'Consignee address - line 1'],
+  ['consigneeAddress2', 'Consignee address - line 2'],
+  ['consigneeAddress3', 'Consignee address - line 3'],
+  ['consigneePincode', 'Consignee PIN code'],
+  ['consigneeGstin', 'Consignee GSTIN'],
+];
+
 export default function BookingsPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const client = useQueryClient();
-  const [page, setPage] = useState(1), [open, setOpen] = useState(false), [convert, setConvert] = useState(null), [customerId, setCustomerId] = useState(''), [originBranchId, setOriginBranchId] = useState(''), [destinationBranchId, setDestinationBranchId] = useState('');
+  const formRef = useRef(null);
+  const [page, setPage] = useState(1);
+  const [open, setOpen] = useState(false);
+  const [customerId, setCustomerId] = useState('');
   const query = useQuery({ queryKey: ['bookings', page], queryFn: () => bookingsApi.list({ page, limit: 20 }) });
-  const create = useMutation({ mutationFn: bookingsApi.create, onSuccess: () => { toast.success('Booking created'); setOpen(false); client.invalidateQueries({ queryKey: ['bookings'] }); }, onError: (error) => toast.error(errorMessage(error)) });
-  const generate = useMutation({ mutationFn: ({ id, lrNumber }) => bookingsApi.generateLr(id, { lrNumber }), onSuccess: () => { toast.success('LR generated with box barcodes'); setConvert(null); client.invalidateQueries({ queryKey: ['bookings'] }); client.invalidateQueries({ queryKey: ['shipments'] }); }, onError: (error) => toast.error(errorMessage(error)) });
-  const save = (event) => { event.preventDefault(); const raw = Object.fromEntries(new FormData(event.currentTarget)); const data = Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== '')); create.mutate({ ...data, branchId: originBranchId, destinationBranchId, customerId, packageCount: Number(data.packageCount), weightKg: Number(data.weightKg) }); };
-  return <><PageHeader title="Booking / Order" description="Capture the order first, then generate one controlled LR from it."><button className="btn" onClick={() => setOpen(true)}><Plus size={17} /> New booking</button></PageHeader>
-    <section className="panel">{query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={query.data.data} pagination={query.data.pagination} onPage={setPage} columns={[{ key: 'bookingNumber', label: 'Booking' }, { key: 'bookingDate', label: 'Date', render: (r) => date(r.bookingDate) }, { key: 'customer', label: 'Customer', render: (r) => r.customerId?.companyName || r.customerId?.name }, { key: 'lane', label: 'Lane', render: (r) => `${r.origin} → ${r.destination}` }, { key: 'load', label: 'Load', render: (r) => `${r.packageCount} pkg · ${r.weightKg} kg` }, { key: 'status', label: 'Status', render: (r) => <StatusBadge status={r.status} /> }, { key: 'lr', label: 'LR', render: (r) => r.shipmentId?.lrNumber || (r.status !== 'CANCELLED' && <button className="text-btn" onClick={() => setConvert(r)}>Generate LR</button>) }]} />}</section>
-    {open && <Modal title="New booking" onClose={() => setOpen(false)}><form onSubmit={save}><div className="form-grid"><Lookup resource="customers" label="Customer" value={customerId} onChange={setCustomerId} /><Lookup resource="branches" branchOptions label="Origin branch" value={originBranchId} onChange={setOriginBranchId} /><Lookup resource="branches" branchOptions label="Destination branch" value={destinationBranchId} onChange={setDestinationBranchId} /><label>Booking date<input name="bookingDate" type="date" defaultValue={today()} required /></label><label>Consignor<input name="consignor" required /></label><label>Consignee<input name="consignee" required /></label><label>Consignee mobile<input name="consigneeMobile" /></label><label>Origin location<input name="origin" required /></label><label>Destination location<input name="destination" required /></label><label>Service<select name="service"><option>PTL</option><option>FTL</option><option>FM</option><option>MM</option><option>LM</option></select></label><label>Packages<input name="packageCount" type="number" min="1" defaultValue="1" required /></label><label>Weight (kg)<input name="weightKg" type="number" min="0.01" step="0.01" required /></label><label>Invoice number<input name="invoiceNumber" /></label><label>E-Way Bill<input name="eWayBillNumber" /></label><label>Expected delivery<input name="expectedDeliveryDate" type="date" /></label><label className="full-span">Goods description<textarea name="description" required /></label></div><div className="modal-footer"><button type="button" className="btn secondary" onClick={() => setOpen(false)}>Cancel</button><button className="btn" disabled={create.isPending || !customerId || !originBranchId || !destinationBranchId}>Save booking</button></div></form></Modal>}
-    {convert && <Modal title={`Generate LR · ${convert.bookingNumber}`} onClose={() => setConvert(null)}><form onSubmit={(event) => { event.preventDefault(); generate.mutate({ id: convert.id || convert._id, lrNumber: new FormData(event.currentTarget).get('lrNumber') }); }}><label>LR number<input name="lrNumber" required autoFocus placeholder="CRL/2026/000001" /></label><p>Customer, route, goods and package data will be copied from this booking. Unique box barcodes will be generated automatically.</p><div className="modal-footer"><button type="button" className="btn secondary" onClick={() => setConvert(null)}>Cancel</button><button className="btn" disabled={generate.isPending}>Generate LR</button></div></form></Modal>}
+  const create = useMutation({
+    mutationFn: bookingsApi.create,
+    onSuccess: () => {
+      toast.success('Booking created');
+      setOpen(false);
+      setCustomerId('');
+      client.invalidateQueries({ queryKey: ['bookings'] });
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+  const save = (event) => {
+    event.preventDefault();
+    const raw = Object.fromEntries(new FormData(event.currentTarget));
+    const data = Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== ''));
+    create.mutate({ ...data, customerId });
+  };
+  const fillCustomer = (customer) => {
+    if (!customer || !formRef.current) return;
+    const values = {
+      consignorCode: customer.customerCode,
+      consignor: customer.name,
+      consignorAddress: customer.address || '',
+      consignorAddress2: customer.address2 || '',
+      consignorPincode: customer.pincode || '',
+      consignorGstin: customer.gstNumber || '',
+    };
+    for (const [name, value] of Object.entries(values)) {
+      const input = formRef.current.elements.namedItem(name);
+      if (input) input.value = value;
+    }
+  };
+  const openCreateLr = (booking) => {
+    const id = booking.id || booking._id;
+    navigate(`/${user.role.toLowerCase()}/shipments/create?booking=${encodeURIComponent(id)}`);
+  };
+
+  return <>
+    <PageHeader title="Booking / Order" description="Capture consignor and consignee details, then complete the LR.">
+      <button className="btn" onClick={() => { setCustomerId(''); setOpen(true); }}><Plus size={17} /> New booking</button>
+    </PageHeader>
+    <section className="panel">
+      {query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable
+        rows={query.data.data}
+        pagination={query.data.pagination}
+        onPage={setPage}
+        columns={[
+          { key: 'bookingNumber', label: 'Booking' },
+          { key: 'bookingDate', label: 'Date', render: (row) => date(row.bookingDate || row.createdAt) },
+          { key: 'consignor', label: 'Consignor' },
+          { key: 'consignee', label: 'Consignee' },
+          { key: 'consigneeMobile', label: 'Mobile', render: (row) => row.consigneeMobile || '-' },
+          { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
+          { key: 'lr', label: 'LR', render: (row) => row.shipmentId?.lrNumber || (row.status !== 'CANCELLED' && <button className="text-btn" onClick={() => openCreateLr(row)}>Generate LR</button>) },
+        ]}
+      />}
+    </section>
+    {open && <Modal title="New booking" onClose={() => { setOpen(false); setCustomerId(''); }}>
+      <form ref={formRef} onSubmit={save}>
+        <div className="form-grid">
+          <div className="full-span">
+            <CustomerCodeLookup value={customerId} onChange={setCustomerId} onCustomer={fillCustomer} />
+          </div>
+          {partyFields.map(([name, label, required]) => <label key={name}>{label}<input name={name} required={required} maxLength={name.includes('Address') ? 500 : 120} /></label>)}
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn secondary" onClick={() => { setOpen(false); setCustomerId(''); }}>Cancel</button>
+          <button className="btn" disabled={create.isPending || !customerId}>{create.isPending ? 'Saving…' : 'Save booking'}</button>
+        </div>
+      </form>
+    </Modal>}
   </>;
 }

@@ -56,10 +56,10 @@ export default function App() {
                 {role !== 'EMPLOYEE' && <Route path="dashboard" element={<Dashboard />} />}
                 <Route path="shipments" element={<Shipments />} />
                 <Route path="bookings" element={<Bookings />} />
+                <Route path="segregations" element={<TmsModule />} />
                 <Route path="shipments/create" element={<CreateLR />} />
                 <Route path="shipments/:id" element={<ShipmentDetail />} />
                 <Route path="documents" element={<Documents />} />
-                <Route path="package-barcodes" element={<BarcodeOperations />} />
                 <Route path="pickups" element={<TmsModule />} />
                 <Route path="ptl-operations" element={<TmsModule />} />
                 <Route path="ftl-operations" element={<TmsModule />} />
@@ -100,6 +100,7 @@ export default function App() {
                     <Route path="reports" element={<Reports />} />
                     <Route path="settings" element={<Settings />} />
                     <Route path="money-receipts" element={<TmsModule />} />
+                    <Route path="money-receipts/:id" element={<TmsPrint resource="money-receipts" />} />
                     <Route path="invoices" element={<TmsModule />} />
                     <Route path="invoices/:id" element={<TmsPrint resource="invoices" />} />
                     <Route path="quotations" element={<TmsModule />} />
@@ -110,6 +111,7 @@ export default function App() {
                 )}
                 {role === 'ADMIN' ? (
                   <>
+                    <Route path="package-barcodes" element={<BarcodeOperations />} />
                     <Route path="managers" element={<Management />} />
                     <Route path="hr-users" element={<Management />} />
                     <Route path="vendor-users" element={<Management />} />
@@ -121,6 +123,7 @@ export default function App() {
                     <Route path="settings" element={<Settings />} />
                     <Route path="vendors" element={<TmsModule />} />
                     <Route path="money-receipts" element={<TmsModule />} />
+                    <Route path="money-receipts/:id" element={<TmsPrint resource="money-receipts" />} />
                     <Route path="invoices" element={<TmsModule />} />
                     <Route path="invoices/:id" element={<TmsPrint resource="invoices" />} />
                     <Route path="quotations" element={<TmsModule />} />

@@ -125,6 +125,52 @@ export function InvoiceSheet({ invoice }) {
   </div>;
 }
 
+export function MoneyReceiptSheet({ receipt }) {
+  const customer = receipt.customerId || {};
+  const branch = receipt.branchId || {};
+  const shipments = receipt.shipmentIds || [];
+  const allocations = receipt.allocations || [];
+  return <div className="transport-print-document receipt-document">
+    <section className="receipt-page">
+      <header className="invoice-brand receipt-brand">
+        <img src="/crl-logo.png" alt="CRL" />
+        <div><h2>CHAPLE ROADLINES PVT. LTD.</h2><b>Goods Transport & Logistics Services</b><span>Shop No. 3, Opp. Joshi Clinic, Beside Pushpa Mobile,<br />Khargaon Road, Wadi, Nagpur-440023 (MH)<br />91-74993 58403 | info@crl-transport.com</span></div>
+        <strong>MONEY RECEIPT</strong>
+      </header>
+      <div className="receipt-heading">
+        <div><b>Receipt No.</b><strong>{receipt.receiptNumber}</strong></div>
+        <div><b>Receipt Date</b><strong>{printableDate(receipt.receiptDate)}</strong></div>
+        <div><b>Status</b><strong>{label(receipt.status)}</strong></div>
+      </div>
+      <section className="receipt-party">
+        <h3>Received From</h3>
+        <strong>{receipt.receivedFrom || customer.companyName || customer.name || 'â€”'}</strong>
+        <span>{[customer.address, customer.city, customer.state, customer.pincode].filter(Boolean).join(', ') || 'â€”'}</span>
+        <span>{customer.gstNumber ? `GSTIN: ${customer.gstNumber}` : 'GSTIN: â€”'} &nbsp; | &nbsp; {customer.mobile || 'â€”'} &nbsp; | &nbsp; {customer.email || 'â€”'}</span>
+      </section>
+      <div className="receipt-amount">
+        <span>Amount Received</span><strong>â‚¹ {amount(receipt.amount)}</strong><small>{amountInWords(receipt.amount)}</small>
+      </div>
+      <div className="receipt-payment-grid">
+        <div><b>Payment Mode</b><span>{label(receipt.paymentMode)}</span></div>
+        <div><b>Transaction / Cheque Reference</b><span>{receipt.transactionReference || 'â€”'}</span></div>
+        <div><b>Receiving Branch</b><span>{[branch.branchCode, branch.name, branch.city].filter(Boolean).join(' - ') || 'â€”'}</span></div>
+      </div>
+      <h3 className="receipt-section-title">LR Details</h3>
+      <table className="receipt-table"><thead><tr><th>Sr.</th><th>LR Number</th><th>Route</th><th>Packages</th><th>Weight (kg)</th></tr></thead><tbody>
+        {shipments.length ? shipments.map((shipment, index) => <tr key={shipment.id || shipment._id || shipment.lrNumber}><td>{index + 1}</td><td>{shipment.lrNumber}</td><td>{[shipment.lrDetails?.from, shipment.lrDetails?.to].filter(Boolean).join(' - ') || 'â€”'}</td><td className="number-cell">{shipment.packageCount || 0}</td><td className="number-cell">{amount(shipment.weightKg)}</td></tr>) : <tr><td colSpan="5">No LR allocation recorded.</td></tr>}
+      </tbody></table>
+      <h3 className="receipt-section-title">Invoice Allocation</h3>
+      <table className="receipt-table"><thead><tr><th>Sr.</th><th>Invoice Number</th><th>Invoice Status</th><th>Allocated Amount (â‚¹)</th></tr></thead><tbody>
+        {allocations.length ? allocations.map((allocation, index) => <tr key={allocation.invoiceId?.id || allocation.invoiceId?._id || index}><td>{index + 1}</td><td>{allocation.invoiceId?.invoiceNumber || 'â€”'}</td><td>{label(allocation.invoiceId?.status)}</td><td className="number-cell">{amount(allocation.amount)}</td></tr>) : <tr><td colSpan="4">No invoice allocation recorded.</td></tr>}
+      </tbody></table>
+      {receipt.remarks && <p className="receipt-remarks"><b>Remarks:</b> {receipt.remarks}</p>}
+      <div className="receipt-signatures"><div><span>Customer / Depositor</span><b>Signature</b></div><div><span>For CHAPLE ROADLINES PVT. LTD.</span><b>Authorized Signatory</b></div></div>
+      <footer><span>This is a computer-generated money receipt.</span><span>Original Copy</span></footer>
+    </section>
+  </div>;
+}
+
 const standardCharges = [
   ['docketCharges', 'Docket / LR Charges', 'Rs.25 - Rs.50 per LR', 'As agreed'],
   ['rovOwnerRisk', 'ROV / Owner Risk', '0.10% of declared value (Min. Rs.25)', 'Subject to LR T&C'],

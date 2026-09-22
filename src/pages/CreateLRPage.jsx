@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Copy, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { lrCreateSchema, lrPrintFieldNames, shipmentSchema } from '../schemas';
-import { shipmentsApi } from '../api/services';
+import { bookingsApi, shipmentsApi } from '../api/services';
 import { errorMessage, formErrors, get } from '../api/client';
 import { useAuth } from '../features/auth/AuthContext';
 import { PageHeader, FormField } from '../components/common/UI';
@@ -86,6 +86,8 @@ export function shipmentCreatePayload(values) {
 export default function CreateLRPage() {
   const { user } = useAuth(),
     base = `/${user.role.toLowerCase()}`;
+  const [searchParams] = useSearchParams();
+  const bookingId = searchParams.get('booking');
   const cache = useQueryClient();
   const request = useRef({ key: crypto.randomUUID(), body: null });
   const [created, setCreated] = useState(null),
@@ -125,16 +127,44 @@ export default function CreateLRPage() {
     },
   });
   const [route, setRoute] = useState({ from: nagpurOrigin, to: null });
+  const bookingQuery = useQuery({
+    queryKey: ['booking', bookingId],
+    queryFn: () => bookingsApi.detail(bookingId),
+    enabled: Boolean(bookingId),
+  });
+  const sourceBooking = bookingQuery.data?.data;
   const isCreditCustomer = selectedCustomer?.customerType === 'CREDIT';
   const signaturesLocked = user.role === 'EMPLOYEE';
   useEffect(() => {
+    if (!sourceBooking) return;
+    const values = {
+      consignorCode: sourceBooking.consignorCode,
+      senderName: sourceBooking.consignor,
+      consignorAddress: sourceBooking.consignorAddress,
+      consignorAddress2: sourceBooking.consignorAddress2,
+      consignorPincode: sourceBooking.consignorPincode,
+      consignorGstin: sourceBooking.consignorGstin,
+      receiverName: sourceBooking.consignee,
+      receiverMobile: sourceBooking.consigneeMobile,
+      consigneeAddress: sourceBooking.consigneeAddress,
+      consigneeAddress2: sourceBooking.consigneeAddress2,
+      consigneeAddress3: sourceBooking.consigneeAddress3,
+      consigneePincode: sourceBooking.consigneePincode,
+      consigneeGstin: sourceBooking.consigneeGstin,
+    };
+    for (const [name, value] of Object.entries(values)) {
+      if (value) setValue(name, value, { shouldValidate: true });
+    }
+  }, [sourceBooking, setValue]);
+  useEffect(() => {
     if (!selectedCustomer) return;
     const values = {
-      consignorCode: selectedCustomer.customerCode,
-      senderName: selectedCustomer.name,
-      consignorAddress: selectedCustomer.address || '',
-      consignorPincode: selectedCustomer.pincode || '',
-      consignorGstin: selectedCustomer.gstNumber || '',
+      consignorCode: sourceBooking?.consignorCode || selectedCustomer.customerCode,
+      senderName: sourceBooking?.consignor || selectedCustomer.name,
+      consignorAddress: sourceBooking?.consignorAddress || selectedCustomer.address || '',
+      consignorAddress2: sourceBooking?.consignorAddress2 || '',
+      consignorPincode: sourceBooking?.consignorPincode || selectedCustomer.pincode || '',
+      consignorGstin: sourceBooking?.consignorGstin || selectedCustomer.gstNumber || '',
     };
     for (const [name, value] of Object.entries(values)) setValue(name, value, { shouldValidate: true });
     setValue('paymentMode', isCreditCustomer ? 'CREDIT' : '', { shouldValidate: true });
@@ -148,7 +178,7 @@ export default function CreateLRPage() {
     setValue('to', '', { shouldValidate: false });
     clearErrors('to');
     setValue('expectedDeliveryDate', '', { shouldValidate: true });
-  }, [selectedCustomer, isCreditCustomer, setValue, clearErrors]);
+  }, [selectedCustomer, sourceBooking, isCreditCustomer, setValue, clearErrors]);
   const branches = useQuery({ queryKey: ['branches', 'route-options'], queryFn: () => get('/branches/options') });
   useEffect(() => {
     const options = branches.data?.data || [];
@@ -167,11 +197,13 @@ export default function CreateLRPage() {
     }
     try {
       const result = await shipmentsApi.create(shipmentPayload, request.current.key);
+      if (bookingId) await bookingsApi.linkLr(bookingId, idOf(result.data));
       setCreated({
         ...result.data,
         lrDetails: { ...shipmentPayload.lrDetails, ...result.data.lrDetails },
       });
       cache.invalidateQueries({ queryKey: ['shipments'] });
+      if (bookingId) cache.invalidateQueries({ queryKey: ['bookings'] });
       cache.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success('Shipment created');
     } catch (e) {
