@@ -229,7 +229,7 @@ export default function CreateLRPage() {
   useEffect(() => {
     if (!selectedCustomer) return;
     const values = {
-      consignorCode: sourceBooking?.consignorCode || selectedCustomer.customerCode,
+      consignorCode: isCreditCustomer ? selectedCustomer.customerCode : '9966',
       senderName: sourcePickup?.shipper?.companyName || sourceBooking?.consignor || selectedCustomer.name,
       consignorAddress: sourcePickup?.shipper?.address || sourceBooking?.consignorAddress || selectedCustomer.address || '',
       consignorAddress2: sourceBooking?.consignorAddress2 || '',
@@ -404,6 +404,7 @@ export default function CreateLRPage() {
               <FormField
                 key={key}
                 label={caption}
+                readOnly={key === 'consignorCode'}
                 {...register(key)}
                 error={errors[key]?.message}
               />
