@@ -52,6 +52,22 @@ export const bookingsApi = {
   linkLr: (id, shipmentId) => post(`/bookings/${id}/link-lr`, { shipmentId }),
   generateLr: (id, body) => post(`/bookings/${id}/generate-lr`, body),
 };
+export const pickupRequestsApi = {
+  ...resourceApi('pickup-requests'),
+  summary: () => get('/pickup-requests/summary'),
+  updateStatus: (id, status) =>
+    api.patch(`/pickup-requests/${id}/status`, { status }).then((response) => checkEnvelope(response.data)),
+  assignAgent: (id, body) =>
+    api.patch(`/pickup-requests/${id}/assign-agent`, body).then((response) => checkEnvelope(response.data)),
+};
+export const pickupRunSheetsApi = {
+  ...resourceApi('pickup-run-sheets'),
+  options: () => get('/pickup-run-sheets/options'),
+  addPickup: (id, body) => post(`/pickup-run-sheets/${id}/pickups`, body),
+  review: (id, body) => api.patch(`/pickup-run-sheets/${id}/approval`, body).then((response) => checkEnvelope(response.data)),
+  dispatch: (id) => post(`/pickup-run-sheets/${id}/dispatch`, {}),
+};
+export const agentLrsApi = { list: (params) => get('/agent-lrs', params) };
 export const payslipsApi = resourceApi('payslips');
 export const onboardingApi = {
   ...resourceApi('employee-onboarding'),

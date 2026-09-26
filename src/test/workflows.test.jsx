@@ -121,9 +121,11 @@ describe('Form validation', () => {
         .email,
     ).toBeUndefined());
   it('nests LR print fields in the documented shipment contract', () => {
+    const pickupRequestId = '507f1f77bcf86cd799439014';
     const values = lrCreateSchema.parse({
       goods: [{ description: "Boxes", quantity: 1, actualWeight: 5, dimensionUnit: "CM" }],
       ...valid,
+      pickupRequestId,
       from: 'Nagpur',
       to: 'Amravati',
       consignorCode: 'TEST-001',
@@ -136,6 +138,7 @@ describe('Form validation', () => {
     });
     expect(shipmentCreatePayload(values)).toMatchObject({
       ...valid,
+      pickupRequestId,
       lrDetails: {
         consignorCode: 'TEST-001',
         invoiceNo: 'INV-1001',
@@ -322,6 +325,7 @@ describe('Manager workspace', () => {
   it('restores manager sessions and renders manager-only navigation', async () => {
     mount(<AppLayout />, { user: manager, path: '/manager/dashboard' });
     expect(await screen.findByText('Manager workspace')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Masters' }));
     expect(screen.getByRole('link', { name: 'Employees' })).toHaveAttribute(
       'href',
       '/manager/employees',

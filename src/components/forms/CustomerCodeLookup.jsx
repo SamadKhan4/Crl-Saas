@@ -5,7 +5,7 @@ import { get, errorMessage } from '../../api/client';
 import { useDebounce } from '../../hooks/useList';
 import { idOf } from '../../lib/workflow';
 
-export default function CustomerCodeLookup({ value, onChange, onCustomer }) {
+export default function CustomerCodeLookup({ value, onChange, onCustomer, initialCustomer }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [open, setOpen] = useState(false);
@@ -26,6 +26,14 @@ export default function CustomerCodeLookup({ value, onChange, onCustomer }) {
       setOpen(false);
     }
   }, [selected, value]);
+
+  useEffect(() => {
+    if (!initialCustomer || selected || String(value || '') !== String(idOf(initialCustomer))) return;
+    setSelected(initialCustomer);
+    setSearch(`${initialCustomer.customerCode} · ${initialCustomer.name}`);
+    setOpen(false);
+    onCustomer(initialCustomer);
+  }, [initialCustomer, onCustomer, selected, value]);
 
   function change(event) {
     const next = event.target.value.slice(0, 100);

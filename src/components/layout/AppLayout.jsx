@@ -53,10 +53,12 @@ export function Brand() {
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const collapsed = useSelector((state) => state.workspace.sidebarCollapsed);
+  const operationStage = useSelector((state) => state.workspace.operationStage);
   const dispatch = useDispatch();
   const [mobile, setMobile] = useState(false),
     [busy, setBusy] = useState(false),
-    [hubMenuOpen, setHubMenuOpen] = useState(false);
+    [hubMenuOpen, setHubMenuOpen] = useState(false),
+    [mastersMenuOpen, setMastersMenuOpen] = useState(false);
   const location = useLocation();
   const sidebarRef = useRef(null);
   useEffect(() => {
@@ -102,10 +104,70 @@ export default function AppLayout() {
     ['pickups', 'Pickup / First Mile', PackageCheck],
     ['handling', 'Loading / Unloading', HandCoins],
   ];
+  const masterItems = admin || manager
+    ? [
+        ['customers', 'Customer Master', Users],
+        ['company', 'Company Master', Building2],
+        ['locations', 'Location Master', MapPinned],
+        ['routes', 'Route Master', Route],
+        ['items', 'Item / Goods Master', Package],
+        ['fleet', 'Vehicle / Fleet', Truck],
+        ['drivers', 'Driver Master', Users],
+        ...(admin
+          ? [
+              ['vendors', 'Vendor Master', Truck],
+              ['branches', 'Branch Master', Building2],
+              ['managers', 'Managers', Users],
+              ['hr-users', 'HR Users', Users],
+              ['permissions', 'User Permissions', Settings],
+              ['employees', 'Employees', Users],
+            ]
+          : [['employees', 'Employees', Users]]),
+        ...(manager ? [['onboarding', 'Onboarding Approval', PackageCheck]] : []),
+      ]
+    : [];
+  const operationItems =
+    operationStage === 'FM'
+      ? [
+          ['pickup-requests', 'Pickup Request', PackageCheck],
+          ['agent-alignment', 'Agent Alignment', Users],
+          ['shipments/create', 'LR Entry', Plus],
+          ['pickup-run-sheets', 'PRS Creation', ClipboardList],
+          ['agent-lrs', 'Agent LR (Auto Reflecting)', Package],
+        ]
+      : operationStage === 'MM'
+        ? [
+            [
+              'hub-management',
+              'Hub Management',
+              Warehouse,
+              false,
+              hubItems.filter(([path]) => path !== 'pickups'),
+            ],
+            ...(admin ? [['package-barcodes', 'Box Barcode / Scan', PackageCheck, true]] : []),
+            ['manifests', 'Manifest', ClipboardList],
+            ['ptl-operations', 'PTL Operations', Package],
+            ['ftl-operations', 'FTL Operations', Truck],
+            ['trips', 'Trips & Dispatch', Route],
+          ]
+        : operationStage === 'LM'
+          ? [
+              ...(manager ? [['receive', 'Receive Parcel', PackageCheck]] : []),
+              ['drs', 'Delivery Run Sheet', MapPinned],
+              ...(admin || manager ? [['drs-closure', 'DRS Closure', FileCheck2]] : []),
+              ['documents', 'POD & Documents', Files],
+            ]
+          : [];
   const hubMenuActive = hubItems.some(([path]) => location.pathname === `${base}/${path}`);
+  const mastersMenuActive = masterItems.some(
+    ([path]) => location.pathname === `${base}/${path}`,
+  );
   useEffect(() => {
     if (hubMenuActive) setHubMenuOpen(true);
   }, [hubMenuActive]);
+  useEffect(() => {
+    if (mastersMenuActive) setMastersMenuOpen(true);
+  }, [mastersMenuActive]);
   const navGroups = (vendor ? [{ label: 'Vendor Workspace', items: [['portal', 'Vendor Portal', Truck], ['settings', 'Account Settings', Settings]] }] : hr ? [
     {
       label: 'Human Resources',
@@ -119,47 +181,13 @@ export default function AppLayout() {
     { label: 'Overview', items: admin || manager ? [['dashboard', 'Dashboard', LayoutDashboard]] : [] },
     {
       label: 'Operations',
-      items: [
-        ['bookings', 'Booking / Order', ClipboardList],
-        ['shipments/create', 'Create LR', Plus],
-        ['shipments', 'Booking Register', Package],
-        ['hub-management', 'Hub Management', Warehouse, false, hubItems],
-        ...(admin ? [['package-barcodes', 'Box Barcode / Scan', PackageCheck, true]] : []),
-        ['manifests', 'Manifest', ClipboardList],
-        ['ptl-operations', 'PTL Operations', Package],
-        ['ftl-operations', 'FTL Operations', Truck],
-        ['trips', 'Trips & Dispatch', Route],
-        ...(manager ? [['receive', 'Receive Parcel', PackageCheck]] : []),
-        ['drs', 'Delivery Run Sheet', MapPinned],
-        ...(admin || manager ? [['drs-closure', 'DRS Closure', FileCheck2]] : []),
-        ['documents', 'POD & Documents', Files],
-      ],
+      items: operationItems,
     },
     {
       label: 'Masters',
-      items:
-        admin || manager
-          ? [
-              ['customers', 'Customer Master', Users],
-              ['company', 'Company Master', Building2],
-              ['locations', 'Location Master', MapPinned],
-              ['routes', 'Route Master', Route],
-              ['items', 'Item / Goods Master', Package],
-              ['fleet', 'Vehicle / Fleet', Truck],
-              ['drivers', 'Driver Master', Users],
-              ...(admin
-                ? [
-                    ['vendors', 'Vendor Master', Truck],
-                    ['branches', 'Branch Master', Building2],
-                    ['managers', 'Managers', Users],
-                    ['hr-users', 'HR Users', Users],
-                    ['permissions', 'User Permissions', Settings],
-                    ['employees', 'Employees', Users],
-                  ]
-                : [['employees', 'Employees', Users]]),
-              ...(manager ? [['onboarding', 'Onboarding Approval', PackageCheck]] : []),
-            ]
-          : [],
+      items: masterItems.length
+        ? [['masters', 'Masters', Building2, false, masterItems]]
+        : [],
     },
     {
       label: 'Commercial',
@@ -255,22 +283,26 @@ export default function AppLayout() {
                 <div className="nav-group-links">
                   {group.items.map(([path, name, Icon, disabled, children]) => {
                     if (children) {
+                      const isMastersMenu = path === 'masters';
+                      const menuActive = isMastersMenu ? mastersMenuActive : hubMenuActive;
+                      const menuOpen = isMastersMenu ? mastersMenuOpen : hubMenuOpen;
                       return (
-                        <div className={`nav-dropdown ${hubMenuActive ? 'is-active' : ''}`} key={path}>
+                        <div className={`nav-dropdown ${menuActive ? 'is-active' : ''}`} key={path}>
                           <button
                             type="button"
                             className="nav-dropdown-toggle"
-                            aria-expanded={hubMenuOpen}
+                            aria-expanded={menuOpen}
                             onClick={() => {
                               if (collapsed) dispatch(expandSidebar());
-                              setHubMenuOpen((open) => !open);
+                              if (isMastersMenu) setMastersMenuOpen((open) => !open);
+                              else setHubMenuOpen((open) => !open);
                             }}
                           >
                             <Icon size={19} />
                             <span>{name}</span>
-                            <ChevronDown className={hubMenuOpen ? 'is-open' : ''} size={16} />
+                            <ChevronDown className={menuOpen ? 'is-open' : ''} size={16} />
                           </button>
-                          {hubMenuOpen && (
+                          {menuOpen && (
                             <div className="nav-submenu">
                               {children.map(([childPath, childName, ChildIcon]) => (
                                 <NavLink

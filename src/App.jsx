@@ -34,6 +34,11 @@ const RateEngine = lazy(() => import('./pages/RateEnginePage'));
 const BarcodeOperations = lazy(() => import('./pages/BarcodeOperationsPage'));
 const Profitability = lazy(() => import('./pages/ProfitabilityPage'));
 const Bookings = lazy(() => import('./pages/BookingsPage'));
+const PickupRequests = lazy(() => import('./pages/PickupRequestsPage'));
+const AgentAlignment = lazy(() => import('./pages/AgentAlignmentPage'));
+const PickupRunSheets = lazy(() => import('./pages/PickupRunSheetsPage'));
+const PickupRunSheetDetail = lazy(() => import('./pages/PickupRunSheetDetailPage'));
+const AgentLrs = lazy(() => import('./pages/AgentLrsPage'));
 const VendorPortal = lazy(() => import('./pages/VendorPortalPage'));
 const NotificationOutbox = lazy(() => import('./pages/NotificationOutboxPage'));
 const Permissions = lazy(() => import('./pages/PermissionsPage'));
@@ -56,6 +61,11 @@ export default function App() {
                 {role !== 'EMPLOYEE' && <Route path="dashboard" element={<Dashboard />} />}
                 <Route path="shipments" element={<Shipments />} />
                 <Route path="bookings" element={<Bookings />} />
+                <Route path="pickup-requests" element={<PickupRequests />} />
+                <Route path="agent-alignment" element={<AgentAlignment />} />
+                <Route path="pickup-run-sheets" element={<PickupRunSheets />} />
+                <Route path="pickup-run-sheets/:id" element={<PickupRunSheetDetail />} />
+                <Route path="agent-lrs" element={<AgentLrs />} />
                 <Route path="segregations" element={<TmsModule />} />
                 <Route path="shipments/create" element={<CreateLR />} />
                 <Route path="shipments/:id" element={<ShipmentDetail />} />

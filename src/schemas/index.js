@@ -129,7 +129,7 @@ export const shipmentFields = z.object({
 const manualLrNumber = z.string().trim().toUpperCase().min(1, 'Enter LR number').max(50)
   .regex(/^[A-Z0-9][A-Z0-9/._-]*$/, 'Use letters, numbers, /, ., _ or -');
 export const shipmentSchema = shipmentFields
-  .extend({ lrNumber: manualLrNumber, customerId: objectId, originBranchId: objectId, destinationBranchId: objectId });
+  .extend({ lrNumber: manualLrNumber, pickupRequestId: objectId.optional(), customerId: objectId, originBranchId: objectId, destinationBranchId: objectId });
 const lrPrintText = optional(z.string().trim().max(250));
 const lrPrintDate = optional(
   z.string().refine((value) => !Number.isNaN(Date.parse(value)), 'Enter a valid date'),
@@ -228,7 +228,7 @@ const lrPrintFields = {
 };
 export const lrPrintFieldNames = Object.freeze(Object.keys(lrPrintFields));
 export const lrCreateSchema = shipmentFields
-  .extend({ lrNumber: manualLrNumber, customerId: objectId, originBranchId: objectId, destinationBranchId: objectId, ...lrPrintFields, from: text(2, 250), to: text(2, 250), goods: goodsList });
+  .extend({ lrNumber: manualLrNumber, pickupRequestId: objectId.optional(), customerId: objectId, originBranchId: objectId, destinationBranchId: objectId, ...lrPrintFields, from: text(2, 250), to: text(2, 250), goods: goodsList });
 export const passwordSchema = z.object({
   currentPassword: password(8),
   newPassword: password(12),

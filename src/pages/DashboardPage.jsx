@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   Package,
   Truck,
@@ -35,6 +36,7 @@ import {
   EmptyState,
 } from '../components/common/UI';
 import ShipmentTable from '../components/shipment/ShipmentTable';
+import { selectOperationStage } from '../store';
 const colors = [
   '#8b9aa9',
   '#569be2',
@@ -106,6 +108,13 @@ export default function DashboardPage() {
   const { user } = useAuth(),
     admin = user.role === 'ADMIN',
     base = `/${user.role.toLowerCase()}`;
+  const dispatch = useDispatch();
+  const operationStage = useSelector((state) => state.workspace.operationStage);
+  const operationStages = [
+    ['FM', 'First Mile', 'Pickup request, agent, LR and PRS', PackageCheck],
+    ['MM', 'Middle Mile', 'Hub, manifest and transit movement', Truck],
+    ['LM', 'Last Mile', 'Receiving, delivery and POD', CheckCheck],
+  ];
   const summary = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.summary });
   const recent = useQuery({
     queryKey: ['shipments', { limit: 6 }],
@@ -153,6 +162,33 @@ export default function DashboardPage() {
           <Plus size={18} /> Create new LR
         </Link>
       </PageHeader>
+      <section className="mile-selector" aria-labelledby="mile-selector-title">
+        <div className="mile-selector-heading">
+          <span className="eyebrow">OPERATIONS WORKSPACE</span>
+          <h2 id="mile-selector-title">Choose your operation</h2>
+          <p>Select a mile to show only its operations in the sidebar.</p>
+        </div>
+        <div className="mile-selector-actions">
+          {operationStages.map(([code, name, description, Icon]) => (
+            <button
+              key={code}
+              type="button"
+              className={`mile-selector-button ${operationStage === code ? 'is-active' : ''}`}
+              aria-pressed={operationStage === code}
+              onClick={() => dispatch(selectOperationStage(code))}
+            >
+              <span className="mile-selector-icon">
+                <Icon size={22} />
+              </span>
+              <span>
+                <strong>{`${name} (${code})`}</strong>
+                <em>{description}</em>
+              </span>
+              <ArrowUpRight size={18} />
+            </button>
+          ))}
+        </div>
+      </section>
       <div className="overview-banner">
         <div>
           <span className="eyebrow">

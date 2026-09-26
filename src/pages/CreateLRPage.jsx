@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Copy, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { lrCreateSchema, lrPrintFieldNames, shipmentSchema } from '../schemas';
-import { bookingsApi, shipmentsApi } from '../api/services';
+import { bookingsApi, pickupRequestsApi, shipmentsApi } from '../api/services';
 import { errorMessage, formErrors, get } from '../api/client';
 import { useAuth } from '../features/auth/AuthContext';
 import { PageHeader, FormField } from '../components/common/UI';
@@ -14,10 +14,9 @@ import CustomerCodeLookup from '../components/forms/CustomerCodeLookup';
 import GoodsFields, { emptyGoods } from '../components/forms/GoodsFields';
 import ChargeTotals from '../components/forms/ChargeTotals';
 import DestinationLookup from '../components/forms/DestinationLookup';
-import CreditDestinationSelect from '../components/forms/CreditDestinationSelect';
 import { calculateCharges } from '../lib/charges';
 import { calculateGoods } from '../lib/goods';
-import { addTransitDays } from '../data/serviceLocations';
+import { addTransitDays, destinationFromPincode } from '../data/serviceLocations';
 import { idOf } from '../lib/workflow';
 import { copyText } from '../lib/clipboard';
 import { LrPdfDownload } from '../Template/LrPdf';
@@ -88,6 +87,7 @@ export default function CreateLRPage() {
     base = `/${user.role.toLowerCase()}`;
   const [searchParams] = useSearchParams();
   const bookingId = searchParams.get('booking');
+  const pickupRequestId = searchParams.get('pickupRequest');
   const cache = useQueryClient();
   const request = useRef({ key: crypto.randomUUID(), body: null });
   const [created, setCreated] = useState(null),
@@ -107,6 +107,7 @@ export default function CreateLRPage() {
     resolver: zodResolver(lrCreateSchema),
     defaultValues: {
       originBranchId: user.role !== 'ADMIN' ? idOf(user.branchId) : '',
+      pickupRequestId: pickupRequestId || undefined,
       packageCount: 1,
       lrNumber: '',
       bookingDate: today(),
@@ -127,14 +128,39 @@ export default function CreateLRPage() {
     },
   });
   const [route, setRoute] = useState({ from: nagpurOrigin, to: null });
+  const consigneePincode = useWatch({ control, name: 'consigneePincode' });
   const bookingQuery = useQuery({
     queryKey: ['booking', bookingId],
     queryFn: () => bookingsApi.detail(bookingId),
     enabled: Boolean(bookingId),
   });
   const sourceBooking = bookingQuery.data?.data;
+  const pickupRequestQuery = useQuery({
+    queryKey: ['pickup-request', pickupRequestId],
+    queryFn: () => pickupRequestsApi.detail(pickupRequestId),
+    enabled: Boolean(pickupRequestId),
+  });
+  const sourcePickup = pickupRequestQuery.data?.data;
   const isCreditCustomer = selectedCustomer?.customerType === 'CREDIT';
   const signaturesLocked = user.role === 'EMPLOYEE';
+  const destinationQuery = useQuery({
+    queryKey: ['destination-by-pincode', consigneePincode],
+    queryFn: () => get('/destinations', { search: consigneePincode }),
+    enabled: /^\d{6}$/.test(consigneePincode || ''),
+    staleTime: 86400000,
+  });
+  const selectDestination = useCallback((place) => {
+    setRoute((current) => ({ ...current, to: place }));
+    setValue('to', place?.name || '', { shouldValidate: true });
+    if (isCreditCustomer) {
+      setValue('freightBasis', 'PER_KG', { shouldValidate: true });
+      setValue('freightRate', place?.ratePerKg || 0, { shouldValidate: true });
+    }
+    setValue('expectedDeliveryDate', place?.transitDays ? addTransitDays(getValues('bookingDate'), place.transitDays) : '', { shouldValidate: true });
+  }, [getValues, isCreditCustomer, setValue]);
+  useEffect(() => {
+    if (route.to?.pincode && route.to.pincode !== consigneePincode) selectDestination(null);
+  }, [consigneePincode, route.to?.pincode, selectDestination]);
   useEffect(() => {
     if (!sourceBooking) return;
     const values = {
@@ -157,14 +183,58 @@ export default function CreateLRPage() {
     }
   }, [sourceBooking, setValue]);
   useEffect(() => {
+    if (!sourcePickup) return;
+    const pickupId = idOf(sourcePickup);
+    const customer = sourcePickup.customerId;
+    const values = {
+      pickupRequestId: pickupId,
+      originBranchId: idOf(sourcePickup.branchId),
+      customerId: idOf(customer),
+      senderName: sourcePickup.shipper?.companyName,
+      consignorAddress: sourcePickup.shipper?.address,
+      consignorPincode: sourcePickup.shipper?.pincode,
+      consignorGstin: sourcePickup.shipper?.gstin,
+      receiverName: sourcePickup.recipient?.companyName,
+      consigneeAddress: sourcePickup.recipient?.address,
+      consigneePincode: sourcePickup.recipient?.pincode,
+      consigneeGstin: sourcePickup.recipient?.gstin,
+      contactNo: sourcePickup.shipper?.contactMobile,
+      from: sourcePickup.shipper?.city,
+      to: sourcePickup.recipient?.city,
+      bookingBranch: sourcePickup.branchId?.name,
+      customerReference: sourcePickup.pickupRequestNumber,
+      description: `Goods against ${sourcePickup.pickupRequestNumber}`,
+      goods: [{
+        ...emptyGoods(),
+        description: `Goods against ${sourcePickup.pickupRequestNumber}`,
+        packageType: 'BOX',
+        quantity: sourcePickup.totalBoxes,
+        actualWeight: sourcePickup.totalWeightKg,
+      }],
+    };
+    for (const [name, value] of Object.entries(values)) {
+      if (value !== undefined && value !== '') setValue(name, value, { shouldValidate: true });
+    }
+    if (customer) setSelectedCustomer(customer);
+    setRoute({
+      from: { id: `pickup-${pickupId}-from`, name: sourcePickup.shipper.city, district: sourcePickup.shipper.city },
+      to: {
+        id: `pickup-${pickupId}-to`,
+        name: sourcePickup.recipient.city,
+        district: sourcePickup.recipient.city,
+        pincode: sourcePickup.recipient.pincode,
+      },
+    });
+  }, [sourcePickup, setValue]);
+  useEffect(() => {
     if (!selectedCustomer) return;
     const values = {
       consignorCode: sourceBooking?.consignorCode || selectedCustomer.customerCode,
-      senderName: sourceBooking?.consignor || selectedCustomer.name,
-      consignorAddress: sourceBooking?.consignorAddress || selectedCustomer.address || '',
+      senderName: sourcePickup?.shipper?.companyName || sourceBooking?.consignor || selectedCustomer.name,
+      consignorAddress: sourcePickup?.shipper?.address || sourceBooking?.consignorAddress || selectedCustomer.address || '',
       consignorAddress2: sourceBooking?.consignorAddress2 || '',
-      consignorPincode: sourceBooking?.consignorPincode || selectedCustomer.pincode || '',
-      consignorGstin: sourceBooking?.consignorGstin || selectedCustomer.gstNumber || '',
+      consignorPincode: sourcePickup?.shipper?.pincode || sourceBooking?.consignorPincode || selectedCustomer.pincode || '',
+      consignorGstin: sourcePickup?.shipper?.gstin || sourceBooking?.consignorGstin || selectedCustomer.gstNumber || '',
     };
     for (const [name, value] of Object.entries(values)) setValue(name, value, { shouldValidate: true });
     setValue('paymentMode', isCreditCustomer ? 'CREDIT' : '', { shouldValidate: true });
@@ -174,11 +244,20 @@ export default function CreateLRPage() {
       for (const name of customerChargeFieldNames)
         setValue(name, Number(selectedCustomer.creditCharges?.[name] || 0), { shouldValidate: true });
     }
-    setRoute((current) => ({ ...current, to: null }));
-    setValue('to', '', { shouldValidate: false });
-    clearErrors('to');
-    setValue('expectedDeliveryDate', '', { shouldValidate: true });
-  }, [selectedCustomer, sourceBooking, isCreditCustomer, setValue, clearErrors]);
+    if (!sourcePickup) {
+      setRoute((current) => ({ ...current, to: null }));
+      setValue('to', '', { shouldValidate: false });
+      clearErrors('to');
+      setValue('expectedDeliveryDate', '', { shouldValidate: true });
+    }
+  }, [selectedCustomer, sourceBooking, sourcePickup, isCreditCustomer, setValue, clearErrors]);
+  useEffect(() => {
+    const destinations = (destinationQuery.data?.data || []).map((place) =>
+      destinationFromPincode(place, isCreditCustomer ? selectedCustomer?.creditRateCard : []),
+    );
+    const destination = destinations.find((place) => place.serviceLevel) || destinations[0];
+    if (destination) selectDestination(destination);
+  }, [destinationQuery.data, isCreditCustomer, selectedCustomer, selectDestination]);
   const branches = useQuery({ queryKey: ['branches', 'route-options'], queryFn: () => get('/branches/options') });
   useEffect(() => {
     const options = branches.data?.data || [];
@@ -203,6 +282,7 @@ export default function CreateLRPage() {
         lrDetails: { ...shipmentPayload.lrDetails, ...result.data.lrDetails },
       });
       cache.invalidateQueries({ queryKey: ['shipments'] });
+      if (pickupRequestId) cache.invalidateQueries({ queryKey: ['pickup-requests'] });
       if (bookingId) cache.invalidateQueries({ queryKey: ['bookings'] });
       cache.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success('Shipment created');
@@ -249,6 +329,14 @@ export default function CreateLRPage() {
         </div>
       </section>
     );
+  if (pickupRequestId && pickupRequestQuery.isPending)
+    return <section className="panel"><p>Loading pickup request details…</p></section>;
+  if (pickupRequestId && pickupRequestQuery.isError)
+    return <section className="panel"><p className="field-error" role="alert">{errorMessage(pickupRequestQuery.error)}</p><button type="button" className="btn secondary" onClick={() => pickupRequestQuery.refetch()}>Retry</button></section>;
+  if (sourcePickup?.shipmentId)
+    return <section className="panel"><h2>LR already created</h2><p>{sourcePickup.pickupRequestNumber} is linked to LR {sourcePickup.shipmentId.lrNumber}.</p><Link className="btn" to={`${base}/shipments/${idOf(sourcePickup.shipmentId)}`}>View LR</Link></section>;
+  if (sourcePickup && !sourcePickup.agentAssignment)
+    return <section className="panel"><h2>Agent alignment required</h2><p>Assign a vehicle and driver to {sourcePickup.pickupRequestNumber} before creating its LR.</p><Link className="btn" to={`${base}/agent-alignment`}>Open Agent Alignment</Link></section>;
   return (
     <>
       <PageHeader
@@ -260,6 +348,14 @@ export default function CreateLRPage() {
         </Link>
       </PageHeader>
       <form onSubmit={handleSubmit(submit)} className="lr-form">
+        <input type="hidden" {...register('pickupRequestId')} />
+        {sourcePickup && (
+          <section className="panel">
+            <strong>{sourcePickup.pickupRequestNumber}</strong>
+            <p>{sourcePickup.shipper.companyName} → {sourcePickup.recipient.companyName} · {sourcePickup.totalBoxes} boxes · {sourcePickup.totalWeightKg} kg</p>
+            <small>Agent: {sourcePickup.agentAssignment.agentName} · Vehicle: {sourcePickup.agentAssignment.vehicleNumber} · Driver: {sourcePickup.agentAssignment.driverName}</small>
+          </section>
+        )}
         <section className="panel form-section">
           <div className="section-title">
             <span>01</span>
@@ -277,7 +373,7 @@ export default function CreateLRPage() {
           <Controller
             control={control}
             name="customerId"
-            render={({ field }) => <CustomerCodeLookup {...field} onCustomer={setSelectedCustomer} />}
+            render={({ field }) => <CustomerCodeLookup {...field} initialCustomer={sourcePickup?.customerId} onCustomer={setSelectedCustomer} />}
           />
           {errors.customerId && <small className="field-error">{errors.customerId.message}</small>}
         </section>
@@ -319,39 +415,14 @@ export default function CreateLRPage() {
             <span>03</span>
             <div>
               <h2>Route & shipment</h2>
-              <p>From is fixed at Nagpur. Select To from CRL service locations.</p>
+              <p>{sourcePickup ? 'Route is copied from the pickup request.' : 'From is fixed at Nagpur. To is auto-filled from the consignee PIN.'}</p>
             </div>
           </div>
           <div className="form-grid">
             <FormField label="From" readOnly {...register('from')} error={errors.from?.message} />
-            {isCreditCustomer ? (
-              <CreditDestinationSelect
-                rates={selectedCustomer.creditRateCard}
-                value={route.to}
-                error={errors.to ? 'Select a contracted location' : ''}
-                onChange={(place) => {
-                  setRoute((current) => ({ ...current, to: place }));
-                  setValue('to', place?.name || '', { shouldValidate: true });
-                  setValue('freightBasis', 'PER_KG', { shouldValidate: true });
-                  setValue('freightRate', place?.ratePerKg || 0, { shouldValidate: true });
-                  setValue(
-                    'expectedDeliveryDate',
-                    place ? addTransitDays(getValues('bookingDate'), place.transitDays) : '',
-                    { shouldValidate: true },
-                  );
-                }}
-              />
-            ) : (
-              <DestinationLookup label="To" value={route.to} error={errors.to?.message} onChange={(place) => {
-                setRoute((current) => ({ ...current, to: place }));
-                setValue('to', place?.name || '', { shouldValidate: true });
-                setValue(
-                  'expectedDeliveryDate',
-                  place ? addTransitDays(getValues('bookingDate'), place.transitDays) : '',
-                  { shouldValidate: true },
-                );
-              }} />
-            )}
+            <DestinationLookup label="To" value={route.to} rates={isCreditCustomer ? selectedCustomer.creditRateCard : undefined} error={errors.to?.message} onChange={selectDestination} />
+            {destinationQuery.isFetching && <small>Finding destination for this PIN...</small>}
+            {destinationQuery.isError && <div role="alert"><small className="field-error">{errorMessage(destinationQuery.error)}</small> <button type="button" className="table-action" onClick={() => destinationQuery.refetch()}>Retry</button></div>}
             <FormField
               label="Package count"
               readOnly
@@ -424,9 +495,9 @@ export default function CreateLRPage() {
           {selectedCustomer && !isCreditCustomer && <PricingFields register={register} errors={errors} />}
           {isCreditCustomer && (
             <div className="credit-pricing-summary">
-              <div><small>Contracted location</small><strong>{route.to?.name || 'Select destination'}</strong></div>
-              <div><small>Freight rate</small><strong>{route.to ? `₹${Number(route.to.ratePerKg).toLocaleString('en-IN')} / kg` : '—'}</strong></div>
-              <div><small>Transit time</small><strong>{route.to ? `${route.to.transitDays} ${route.to.transitDays === 1 ? 'day' : 'days'}` : '—'}</strong></div>
+              <div><small>Destination</small><strong>{route.to?.name || 'Enter consignee PIN'}</strong></div>
+              <div><small>Freight rate</small><strong>{route.to?.hasConfiguredRate ? `₹${Number(route.to.ratePerKg).toLocaleString('en-IN')} / kg` : 'Not configured'}</strong></div>
+              <div><small>Transit time</small><strong>{route.to?.transitDays ? `${route.to.transitDays} ${route.to.transitDays === 1 ? 'day' : 'days'}` : '—'}</strong></div>
               <p>Freight and additional charges are locked from Customer Master. Chargeable weight uses the higher of actual and volumetric weight.</p>
             </div>
           )}

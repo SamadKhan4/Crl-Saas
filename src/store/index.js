@@ -21,7 +21,7 @@ const sessionSlice = createSlice({
 });
 const workspaceSlice = createSlice({
   name: 'workspace',
-  initialState: { sidebarCollapsed: false },
+  initialState: { sidebarCollapsed: false, operationStage: null },
   reducers: {
     toggleSidebar(state) {
       state.sidebarCollapsed = !state.sidebarCollapsed;
@@ -29,14 +29,20 @@ const workspaceSlice = createSlice({
     expandSidebar(state) {
       state.sidebarCollapsed = false;
     },
+    selectOperationStage(state, action) {
+      state.operationStage = ['FM', 'MM', 'LM'].includes(action.payload) ? action.payload : null;
+    },
   },
   extraReducers: (builder) =>
     builder.addCase(sessionSlice.actions.sessionChanged, (state, action) => {
-      if (!action.payload) state.sidebarCollapsed = false;
+      if (!action.payload) {
+        state.sidebarCollapsed = false;
+        state.operationStage = null;
+      }
     }),
 });
 export const { sessionChanged, sessionReady } = sessionSlice.actions;
-export const { toggleSidebar, expandSidebar } = workspaceSlice.actions;
+export const { toggleSidebar, expandSidebar, selectOperationStage } = workspaceSlice.actions;
 // Access tokens remain in the API client's memory; credentials are never stored in Redux.
 export const createAppStore = () =>
   configureStore({

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { createAppStore, sessionChanged, sessionReady, toggleSidebar } from '../store';
+import {
+  createAppStore,
+  selectOperationStage,
+  sessionChanged,
+  sessionReady,
+  toggleSidebar,
+} from '../store';
 describe('Redux session and workspace state', () => {
   it('stores only the public user profile and clears workspace state on logout', () => {
     const store = createAppStore();
@@ -15,12 +21,15 @@ describe('Redux session and workspace state', () => {
     );
     store.dispatch(sessionReady());
     store.dispatch(toggleSidebar());
+    store.dispatch(selectOperationStage('MM'));
     expect(store.getState().session.loading).toBe(false);
     expect(JSON.stringify(store.getState())).not.toContain('secret');
     expect(store.getState().workspace.sidebarCollapsed).toBe(true);
+    expect(store.getState().workspace.operationStage).toBe('MM');
     store.dispatch(sessionChanged(null));
     expect(store.getState().session.user).toBeNull();
     expect(store.getState().workspace.sidebarCollapsed).toBe(false);
+    expect(store.getState().workspace.operationStage).toBeNull();
   });
   it('isolates stores between app mounts', () => {
     const first = createAppStore(),

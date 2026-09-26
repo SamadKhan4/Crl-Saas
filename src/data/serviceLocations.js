@@ -52,6 +52,30 @@ export const serviceLocations = [
 
 export const serviceLocationNames = serviceLocations.map(({ location }) => location);
 
+const normalizeLocation = (value = '') =>
+  String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+export const destinationFromPincode = (place, rates = []) => {
+  if (!place) return null;
+  const placeNames = [place.name, place.district].map(normalizeLocation).filter(Boolean);
+  const service = serviceLocations.find(({ location }) => {
+    const normalized = normalizeLocation(location);
+    return placeNames.some((name) => name === normalized || name.startsWith(`${normalized} `) || name.includes(` ${normalized} `));
+  });
+  const name = service?.location || place.district || place.name;
+  const rate = rates.find(({ location }) => normalizeLocation(location) === normalizeLocation(name));
+  return {
+    id: `pincode-${place.pincode}-${normalizeLocation(name).replace(/\s+/g, '-')}`,
+    name,
+    district: service?.location || place.district || name,
+    pincode: place.pincode,
+    transitDays: service?.transitDays,
+    serviceLevel: service?.serviceLevel,
+    ratePerKg: rate ? Number(rate.ratePerKg) : undefined,
+    hasConfiguredRate: Boolean(rate),
+  };
+};
+
 export const addTransitDays = (dateValue, transitDays) => {
   const date = dateValue ? new Date(`${dateValue}T00:00:00`) : new Date();
   date.setDate(date.getDate() + Number(transitDays || 0));
