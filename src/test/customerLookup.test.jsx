@@ -37,3 +37,19 @@ it('searches customers by text, shows at most three choices and selects one', as
   expect(screen.getByRole('combobox')).toHaveValue('10001 · Customer 1');
   expect(screen.getByText('CREDIT')).toBeInTheDocument();
 });
+
+it('selects the reserved 9966 retail customer without creating a customer master record', async () => {
+  function Form() {
+    const [value, setValue] = useState('');
+    const [customer, setCustomer] = useState(null);
+    return <>
+      <CustomerCodeLookup value={value} onChange={setValue} onCustomer={setCustomer} />
+      <span data-testid="value">{value}</span>
+      <span data-testid="code">{customer?.customerCode}</span>
+    </>;
+  }
+  render(<QueryClientProvider client={new QueryClient()}><Form /></QueryClientProvider>);
+  await userEvent.click(screen.getByRole('button', { name: /9966 others \/ retail customer/i }));
+  expect(screen.getByTestId('value')).toHaveTextContent('RETAIL');
+  expect(screen.getByTestId('code')).toHaveTextContent('9966');
+});

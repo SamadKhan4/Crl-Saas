@@ -44,7 +44,7 @@ export default function PickupRequestsPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');
-  const [serviceType, setServiceType] = useState('FTL');
+  const [serviceType, setServiceType] = useState('');
   const list = useQuery({
     queryKey: ['pickup-requests', page, status],
     queryFn: () => pickupRequestsApi.list({ page, limit: 20, ...(status && { status }) }),
@@ -61,7 +61,7 @@ export default function PickupRequestsPage() {
     onSuccess: ({ data }) => {
       toast.success(`Pickup request ${data.pickupRequestNumber} generated`);
       formRef.current?.reset();
-      setServiceType('FTL');
+      setServiceType('');
       refresh();
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -71,15 +71,17 @@ export default function PickupRequestsPage() {
     const form = new FormData(event.currentTarget);
     const party = (prefix) =>
       Object.fromEntries(
-        partyFields[prefix].map(([name]) => [name, fieldValue(form, `${prefix}.${name}`)]),
+        partyFields[prefix]
+          .map(([name]) => [name, fieldValue(form, `${prefix}.${name}`)])
+          .filter(([, value]) => value),
       );
     create.mutate({
       shipper: party('shipper'),
       recipient: party('recipient'),
-      serviceType,
-      ...(serviceType === 'PTL' && { movementType: fieldValue(form, 'movementType') }),
-      totalBoxes: fieldValue(form, 'totalBoxes'),
-      totalWeightKg: fieldValue(form, 'totalWeightKg'),
+      ...(serviceType && { serviceType }),
+      ...(serviceType === 'PTL' && fieldValue(form, 'movementType') && { movementType: fieldValue(form, 'movementType') }),
+      ...(fieldValue(form, 'totalBoxes') && { totalBoxes: fieldValue(form, 'totalBoxes') }),
+      ...(fieldValue(form, 'totalWeightKg') && { totalWeightKg: fieldValue(form, 'totalWeightKg') }),
     });
   };
   const counts = summary.data?.data;
@@ -113,11 +115,10 @@ export default function PickupRequestsPage() {
             <div className="form-grid">
               {partyFields.shipper.map(([name, label, type]) => (
                 <label key={name} className={name === 'address' ? 'full-span' : undefined}>
-                  {label} *
+                  {label}
                   <input
                     name={`shipper.${name}`}
                     type={type}
-                    required
                     maxLength={name === 'address' ? 500 : 150}
                     inputMode={name === 'pincode' || name === 'contactMobile' ? 'numeric' : undefined}
                     pattern={name === 'pincode' ? '\\d{6}' : undefined}
@@ -131,11 +132,10 @@ export default function PickupRequestsPage() {
             <div className="form-grid">
               {partyFields.recipient.map(([name, label, type]) => (
                 <label key={name} className={name === 'address' ? 'full-span' : undefined}>
-                  {label} *
+                  {label}
                   <input
                     name={`recipient.${name}`}
                     type={type}
-                    required
                     maxLength={name === 'address' ? 500 : 150}
                     inputMode={name === 'pincode' ? 'numeric' : undefined}
                     pattern={name === 'pincode' ? '\\d{6}' : undefined}
@@ -148,21 +148,21 @@ export default function PickupRequestsPage() {
             <h3>PUR Details</h3>
             <div className="form-grid">
               <label>
-                Service type *
+                Service type
                 <select
                   name="serviceType"
                   value={serviceType}
                   onChange={(event) => setServiceType(event.target.value)}
-                  required
                 >
+                  <option value="">Select service</option>
                   <option value="FTL">FTL</option>
                   <option value="PTL">PTL</option>
                 </select>
               </label>
               {serviceType === 'PTL' && (
                 <label>
-                  PTL movement *
-                  <select name="movementType" required defaultValue="">
+                  PTL movement
+                  <select name="movementType" defaultValue="">
                     <option value="" disabled>Select movement</option>
                     <option value="HUB_TO_HUB">Hub - Hub</option>
                     <option value="DOOR_TO_DOOR">Door - Door</option>
@@ -172,12 +172,12 @@ export default function PickupRequestsPage() {
                 </label>
               )}
               <label>
-                Total boxes *
-                <input name="totalBoxes" type="number" min="1" max="10000" step="1" required />
+                Total boxes
+                <input name="totalBoxes" type="number" min="1" max="10000" step="1" />
               </label>
               <label>
-                Total weight (kg) *
-                <input name="totalWeightKg" type="number" min="0.01" max="100000" step="0.01" required />
+                Total weight (kg)
+                <input name="totalWeightKg" type="number" min="0.01" max="100000" step="0.01" />
               </label>
             </div>
           </div>

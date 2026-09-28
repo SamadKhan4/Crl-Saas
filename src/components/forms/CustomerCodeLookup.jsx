@@ -5,6 +5,13 @@ import { get, errorMessage } from '../../api/client';
 import { useDebounce } from '../../hooks/useList';
 import { idOf } from '../../lib/workflow';
 
+const retailCustomer = Object.freeze({
+  id: 'RETAIL',
+  customerCode: '9966',
+  customerType: 'TO_PAY_PAID',
+  name: 'Others / Retail Customer',
+});
+
 export default function CustomerCodeLookup({ value, onChange, onCustomer, initialCustomer }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
@@ -17,7 +24,9 @@ export default function CustomerCodeLookup({ value, onChange, onCustomer, initia
     enabled: !selected && term.length > 0,
     retry: false,
   });
-  const customers = (Array.isArray(query.data?.data) ? query.data.data : []).slice(0, 3);
+  const customers = (Array.isArray(query.data?.data) ? query.data.data : [])
+    .filter((customer) => customer.customerCode !== '9966')
+    .slice(0, 3);
 
   useEffect(() => {
     if (!value && selected) {
@@ -96,6 +105,12 @@ export default function CustomerCodeLookup({ value, onChange, onCustomer, initia
           onKeyDown={keyDown}
         />
       </div>
+      {!selected && (
+        <button type="button" className="customer-retail-option" onClick={() => choose(retailCustomer)}>
+          <span><strong>9966</strong><small>Others / Retail Customer</small></span>
+          <em>Retail</em>
+        </button>
+      )}
       {open && (
         <div id="customer-suggestions" className="customer-suggestions" role="listbox">
           {query.isFetching ? (

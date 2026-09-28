@@ -92,6 +92,7 @@ export default function CreateLRPage() {
   const request = useRef({ key: crypto.randomUUID(), body: null });
   const [created, setCreated] = useState(null),
     [selectedCustomer, setSelectedCustomer] = useState(null),
+    [gstEntryEnabled, setGstEntryEnabled] = useState(false),
     [error, setError] = useState('');
   const {
     register,
@@ -142,6 +143,7 @@ export default function CreateLRPage() {
   });
   const sourcePickup = pickupRequestQuery.data?.data;
   const isCreditCustomer = selectedCustomer?.customerType === 'CREDIT';
+  const isRetailCustomer = selectedCustomer?.customerCode === '9966';
   const signaturesLocked = user.role === 'EMPLOYEE';
   const destinationQuery = useQuery({
     queryKey: ['destination-by-pincode', consigneePincode],
@@ -208,35 +210,41 @@ export default function CreateLRPage() {
         ...emptyGoods(),
         description: `Goods against ${sourcePickup.pickupRequestNumber}`,
         packageType: 'BOX',
-        quantity: sourcePickup.totalBoxes,
-        actualWeight: sourcePickup.totalWeightKg,
+        ...(sourcePickup.totalBoxes != null && { quantity: sourcePickup.totalBoxes }),
+        ...(sourcePickup.totalWeightKg != null && { actualWeight: sourcePickup.totalWeightKg }),
       }],
     };
     for (const [name, value] of Object.entries(values)) {
       if (value !== undefined && value !== '') setValue(name, value, { shouldValidate: true });
     }
     if (customer) setSelectedCustomer(customer);
+    setGstEntryEnabled(Boolean(sourcePickup.shipper?.gstin || sourcePickup.recipient?.gstin));
     setRoute({
-      from: { id: `pickup-${pickupId}-from`, name: sourcePickup.shipper.city, district: sourcePickup.shipper.city },
-      to: {
-        id: `pickup-${pickupId}-to`,
-        name: sourcePickup.recipient.city,
-        district: sourcePickup.recipient.city,
-        pincode: sourcePickup.recipient.pincode,
-      },
+      from: sourcePickup.shipper?.city
+        ? { id: `pickup-${pickupId}-from`, name: sourcePickup.shipper.city, district: sourcePickup.shipper.city }
+        : nagpurOrigin,
+      to: sourcePickup.recipient?.city
+        ? {
+            id: `pickup-${pickupId}-to`,
+            name: sourcePickup.recipient.city,
+            district: sourcePickup.recipient.city,
+            pincode: sourcePickup.recipient.pincode,
+          }
+        : null,
     });
   }, [sourcePickup, setValue]);
   useEffect(() => {
     if (!selectedCustomer) return;
     const values = {
       consignorCode: isCreditCustomer ? selectedCustomer.customerCode : '9966',
-      senderName: sourcePickup?.shipper?.companyName || sourceBooking?.consignor || selectedCustomer.name,
+      senderName: sourcePickup?.shipper?.companyName || sourceBooking?.consignor || (isRetailCustomer ? '' : selectedCustomer.name),
       consignorAddress: sourcePickup?.shipper?.address || sourceBooking?.consignorAddress || selectedCustomer.address || '',
       consignorAddress2: sourceBooking?.consignorAddress2 || '',
       consignorPincode: sourcePickup?.shipper?.pincode || sourceBooking?.consignorPincode || selectedCustomer.pincode || '',
       consignorGstin: sourcePickup?.shipper?.gstin || sourceBooking?.consignorGstin || selectedCustomer.gstNumber || '',
     };
     for (const [name, value] of Object.entries(values)) setValue(name, value, { shouldValidate: true });
+    setGstEntryEnabled(Boolean(values.consignorGstin || sourcePickup?.recipient?.gstin || sourceBooking?.consigneeGstin));
     setValue('paymentMode', isCreditCustomer ? 'CREDIT' : '', { shouldValidate: true });
     setValue('freightBasis', 'PER_KG', { shouldValidate: true });
     for (const name of pricingFieldNames) setValue(name, 0, { shouldValidate: true });
@@ -250,7 +258,7 @@ export default function CreateLRPage() {
       clearErrors('to');
       setValue('expectedDeliveryDate', '', { shouldValidate: true });
     }
-  }, [selectedCustomer, sourceBooking, sourcePickup, isCreditCustomer, setValue, clearErrors]);
+  }, [selectedCustomer, sourceBooking, sourcePickup, isCreditCustomer, isRetailCustomer, setValue, clearErrors]);
   useEffect(() => {
     const destinations = (destinationQuery.data?.data || []).map((place) =>
       destinationFromPincode(place, isCreditCustomer ? selectedCustomer?.creditRateCard : []),
@@ -320,6 +328,7 @@ export default function CreateLRPage() {
               setCreated(null);
               reset();
               setSelectedCustomer(null);
+              setGstEntryEnabled(false);
               setRoute({ from: nagpurOrigin, to: null });
               request.current = { key: crypto.randomUUID(), body: null };
             }}
@@ -352,8 +361,8 @@ export default function CreateLRPage() {
         {sourcePickup && (
           <section className="panel">
             <strong>{sourcePickup.pickupRequestNumber}</strong>
-            <p>{sourcePickup.shipper.companyName} → {sourcePickup.recipient.companyName} · {sourcePickup.totalBoxes} boxes · {sourcePickup.totalWeightKg} kg</p>
-            <small>Agent: {sourcePickup.agentAssignment.agentName} · Vehicle: {sourcePickup.agentAssignment.vehicleNumber} · Driver: {sourcePickup.agentAssignment.driverName}</small>
+            <p>{sourcePickup.shipper?.companyName || 'Shipper pending'} → {sourcePickup.recipient?.companyName || 'Consignee pending'} · {sourcePickup.totalBoxes ?? '—'} boxes · {sourcePickup.totalWeightKg ?? '—'} kg</p>
+            <small>Agent: {sourcePickup.agentAssignment?.agentName || '—'} · Vehicle: {sourcePickup.agentAssignment?.vehicleNumber || '—'} · Driver: {sourcePickup.agentAssignment?.driverName || '—'}</small>
           </section>
         )}
         <section className="panel form-section">
@@ -392,13 +401,11 @@ export default function CreateLRPage() {
               ['consignorAddress', 'Consignor address - line 1'],
               ['consignorAddress2', 'Consignor address - line 2'],
               ['consignorPincode', 'Consignor PIN code'],
-              ['consignorGstin', 'Consignor GSTIN'],
               ['receiverName', 'Consignee name'],
               ['consigneeAddress', 'Consignee address - line 1'],
               ['consigneeAddress2', 'Consignee address - line 2'],
               ['consigneeAddress3', 'Consignee address - line 3'],
               ['consigneePincode', 'Consignee PIN code'],
-              ['consigneeGstin', 'Consignee GSTIN'],
               ['receiverMobile', 'Consignee mobile'],
             ].map(([key, caption]) => (
               <FormField
@@ -409,6 +416,27 @@ export default function CreateLRPage() {
                 error={errors[key]?.message}
               />
             ))}
+            <label className="gst-entry-toggle full-span">
+              <input
+                type="checkbox"
+                checked={gstEntryEnabled}
+                onChange={(event) => {
+                  const enabled = event.target.checked;
+                  setGstEntryEnabled(enabled);
+                  if (!enabled) {
+                    setValue('consignorGstin', '', { shouldValidate: true });
+                    setValue('consigneeGstin', '', { shouldValidate: true });
+                  }
+                }}
+              />
+              <span>GST details available</span>
+            </label>
+            {gstEntryEnabled && (
+              <>
+                <FormField label="Consignor GSTIN" {...register('consignorGstin')} error={errors.consignorGstin?.message} />
+                <FormField label="Consignee GSTIN" {...register('consigneeGstin')} error={errors.consigneeGstin?.message} />
+              </>
+            )}
           </div>
         </section>
         <section className="panel form-section">
