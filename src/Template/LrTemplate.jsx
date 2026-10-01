@@ -1,3 +1,4 @@
+import GstPayer from "./GstPayer";
 import React, { forwardRef } from "react";
 
 /**
@@ -373,7 +374,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
             </div>
 
             {/* Charges / Amount */}
-            <div className="col-span-3 flex flex-col text-[9px]">
+            <div className="col-span-3 flex flex-col text-[9px]"><GstPayer value={s.gstPaidBy} />
               <div className="grid grid-cols-2">
                 <SectionHeader className="border-t-0 border-l-0 border-r-0">
                   CHARGES

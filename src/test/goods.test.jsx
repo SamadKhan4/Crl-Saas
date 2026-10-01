@@ -15,6 +15,25 @@ vi.mock('../Template/LrBarcode', () => ({
 const row = { description: 'Cartons', quantity: 1, actualWeight: 5, length: 30, breadth: 30, height: 30, dimensionUnit: 'CM' };
 
 describe('LR goods and chargeable weight', () => {
+  it('defaults CFT to seven, allows checkbox editing and resets when unchecked', async () => {
+    function Form() {
+      const form = useForm({ defaultValues: { goods: [row], cftFactor: 7 } });
+      return <GoodsFields control={form.control} register={form.register} setValue={form.setValue} errors={{}} />;
+    }
+    render(<Form />);
+    const toggle = screen.getByRole('checkbox', { name: 'Change CFT value' });
+    expect(toggle).not.toBeChecked();
+    await userEvent.click(toggle);
+    const input = screen.getByLabelText('CFT value (kg per CFT)');
+    expect(input).toHaveValue(7);
+    await userEvent.clear(input);
+    await userEvent.type(input, '10');
+    expect(input).toHaveValue(10);
+    expect(screen.getAllByText('10 kg').length).toBeGreaterThan(0);
+    await userEvent.click(toggle);
+    await userEvent.click(toggle);
+    expect(screen.getByLabelText('CFT value (kg per CFT)')).toHaveValue(7);
+  });
   it.each([['CM', 30], ['IN', 12], ['FT', 1]])('calculates one CFT in %s', (dimensionUnit, size) => {
     expect(calculateGoods([{ ...row, dimensionUnit, length: size, breadth: size, height: size }])).toMatchObject({ volume: 1, volumetricWeight: 7, chargedWeight: 7 });
   });

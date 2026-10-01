@@ -177,6 +177,7 @@ const goodsList = z.array(goodsSchema).min(1).max(100).superRefine((rows, ctx) =
     ctx.addIssue({ code: 'custom', message: 'Maximum total actual weight is 100,000 kg' });
 });
 const lrPrintFields = {
+  cftFactor: z.coerce.number().finite().positive().max(1000).default(7),
   goods: goodsList.optional(),
   volumetricWeight: lrAmount,
   consignorCode: lrPrintText,
@@ -215,6 +216,7 @@ const lrPrintFields = {
   receiverDateTime: lrPrintDate,
   receiverSignature: lrPrintText,
   paymentMode: optional(z.enum(['PAID', 'TO_PAY', 'CREDIT'])),
+  gstPaidBy: optional(z.enum(['TRANSPORTER', 'CUSTOMER'])),
   riskType: optional(z.enum(['CARRIER_RISK', 'OWNER_RISK'])),
   insuranceType: optional(z.enum(['INSURED', 'NOT_INSURED'])),
   freightBasis: optional(z.enum(['PER_KG', 'PER_BOX', 'FIXED'])),

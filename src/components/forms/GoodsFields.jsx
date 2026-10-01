@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useFieldArray, useWatch } from 'react-hook-form';
 import { Plus, Trash2 } from 'lucide-react';
 import { FormField } from '../common/UI';
@@ -9,13 +9,17 @@ export const emptyGoods = () => ({ description: '', packageNumber: '', packageTy
 export default function GoodsFields({ control, register, setValue, errors, autoPackageCount = true, autoWeight = true }) {
   const { fields, append, remove } = useFieldArray({ control, name: 'goods' });
   const goods = useWatch({ control, name: 'goods' });
-  const totals = calculateGoods(goods);
+  const cftFactor = useWatch({ control, name: 'cftFactor', defaultValue: 7 });
+  const [changeCft, setChangeCft] = useState(false);
+  const totals = calculateGoods(goods, Number(cftFactor || 7));
   useEffect(() => {
     if (autoPackageCount) setValue('packageCount', totals.packageCount, { shouldValidate: true });
     if (autoWeight) setValue('weightKg', totals.actualWeight, { shouldValidate: true });
   }, [autoPackageCount, autoWeight, setValue, totals.packageCount, totals.actualWeight]);
   return <>
-    <p>Dimensions are per package; actual weight is the total for that row. Leave all dimensions blank if unavailable. 1 CFT = 7 kg.</p>
+    <p>Dimensions are per package; actual weight is the total for that row. Leave all dimensions blank if unavailable.</p>
+    <label className={`cft-toggle${changeCft ? ' is-checked' : ''}`}><input type="checkbox" aria-label="Change CFT value" checked={changeCft} onChange={(event) => { setChangeCft(event.target.checked); if (!event.target.checked) setValue('cftFactor', 7, { shouldValidate: true }); }} /> Change CFT value <span aria-live="polite">(Current: {Number(cftFactor || 7)} kg/CFT)</span></label>
+    {changeCft && <FormField label="CFT value (kg per CFT)" type="number" min="0.01" max="1000" step="any" {...register('cftFactor', { valueAsNumber: true })} error={errors.cftFactor?.message} />}
     {fields.map((field, index) => <fieldset key={field.id} className="form-section" style={{ minWidth: 0, border: '1px solid var(--border, #ddd)', borderRadius: 12, padding: 16, marginTop: 16 }}>
       <legend>Goods {index + 1}</legend>
       <div className="form-grid">

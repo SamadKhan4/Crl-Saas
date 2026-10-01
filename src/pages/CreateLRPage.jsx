@@ -70,7 +70,7 @@ function PricingFields({ register, errors, disabled = false }) {
 }
 
 export function shipmentCreatePayload(values, modes = {}) {
-  const { packageCount: automaticPackageCount, ...totals } = calculateGoods(values.goods);
+  const { packageCount: automaticPackageCount, ...totals } = calculateGoods(values.goods, values.cftFactor ?? 7);
   const packageCount = modes.packageCount === 'MANUAL' ? Number(values.packageCount) : automaticPackageCount;
   const weightKg = modes.weight === 'MANUAL' ? Number(values.weightKg) : totals.actualWeight;
   const pricedValues = { ...values, ...totals, packageCount, weightKg };
@@ -78,7 +78,7 @@ export function shipmentCreatePayload(values, modes = {}) {
   const shipment = shipmentSchema.parse(values);
   const lrDetails = Object.fromEntries(
     lrPrintFieldNames
-      .filter((key) => values[key] !== undefined)
+      .filter((key) => values[key] !== undefined && (key !== 'gstPaidBy' || values[key] !== ''))
       .map((key) => [key, values[key]]),
   );
   return Object.keys(lrDetails).length ? { ...shipment, lrDetails } : shipment;
@@ -118,6 +118,8 @@ export default function CreateLRPage() {
       bookingDate: today(),
       invoiceDate: today(),
       paymentMode: '',
+      riskType: 'OWNER_RISK',
+      insuranceType: 'NOT_INSURED',
       freightBasis: 'PER_KG',
       freightRate: 0,
       fuelRatePercent: 0,
@@ -130,6 +132,7 @@ export default function CreateLRPage() {
       declaredValue: '',
       from: 'Nagpur',
       goods: [emptyGoods()],
+      cftFactor: 7,
     },
   });
   const [route, setRoute] = useState({ from: nagpurOrigin, to: null });

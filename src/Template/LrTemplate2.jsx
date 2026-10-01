@@ -1,3 +1,4 @@
+import GstPayer from "./GstPayer";
 import { forwardRef } from 'react';
 import LrBarcode from './LrBarcode';
 
@@ -248,7 +249,7 @@ const LrTemplate2 = forwardRef(function LrTemplate2({ shipment = {} }, ref) {
               {chargeRows.map(([title, value]) => <div className="lr2-charge" key={title}><span>{title}</span><b>{money(value)}</b></div>)}
               {s.fodCodCharges != null && s.fodCharges == null && s.codCharges == null && <div className="lr2-charge"><span>FOD / COD</span><b>{money(s.fodCodCharges)}</b></div>}
               <div className="lr2-subtotal"><span>SUB TOTAL</span><span>{money(subtotal)}</span></div>
-              <div className="lr2-subtotal"><span>GST ({show(s.gstRate)}%)</span><span>{money(s.gstAmount)}</span></div>
+              <GstPayer value={s.gstPaidBy} /><div className="lr2-subtotal"><span>GST ({show(s.gstRate)}%)</span><span>{money(s.gstAmount)}</span></div>
               <div className="lr2-grand"><span>TOTAL</span><span>{money(s.totalAmount)}</span></div>
             </div>
           </div>

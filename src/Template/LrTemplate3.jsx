@@ -1,3 +1,4 @@
+import GstPayer from "./GstPayer";
 import { forwardRef } from 'react';
 import LrBarcode from './LrBarcode';
 
@@ -129,7 +130,7 @@ const LrTemplate3 = forwardRef(function LrTemplate3({ shipment = {} }, ref) {
             <div className="lr3-charge-title">Charges</div>
             {charges.map(([label, amount]) => <div className="lr3-charge" key={label}><span>{label}</span><strong>{money(amount)}</strong></div>)}
             <div className="lr3-charge emphasis"><span>SUB TOTAL</span><strong>{money(subtotal)}</strong></div>
-            <div className="lr3-charge emphasis"><span>GST ({show(s.gstRate)}%)</span><strong>{money(s.gstAmount)}</strong></div>
+            <GstPayer value={s.gstPaidBy} /><div className="lr3-charge emphasis"><span>GST ({show(s.gstRate)}%)</span><strong>{money(s.gstAmount)}</strong></div>
             <div className="lr3-charge total"><span>GRAND TOTAL</span><strong>{money(s.totalAmount)}</strong></div>
             <div className="lr3-payment"><span>Insurance</span><div>{['INSURED', 'NOT_INSURED'].map((item) => <Tick key={item} label={readable(item)} active={s.insuranceType === item} />)}</div></div>
             <div className="lr3-pricing"><span>Freight basis: <b>{readable(s.freightBasis) || '-'}</b> | Rate: <b>{money(s.freightRate)}</b> | Fuel: <b>{show(s.fuelRatePercent)}%</b> | ROV: <b>{show(s.rovRatePercent)}%</b></span></div>

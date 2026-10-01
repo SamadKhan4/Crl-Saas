@@ -6,6 +6,19 @@ import ChargeTotals from '../components/forms/ChargeTotals';
 import { calculateCharges } from '../lib/charges';
 import { customerSchema } from '../schemas';
 
+it('allows only one GST payer checkbox at a time', async () => {
+  function Form() { const { control } = useForm({ defaultValues: { goods: [] } }); return <ChargeTotals control={control} />; }
+  render(<Form />);
+  const transporter = screen.getByRole('checkbox', { name: 'Pay by transporter' });
+  const customer = screen.getByRole('checkbox', { name: 'Pay by customer' });
+  await userEvent.click(transporter);
+  expect(transporter).toBeChecked();
+  expect(customer).not.toBeChecked();
+  await userEvent.click(customer);
+  expect(customer).toBeChecked();
+  expect(transporter).not.toBeChecked();
+});
+
 it('requires location-wise per-kg rates for credit customers', () => {
   const customer = {
     customerType: 'CREDIT',
