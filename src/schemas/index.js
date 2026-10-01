@@ -6,6 +6,7 @@ const optional = (schema) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
 const mobile = z.string().regex(/^\+?[1-9]\d{7,14}$/, 'Enter a valid mobile number');
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Select a valid record');
+const shipmentRecordId = (message) => z.string().regex(/^[a-f\d]{24}$/i, message);
 export const loginSchema = z.object({ email: z.email(), password: password(8) });
 const creditRateSchema = z.object({
   location: z.enum(serviceLocationNames),
@@ -129,7 +130,13 @@ export const shipmentFields = z.object({
 const manualLrNumber = z.string().trim().toUpperCase().min(1, 'Enter LR number').max(50)
   .regex(/^[A-Z0-9][A-Z0-9/._-]*$/, 'Use letters, numbers, /, ., _ or -');
 export const shipmentSchema = shipmentFields
-  .extend({ lrNumber: manualLrNumber, pickupRequestId: objectId.optional(), customerId: z.union([objectId, z.literal('RETAIL')]), originBranchId: objectId, destinationBranchId: objectId });
+  .extend({
+    lrNumber: manualLrNumber,
+    pickupRequestId: shipmentRecordId('Pickup request is invalid').optional(),
+    customerId: z.union([shipmentRecordId('Select a customer'), z.literal('RETAIL')]),
+    originBranchId: shipmentRecordId('Select an active origin branch'),
+    destinationBranchId: shipmentRecordId('Select an active destination branch'),
+  });
 const lrPrintText = optional(z.string().trim().max(250));
 const lrPrintDate = optional(
   z.string().refine((value) => !Number.isNaN(Date.parse(value)), 'Enter a valid date'),
@@ -228,7 +235,17 @@ const lrPrintFields = {
 };
 export const lrPrintFieldNames = Object.freeze(Object.keys(lrPrintFields));
 export const lrCreateSchema = shipmentFields
-  .extend({ lrNumber: manualLrNumber, pickupRequestId: objectId.optional(), customerId: z.union([objectId, z.literal('RETAIL')]), originBranchId: objectId, destinationBranchId: objectId, ...lrPrintFields, from: text(2, 250), to: text(2, 250), goods: goodsList });
+  .extend({
+    lrNumber: manualLrNumber,
+    pickupRequestId: shipmentRecordId('Pickup request is invalid').optional(),
+    customerId: z.union([shipmentRecordId('Select a customer'), z.literal('RETAIL')]),
+    originBranchId: shipmentRecordId('Select an active origin branch'),
+    destinationBranchId: shipmentRecordId('Select an active destination branch'),
+    ...lrPrintFields,
+    from: text(2, 250),
+    to: text(2, 250),
+    goods: goodsList,
+  });
 export const passwordSchema = z.object({
   currentPassword: password(8),
   newPassword: password(12),

@@ -271,6 +271,7 @@ export default function CreateLRPage() {
     if (destination) selectDestination(destination);
   }, [destinationQuery.data, isCreditCustomer, selectedCustomer, selectDestination]);
   const branches = useQuery({ queryKey: ['branches', 'route-options'], queryFn: () => get('/branches/options') });
+  const branchOptions = branches.data?.data || [];
   useEffect(() => {
     const options = branches.data?.data || [];
     if (!options.length) return;
@@ -408,6 +409,12 @@ export default function CreateLRPage() {
             render={({ field }) => <CustomerCodeLookup {...field} initialCustomer={sourcePickup ? (sourcePickup.customerId || RETAIL_CUSTOMER) : undefined} onCustomer={setSelectedCustomer} />}
           />
           {errors.customerId && <small className="field-error">{errors.customerId.message}</small>}
+          {branches.isSuccess && !branchOptions.length && (
+            <p className="field-error" role="alert">
+              No active branches are configured. Create the origin and destination branches in Branch Master before creating an LR.
+              {user.role === 'ADMIN' && <> <Link to={`${base}/branches`}>Open Branch Master</Link></>}
+            </p>
+          )}
         </section>
         <section className="panel form-section">
           <div className="section-title">
@@ -578,7 +585,7 @@ export default function CreateLRPage() {
         )}
         <div className="form-actions">
           <span>Enter your LR number. Chargeable weight uses the higher of total actual and volumetric weight.</span>
-          <button type="submit" className="btn" disabled={isSubmitting}>
+          <button type="submit" className="btn" disabled={isSubmitting || branches.isPending || !branchOptions.length}>
             {isSubmitting ? 'Creating LR…' : 'Create LR'}
             <Plus size={17} />
           </button>
