@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { FileCheck2 } from 'lucide-react';
-import { drsApi } from '../api/services';
+import { lastMileApi } from '../api/services';
 import { errorMessage } from '../api/client';
 import { useAuth } from '../features/auth/AuthContext';
 import { date, idOf } from '../lib/workflow';
@@ -17,7 +17,7 @@ export default function DrsClosurePage() {
   const { user } = useAuth();
   const query = useQuery({
     queryKey: ['drs', 'closure', 'OPEN'],
-    queryFn: () => drsApi.list({ status: 'OPEN', limit: 100, sortBy: 'createdAt', sortOrder: 'desc' }),
+    queryFn: () => lastMileApi.drs.list({ status: 'OPEN', limit: 100, sortBy: 'createdAt', sortOrder: 'desc' }),
   });
   const base = `/${user.role.toLowerCase()}`;
 
@@ -36,6 +36,8 @@ export default function DrsClosurePage() {
           {query.data.data.map((drs) => {
             const total = drs.shipmentIds?.length || 0;
             const uploaded = drs.podShipmentIds?.length || 0;
+            const delivered = drs.items?.filter((item) => item.attemptStatus === 'DELIVERED').length || 0;
+            const attemptsComplete = drs.items?.length === total && drs.items.every((item) => item.attemptStatus !== 'PENDING');
             return (
               <article key={idOf(drs)}>
                 <div>
@@ -48,7 +50,7 @@ export default function DrsClosurePage() {
                   </span>
                 </div>
                 <div className="actions">
-                  <StatusBadge status={uploaded === total && total > 0 ? 'READY_TO_CLOSE' : 'POD_PENDING'} />
+                  <StatusBadge status={attemptsComplete && uploaded === delivered ? 'READY_TO_CLOSE' : 'POD_PENDING'} />
                   <Link className="btn secondary" to={`${base}/drs/${idOf(drs)}`} state={{ from: 'closure' }}>
                     Open closure
                   </Link>

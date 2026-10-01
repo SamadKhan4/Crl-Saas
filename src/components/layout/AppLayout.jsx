@@ -99,10 +99,9 @@ export default function AppLayout() {
   const hr = user.role === 'HR';
   const vendor = user.role === 'VENDOR';
   const hubItems = [
-    ['hubs', 'Hub Operations', Warehouse],
-    ['segregations', 'LR Segregation', PackageCheck],
-    ['pickups', 'Pickup / First Mile', PackageCheck],
-    ['handling', 'Loading / Unloading', HandCoins],
+    ['hub-inward', 'Hub Inward', Warehouse],
+    ['segregations', 'Segregation & Sorting', PackageCheck],
+    ['loading-tallies', 'Loading Tally', HandCoins],
   ];
   const masterItems = admin || manager
     ? [
@@ -144,16 +143,18 @@ export default function AppLayout() {
               false,
               hubItems.filter(([path]) => path !== 'pickups'),
             ],
-            ...(admin ? [['package-barcodes', 'Box Barcode / Scan', PackageCheck, true]] : []),
             ['manifests', 'Manifest', ClipboardList],
-            ['ptl-operations', 'PTL Operations', Package],
-            ['ftl-operations', 'FTL Operations', Truck],
-            ['trips', 'Trips & Dispatch', Route],
+            ['trips', 'Trip Creation & Dispatch', Route],
+            ['destination-inward', 'Destination Hub Inward', Warehouse],
           ]
         : operationStage === 'LM'
           ? [
-              ...(manager ? [['receive', 'Receive Parcel', PackageCheck]] : []),
-              ['drs', 'Delivery Run Sheet', MapPinned],
+              ['last-mile-arrivals', 'Arrival & Unloading', PackageCheck],
+              ['unloading-tallies', 'Unloading Tally', ClipboardList],
+              ['qc-deps', 'QC / DEPS', FileCheck2],
+              ['last-mile-inward', 'Destination Inward', Warehouse],
+              ['drs', 'DRS Preparation', MapPinned],
+              ['active-deliveries', 'Delivery Attempts', Truck],
               ...(admin || manager ? [['drs-closure', 'DRS Closure', FileCheck2]] : []),
               ['documents', 'POD & Documents', Files],
             ]

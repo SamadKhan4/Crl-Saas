@@ -43,6 +43,8 @@ const VendorPortal = lazy(() => import('./pages/VendorPortalPage'));
 const NotificationOutbox = lazy(() => import('./pages/NotificationOutboxPage'));
 const Permissions = lazy(() => import('./pages/PermissionsPage'));
 const AccountingWorkspace = lazy(() => import('./pages/AccountingWorkspacePage'));
+const MiddleMile = lazy(() => import('./pages/MiddleMilePage'));
+const LastMile = lazy(() => import('./pages/LastMilePage'));
 export default function App() {
   return (
     <RouteErrorBoundary>
@@ -66,7 +68,9 @@ export default function App() {
                 <Route path="pickup-run-sheets" element={<PickupRunSheets />} />
                 <Route path="pickup-run-sheets/:id" element={<PickupRunSheetDetail />} />
                 <Route path="agent-lrs" element={<AgentLrs />} />
-                <Route path="segregations" element={<TmsModule />} />
+                <Route path="hub-inward" element={<MiddleMile />} />
+                <Route path="segregations" element={<MiddleMile />} />
+                <Route path="loading-tallies" element={<MiddleMile />} />
                 <Route path="shipments/create" element={<CreateLR />} />
                 <Route path="shipments/:id" element={<ShipmentDetail />} />
                 <Route path="documents" element={<Documents />} />
@@ -75,12 +79,18 @@ export default function App() {
                 <Route path="ftl-operations" element={<TmsModule />} />
                 <Route path="hubs" element={<TmsModule />} />
                 <Route path="handling" element={<TmsModule />} />
-                <Route path="manifests" element={<TmsModule />} />
+                <Route path="manifests" element={<MiddleMile />} />
                 <Route path="manifests/:id" element={<TmsPrint resource="manifests" />} />
-                <Route path="trips" element={<TmsModule />} />
-                <Route path="drs" element={<TmsModule />} />
-                {role !== 'EMPLOYEE' && <Route path="drs/:id" element={<DrsWorkspace />} />}
-                {role !== 'EMPLOYEE' && <Route path="drs-closure" element={<DrsClosure />} />}
+                <Route path="trips" element={<MiddleMile />} />
+                <Route path="destination-inward" element={<MiddleMile />} />
+                <Route path="last-mile-arrivals" element={<LastMile />} />
+                <Route path="unloading-tallies" element={<LastMile />} />
+                <Route path="qc-deps" element={<LastMile />} />
+                <Route path="last-mile-inward" element={<LastMile />} />
+                <Route path="drs" element={<LastMile />} />
+                <Route path="active-deliveries" element={<LastMile />} />
+                <Route path="drs/:id" element={<DrsWorkspace />} />
+                <Route path="drs-closure" element={<DrsClosure />} />
                 {role !== 'EMPLOYEE' && (
                   <>
                     <Route path="customers" element={<Management />} />

@@ -2075,6 +2075,9 @@ tbody tr:hover {
 .field label > select {
   margin-top: 8px;
 }
+.lr-total-field > select {
+  margin-bottom: 8px;
+}
 .field-error {
   display: block;
   font-size: 11px;

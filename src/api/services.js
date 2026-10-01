@@ -25,7 +25,41 @@ export const vendorsApi = resourceApi('vendors');
 export const manifestsApi = resourceApi('manifests');
 export const segregationsApi = resourceApi('segregations');
 export const tripsApi = resourceApi('trips');
+export const middleMileApi = {
+  hubInward: (body) => post('/middle-mile/hub-inward', body),
+  sortingInventory: (params) => get('/middle-mile/sorting/inventory', params),
+  sort: (body) => post('/middle-mile/sorting', body),
+  hold: (id, body) => post(`/middle-mile/shipments/${id}/hold`, body),
+  sortingOptions: (params) => get('/segregations/options', params),
+  tallies: resourceApi('loading-tallies'),
+  scanTally: (id, barcode) => post(`/loading-tallies/${id}/scan`, { barcode }),
+  completeTally: (id) => post(`/loading-tallies/${id}/complete`, {}),
+  manifests: resourceApi('middle-mile/manifests'),
+  finalizeManifest: (id) => post(`/middle-mile/manifests/${id}/finalize`, {}),
+  trips: resourceApi('middle-mile/trips'),
+  dispatchTrip: (id) => post(`/middle-mile/trips/${id}/dispatch`, {}),
+  arriveTrip: (id) => post(`/middle-mile/trips/${id}/arrive`, {}),
+  destinationInward: (id, receivedShipmentIds, remarks) =>
+    post(`/middle-mile/trips/${id}/inward`, { receivedShipmentIds, remarks }),
+};
+export const branchOptionsApi = { list: () => get('/branches/options') };
+export const masterOptionsApi = { list: (type) => get('/master-data/options', { type, status: 'ACTIVE', limit: 100 }) };
+export const vendorOptionsApi = { list: () => get('/vendors/options', { limit: 100 }) };
 export const drsApi = resourceApi('drs');
+export const lastMileApi = {
+  arrivals: (params) => get('/last-mile/arrivals', params),
+  tallies: resourceApi('last-mile/unloading-tallies'),
+  scanTally: (id, barcode) => post(`/last-mile/unloading-tallies/${id}/scan`, { barcode }),
+  completeTally: (id, exceptions = []) => post(`/last-mile/unloading-tallies/${id}/complete`, { exceptions }),
+  updateQc: (id, shipmentId, body) => api.patch(`/last-mile/unloading-tallies/${id}/qc/${shipmentId}`, body).then((r) => checkEnvelope(r.data)),
+  inward: (id, remarks) => post(`/last-mile/unloading-tallies/${id}/inward`, { remarks: remarks || undefined }),
+  inventory: (params) => get('/last-mile/drs-inventory', params),
+  drs: resourceApi('last-mile/drs'),
+  finalizeDrs: (id) => post(`/last-mile/drs/${id}/finalize`, {}),
+  dispatchDrs: (id) => post(`/last-mile/drs/${id}/dispatch`, {}),
+  attempt: (id, shipmentId, body) => post(`/last-mile/drs/${id}/attempt/${shipmentId}`, body),
+  closeDrs: (id) => post(`/last-mile/drs/${id}/close`, {}),
+};
 export const invoicesApi = resourceApi('invoices');
 export const receiptsApi = resourceApi('money-receipts');
 export const quotationsApi = resourceApi('quotations');

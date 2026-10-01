@@ -115,6 +115,9 @@ describe('Form validation', () => {
     for (const patch of [{ destinationBranchId: origin }, { weightKg: 0 }, { packageCount: 1.5 }])
       expect(shipmentSchema.safeParse({ ...valid, ...patch }).success).toBe(false);
   });
+  it('accepts the reserved retail customer key', () => {
+    expect(shipmentSchema.safeParse({ ...valid, customerId: 'RETAIL' }).success).toBe(true);
+  });
   it('omits empty optional contact fields', () =>
     expect(
       customerSchema.parse({ customerType: 'TO_PAY_PAID', name: 'Customer', mobile: '+919876543210', email: '', pincode: '' })
@@ -152,6 +155,10 @@ describe('Form validation', () => {
       },
     });
     expect(shipmentCreatePayload(values).invoiceNo).toBeUndefined();
+    expect(shipmentCreatePayload({ ...values, packageCount: 7, weightKg: 42.5 }, { packageCount: 'MANUAL', weight: 'MANUAL' })).toMatchObject({
+      packageCount: 7,
+      weightKg: 42.5,
+    });
   });
 });
 describe('Authentication and routing', () => {

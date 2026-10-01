@@ -6,14 +6,14 @@ import { calculateGoods } from '../../lib/goods';
 
 export const emptyGoods = () => ({ description: '', packageNumber: '', packageType: '', quantity: 1, actualWeight: '', length: '', breadth: '', height: '', dimensionUnit: 'CM' });
 
-export default function GoodsFields({ control, register, setValue, errors }) {
+export default function GoodsFields({ control, register, setValue, errors, autoPackageCount = true, autoWeight = true }) {
   const { fields, append, remove } = useFieldArray({ control, name: 'goods' });
   const goods = useWatch({ control, name: 'goods' });
   const totals = calculateGoods(goods);
   useEffect(() => {
-    setValue('packageCount', totals.packageCount);
-    setValue('weightKg', totals.actualWeight);
-  }, [setValue, totals.packageCount, totals.actualWeight]);
+    if (autoPackageCount) setValue('packageCount', totals.packageCount, { shouldValidate: true });
+    if (autoWeight) setValue('weightKg', totals.actualWeight, { shouldValidate: true });
+  }, [autoPackageCount, autoWeight, setValue, totals.packageCount, totals.actualWeight]);
   return <>
     <p>Dimensions are per package; actual weight is the total for that row. Leave all dimensions blank if unavailable. 1 CFT = 7 kg.</p>
     {fields.map((field, index) => <fieldset key={field.id} className="form-section" style={{ minWidth: 0, border: '1px solid var(--border, #ddd)', borderRadius: 12, padding: 16, marginTop: 16 }}>

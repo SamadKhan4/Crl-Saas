@@ -7,7 +7,7 @@ import { packageBarcodesApi } from '../api/services';
 import { errorMessage } from '../api/client';
 import { DataTable, ErrorState, Loadingcrleleton, Modal, PageHeader, StatusBadge } from '../components/common/UI';
 
-const actions = ['PICKUP', 'HUB_INWARD', 'SORTED', 'LOADED', 'UNLOADED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DAMAGE', 'SHORT', 'EXCESS', 'HOLD', 'MISROUTE'];
+const actions = ['PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DAMAGE', 'SHORT', 'EXCESS', 'HOLD', 'MISROUTE'];
 export default function BarcodeOperationsPage() {
   const client = useQueryClient();
   const [search, setSearch] = useState(''), [page, setPage] = useState(1), [selected, setSelected] = useState(null);

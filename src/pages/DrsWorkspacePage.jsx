@@ -4,7 +4,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { CheckCircle2, FileCheck2, Printer, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, errorMessage } from '../api/client';
-import { drsApi } from '../api/services';
+import { lastMileApi } from '../api/services';
 import { DeliveryManifestSheet } from '../components/tms/TransportPrintLayouts';
 import TransportPdfDownload from '../components/tms/TransportPdfDownload';
 import { useAuth } from '../features/auth/AuthContext';
@@ -24,24 +24,30 @@ export default function DrsWorkspacePage() {
   const printRef = useRef(null);
   const { user } = useAuth();
   const cache = useQueryClient();
-  const query = useQuery({ queryKey: ['drs', id], queryFn: () => drsApi.detail(id) });
+  const query = useQuery({ queryKey: ['drs', id], queryFn: () => lastMileApi.drs.detail(id) });
   const [vehicle, setVehicle] = useState('');
   const [eWayBillNo, setEWayBillNo] = useState('');
   const [files, setFiles] = useState({});
   const [proofs, setProofs] = useState({});
+  const [failures, setFailures] = useState({});
   const [error, setError] = useState('');
   const refresh = () => {
     cache.invalidateQueries({ queryKey: ['drs', id] });
     cache.invalidateQueries({ queryKey: ['drs'] });
   };
   const action = useMutation({
-    mutationFn: async ({ type, shipment }) => {
+    mutationFn: async ({ type, shipment, outcome }) => {
       if (type === 'vehicle')
         return api.patch(`/drs/${id}/vehicle`, {
           vehicleNumber: vehicle,
           ...(eWayBillNo && { partB: [{ eWayBillNo, vehicleNumber: vehicle }] }),
         });
-      if (type === 'close') return api.post(`/drs/${id}/close`);
+      if (type === 'close') return lastMileApi.closeDrs(id);
+      if (type === 'attempt') return lastMileApi.attempt(id, idOf(shipment), {
+        outcome,
+        failureReason: outcome === 'DELIVERED' ? undefined : failures[idOf(shipment)] || 'Customer unavailable',
+        nextAction: outcome === 'REATTEMPT' ? 'Return to destination hub for reattempt' : undefined,
+      });
       const file = files[idOf(shipment)];
       const invalid = validateFile(file);
       if (invalid) throw new Error(invalid);
@@ -54,12 +60,14 @@ export default function DrsWorkspacePage() {
       body.append('signatureName', proof.signatureName || proof.receiverName || shipment.receiverName || '');
       body.append('remarks', proof.remarks || '');
       body.append('deliveredAt', new Date().toISOString());
-      return api.post(`/drs/${id}/pod/${idOf(shipment)}`, body);
+      return api.post(`/last-mile/drs/${id}/pod/${idOf(shipment)}`, body);
     },
     onSuccess: (_data, variables) => {
       toast.success(
         variables.type === 'pod'
           ? 'POD uploaded'
+          : variables.type === 'attempt'
+            ? 'Delivery attempt recorded'
           : variables.type === 'close'
             ? 'DRS closed'
             : 'Vehicle details updated',
@@ -73,8 +81,11 @@ export default function DrsWorkspacePage() {
   if (query.isError) return <ErrorState error={errorMessage(query.error)} retry={query.refetch} />;
   const drs = query.data.data;
   const uploaded = new Set((drs.podShipmentIds || []).map(idOf));
-  const complete = drs.shipmentIds?.length > 0 && uploaded.size === drs.shipmentIds.length;
+  const itemByShipment = new Map((drs.items || []).map((item) => [idOf(item.shipmentId), item]));
+  const attemptsComplete = drs.shipmentIds?.length > 0 && drs.shipmentIds.every((shipment) => itemByShipment.get(idOf(shipment))?.attemptStatus !== 'PENDING');
+  const complete = attemptsComplete && drs.shipmentIds.every((shipment) => itemByShipment.get(idOf(shipment))?.attemptStatus !== 'DELIVERED' || uploaded.has(idOf(shipment)));
   const base = `/${user.role.toLowerCase()}`;
+  const canClose = ['ADMIN', 'MANAGER'].includes(user.role);
   return (
     <>
       <PageHeader title={drs.drsNumber} description={`${drs.route} · ${date(drs.deliveryDate)}`}>
@@ -133,6 +144,8 @@ export default function DrsWorkspacePage() {
           <div className="tms-pod-list">
             {drs.shipmentIds.map((shipment) => {
               const done = uploaded.has(idOf(shipment));
+              const deliveryItem = itemByShipment.get(idOf(shipment));
+              const attempted = deliveryItem?.attemptStatus && deliveryItem.attemptStatus !== 'PENDING';
               return (
                 <article key={idOf(shipment)}>
                   <div>
@@ -144,8 +157,16 @@ export default function DrsWorkspacePage() {
                       </small>
                     </span>
                   </div>
-                  {done ? (
+                  {!attempted ? (
+                    <div className="tms-epod-fields">
+                      <input placeholder="Failure reason (if unsuccessful)" value={failures[idOf(shipment)] || ''} onChange={(event) => setFailures((current) => ({ ...current, [idOf(shipment)]: event.target.value }))} />
+                      <button className="btn secondary" disabled={action.isPending || drs.workflowStatus !== 'DISPATCHED'} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'DELIVERED' })}>Delivered</button>
+                      <button className="btn secondary" disabled={action.isPending || drs.workflowStatus !== 'DISPATCHED'} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'REATTEMPT' })}>Failed / Reattempt</button>
+                    </div>
+                  ) : done ? (
                     <StatusBadge status="POD_UPLOADED" />
+                  ) : deliveryItem?.attemptStatus !== 'DELIVERED' ? (
+                    <StatusBadge status={deliveryItem?.attemptStatus} />
                   ) : (
                     <div className="tms-epod-fields">
                       <input
@@ -193,14 +214,14 @@ export default function DrsWorkspacePage() {
           <EmptyState title="No LRs on this DRS" />
         )}
         <div className="tms-close-bar">
-          <span>DRS can close only after every LR has a POD.</span>
-          <button
+          <span>Close after every LR has an outcome and every delivered LR has a POD.</span>
+          {canClose && <button
             className="btn"
             disabled={!complete || drs.status !== 'OPEN' || action.isPending}
             onClick={() => action.mutate({ type: 'close' })}
           >
             Close DRS
-          </button>
+          </button>}
         </div>
         {error && (
           <p className="field-error tms-error" role="alert">

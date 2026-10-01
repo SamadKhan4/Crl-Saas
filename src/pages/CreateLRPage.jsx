@@ -69,10 +69,12 @@ function PricingFields({ register, errors, disabled = false }) {
   );
 }
 
-export function shipmentCreatePayload(values) {
-  const { packageCount, ...totals } = calculateGoods(values.goods);
-  const pricedValues = { ...values, ...totals, packageCount };
-  values = { ...pricedValues, ...calculateCharges(pricedValues), weightKg: totals.actualWeight };
+export function shipmentCreatePayload(values, modes = {}) {
+  const { packageCount: automaticPackageCount, ...totals } = calculateGoods(values.goods);
+  const packageCount = modes.packageCount === 'MANUAL' ? Number(values.packageCount) : automaticPackageCount;
+  const weightKg = modes.weight === 'MANUAL' ? Number(values.weightKg) : totals.actualWeight;
+  const pricedValues = { ...values, ...totals, packageCount, weightKg };
+  values = { ...pricedValues, ...calculateCharges(pricedValues) };
   const shipment = shipmentSchema.parse(values);
   const lrDetails = Object.fromEntries(
     lrPrintFieldNames
@@ -93,6 +95,8 @@ export default function CreateLRPage() {
   const [created, setCreated] = useState(null),
     [selectedCustomer, setSelectedCustomer] = useState(null),
     [gstEntryEnabled, setGstEntryEnabled] = useState(false),
+    [packageCountMode, setPackageCountMode] = useState('AUTOMATIC'),
+    [weightMode, setWeightMode] = useState('AUTOMATIC'),
     [error, setError] = useState('');
   const {
     register,
@@ -237,7 +241,7 @@ export default function CreateLRPage() {
     if (!selectedCustomer) return;
     const values = {
       consignorCode: isCreditCustomer ? selectedCustomer.customerCode : '9966',
-      senderName: sourcePickup?.shipper?.companyName || sourceBooking?.consignor || (isRetailCustomer ? '' : selectedCustomer.name),
+      senderName: isRetailCustomer ? '' : (sourcePickup?.shipper?.companyName || sourceBooking?.consignor || selectedCustomer.name),
       consignorAddress: sourcePickup?.shipper?.address || sourceBooking?.consignorAddress || selectedCustomer.address || '',
       consignorAddress2: sourceBooking?.consignorAddress2 || '',
       consignorPincode: sourcePickup?.shipper?.pincode || sourceBooking?.consignorPincode || selectedCustomer.pincode || '',
@@ -277,12 +281,12 @@ export default function CreateLRPage() {
   }, [branches.data, route.from, route.to, setValue, user.branchId, user.role]);
   async function submit(values) {
     setError('');
-    const shipmentPayload = shipmentCreatePayload(values);
-    const serialized = JSON.stringify(shipmentPayload);
-    if (request.current.body !== serialized) {
-      request.current = { key: crypto.randomUUID(), body: serialized };
-    }
     try {
+      const shipmentPayload = shipmentCreatePayload(values, { packageCount: packageCountMode, weight: weightMode });
+      const serialized = JSON.stringify(shipmentPayload);
+      if (request.current.body !== serialized) {
+        request.current = { key: crypto.randomUUID(), body: serialized };
+      }
       const result = await shipmentsApi.create(shipmentPayload, request.current.key);
       if (bookingId) await bookingsApi.linkLr(bookingId, idOf(result.data));
       setCreated({
@@ -299,6 +303,23 @@ export default function CreateLRPage() {
       formErrors(e, fieldError);
       if (e.response?.data?.errorCode === 'LR_NUMBER_EXISTS') fieldError('lrNumber', { message: 'This LR number already exists' });
     }
+  }
+  function invalidSubmit(validationErrors) {
+    const firstMessage = (value) => {
+      if (!value || typeof value !== 'object') return '';
+      if (typeof value.message === 'string') return value.message;
+      for (const nested of Object.values(value)) {
+        const message = firstMessage(nested);
+        if (message) return message;
+      }
+      return '';
+    };
+    const message = firstMessage(validationErrors) || 'Please complete the highlighted LR details.';
+    setError(message);
+    toast.error(message);
+    requestAnimationFrame(() => {
+      document.querySelector('[aria-invalid="true"], .field-error:not(:empty)')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   }
   if (created)
     return (
@@ -329,6 +350,8 @@ export default function CreateLRPage() {
               reset();
               setSelectedCustomer(null);
               setGstEntryEnabled(false);
+              setPackageCountMode('AUTOMATIC');
+              setWeightMode('AUTOMATIC');
               setRoute({ from: nagpurOrigin, to: null });
               request.current = { key: crypto.randomUUID(), body: null };
             }}
@@ -356,7 +379,7 @@ export default function CreateLRPage() {
           Back to shipments
         </Link>
       </PageHeader>
-      <form onSubmit={handleSubmit(submit)} className="lr-form">
+      <form onSubmit={handleSubmit(submit, invalidSubmit)} className="lr-form" noValidate>
         <input type="hidden" {...register('pickupRequestId')} />
         {sourcePickup && (
           <section className="panel">
@@ -452,24 +475,24 @@ export default function CreateLRPage() {
             <DestinationLookup label="To" value={route.to} rates={isCreditCustomer ? selectedCustomer.creditRateCard : undefined} error={errors.to?.message} onChange={selectDestination} />
             {destinationQuery.isFetching && <small>Finding destination for this PIN...</small>}
             {destinationQuery.isError && <div role="alert"><small className="field-error">{errorMessage(destinationQuery.error)}</small> <button type="button" className="table-action" onClick={() => destinationQuery.refetch()}>Retry</button></div>}
-            <FormField
-              label="Package count"
-              readOnly
-              type="number"
-              min="1"
-              max="10000"
-              {...register('packageCount')}
-              error={errors.packageCount?.message}
-            />
-            <FormField
-              label="Total weight (kg)"
-              readOnly
-              type="number"
-              min="0.001"
-              step="any"
-              {...register('weightKg')}
-              error={errors.weightKg?.message}
-            />
+            <div className="field lr-total-field">
+              <label htmlFor="packageCount">Package count</label>
+              <select aria-label="Package count mode" value={packageCountMode} onChange={(event) => setPackageCountMode(event.target.value)}>
+                <option value="AUTOMATIC">Automatic from goods</option>
+                <option value="MANUAL">Manual entry</option>
+              </select>
+              <input id="packageCount" aria-invalid={Boolean(errors.packageCount)} readOnly={packageCountMode === 'AUTOMATIC'} type="number" min="1" max="10000" {...register('packageCount')} />
+              <small className="field-error">{errors.packageCount?.message}</small>
+            </div>
+            <div className="field lr-total-field">
+              <label htmlFor="weightKg">Total weight (kg)</label>
+              <select aria-label="Total weight mode" value={weightMode} onChange={(event) => setWeightMode(event.target.value)}>
+                <option value="AUTOMATIC">Automatic from goods</option>
+                <option value="MANUAL">Manual entry</option>
+              </select>
+              <input id="weightKg" aria-invalid={Boolean(errors.weightKg)} readOnly={weightMode === 'AUTOMATIC'} type="number" min="0.001" step="any" {...register('weightKg')} />
+              <small className="field-error">{errors.weightKg?.message}</small>
+            </div>
             <FormField
               label="Expected delivery"
               type="date"
@@ -510,7 +533,7 @@ export default function CreateLRPage() {
         </section>
         <section className="panel form-section">
           <div className="section-title"><span>05</span><div><h2>Goods details</h2><p>Fill each printed goods-table field.</p></div></div>
-          <GoodsFields control={control} register={register} setValue={setValue} errors={errors} />
+          <GoodsFields control={control} register={register} setValue={setValue} errors={errors} autoPackageCount={packageCountMode === 'AUTOMATIC'} autoWeight={weightMode === 'AUTOMATIC'} />
         </section>
         <section className="panel form-section">
           <div className="section-title"><span>06</span><div><h2>Payment, risk & charges</h2><p>Freight calculates automatically from customer, destination and chargeable weight.</p></div></div>
@@ -555,7 +578,7 @@ export default function CreateLRPage() {
         )}
         <div className="form-actions">
           <span>Enter your LR number. Chargeable weight uses the higher of total actual and volumetric weight.</span>
-          <button className="btn" disabled={isSubmitting}>
+          <button type="submit" className="btn" disabled={isSubmitting}>
             {isSubmitting ? 'Creating LR…' : 'Create LR'}
             <Plus size={17} />
           </button>
