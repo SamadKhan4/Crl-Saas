@@ -5,7 +5,7 @@ import { get, errorMessage } from '../../api/client';
 import { useDebounce } from '../../hooks/useList';
 import { idOf } from '../../lib/workflow';
 
-const retailCustomer = Object.freeze({
+export const RETAIL_CUSTOMER = Object.freeze({
   id: 'RETAIL',
   customerCode: '9966',
   customerType: 'TO_PAY_PAID',
@@ -106,7 +106,7 @@ export default function CustomerCodeLookup({ value, onChange, onCustomer, initia
         />
       </div>
       {!selected && (
-        <button type="button" className="customer-retail-option" onClick={() => choose(retailCustomer)}>
+        <button type="button" className="customer-retail-option" onClick={() => choose(RETAIL_CUSTOMER)}>
           <span><strong>9966</strong><small>Others / Retail Customer</small></span>
           <em>Retail</em>
         </button>

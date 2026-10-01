@@ -4,7 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { api } from '../api/client';
-import CustomerCodeLookup from '../components/forms/CustomerCodeLookup';
+import CustomerCodeLookup, { RETAIL_CUSTOMER } from '../components/forms/CustomerCodeLookup';
 
 const customers = Array.from({ length: 4 }, (_, index) => ({
   id: String(index + 1).repeat(24),
@@ -52,4 +52,21 @@ it('selects the reserved 9966 retail customer without creating a customer master
   await userEvent.click(screen.getByRole('button', { name: /9966 others \/ retail customer/i }));
   expect(screen.getByTestId('value')).toHaveTextContent('RETAIL');
   expect(screen.getByTestId('code')).toHaveTextContent('9966');
+});
+
+it('shows retail as selected when an unlinked pickup request defaults to RETAIL', async () => {
+  const onCustomer = vi.fn();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <CustomerCodeLookup
+        value="RETAIL"
+        onChange={vi.fn()}
+        onCustomer={onCustomer}
+        initialCustomer={RETAIL_CUSTOMER}
+      />
+    </QueryClientProvider>,
+  );
+  await waitFor(() => expect(onCustomer).toHaveBeenCalledWith(RETAIL_CUSTOMER));
+  expect(screen.getByRole('combobox')).toHaveValue('9966 · Others / Retail Customer');
+  expect(screen.getByText(/Selected: Others \/ Retail Customer/)).toBeInTheDocument();
 });

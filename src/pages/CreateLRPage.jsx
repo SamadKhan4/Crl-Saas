@@ -10,7 +10,7 @@ import { bookingsApi, pickupRequestsApi, shipmentsApi } from '../api/services';
 import { errorMessage, formErrors, get } from '../api/client';
 import { useAuth } from '../features/auth/AuthContext';
 import { PageHeader, FormField } from '../components/common/UI';
-import CustomerCodeLookup from '../components/forms/CustomerCodeLookup';
+import CustomerCodeLookup, { RETAIL_CUSTOMER } from '../components/forms/CustomerCodeLookup';
 import GoodsFields, { emptyGoods } from '../components/forms/GoodsFields';
 import ChargeTotals from '../components/forms/ChargeTotals';
 import DestinationLookup from '../components/forms/DestinationLookup';
@@ -191,7 +191,7 @@ export default function CreateLRPage() {
   useEffect(() => {
     if (!sourcePickup) return;
     const pickupId = idOf(sourcePickup);
-    const customer = sourcePickup.customerId;
+    const customer = sourcePickup.customerId || RETAIL_CUSTOMER;
     const values = {
       pickupRequestId: pickupId,
       originBranchId: idOf(sourcePickup.branchId),
@@ -221,7 +221,7 @@ export default function CreateLRPage() {
     for (const [name, value] of Object.entries(values)) {
       if (value !== undefined && value !== '') setValue(name, value, { shouldValidate: true });
     }
-    if (customer) setSelectedCustomer(customer);
+    setSelectedCustomer(customer);
     setGstEntryEnabled(Boolean(sourcePickup.shipper?.gstin || sourcePickup.recipient?.gstin));
     setRoute({
       from: sourcePickup.shipper?.city
@@ -405,7 +405,7 @@ export default function CreateLRPage() {
           <Controller
             control={control}
             name="customerId"
-            render={({ field }) => <CustomerCodeLookup {...field} initialCustomer={sourcePickup?.customerId} onCustomer={setSelectedCustomer} />}
+            render={({ field }) => <CustomerCodeLookup {...field} initialCustomer={sourcePickup ? (sourcePickup.customerId || RETAIL_CUSTOMER) : undefined} onCustomer={setSelectedCustomer} />}
           />
           {errors.customerId && <small className="field-error">{errors.customerId.message}</small>}
         </section>
