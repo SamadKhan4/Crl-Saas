@@ -26,7 +26,7 @@ export const date = (value) =>
 export function actionsFor(shipment, user) {
   if (!shipment || !user || user.status !== 'ACTIVE') return [];
   if (user.role === 'EMPLOYEE') return [];
-  const admin = user.role === 'ADMIN';
+  const admin = ['ADMIN', 'MANAGER'].includes(user.role);
   if (!admin && user.role !== 'MANAGER') return [];
   const origin =
       admin || (!!idOf(user.branchId) && idOf(user.branchId) === idOf(shipment.originBranchId)),

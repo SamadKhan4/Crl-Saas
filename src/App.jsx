@@ -120,7 +120,10 @@ export default function App() {
                     <Route path="reports" element={<Reports />} />
                     <Route path="settings" element={<Settings />} />
                     <Route path="money-receipts" element={<TmsModule />} />
-                    <Route path="money-receipts/:id" element={<TmsPrint resource="money-receipts" />} />
+                    <Route
+                      path="money-receipts/:id"
+                      element={<TmsPrint resource="money-receipts" />}
+                    />
                     <Route path="invoices" element={<TmsModule />} />
                     <Route path="invoices/:id" element={<TmsPrint resource="invoices" />} />
                     <Route path="quotations" element={<TmsModule />} />
@@ -143,7 +146,10 @@ export default function App() {
                     <Route path="settings" element={<Settings />} />
                     <Route path="vendors" element={<TmsModule />} />
                     <Route path="money-receipts" element={<TmsModule />} />
-                    <Route path="money-receipts/:id" element={<TmsPrint resource="money-receipts" />} />
+                    <Route
+                      path="money-receipts/:id"
+                      element={<TmsPrint resource="money-receipts" />}
+                    />
                     <Route path="invoices" element={<TmsModule />} />
                     <Route path="invoices/:id" element={<TmsPrint resource="invoices" />} />
                     <Route path="quotations" element={<TmsModule />} />
@@ -153,6 +159,9 @@ export default function App() {
                   </>
                 ) : role === 'MANAGER' ? (
                   <>
+                    <Route path="branches" element={<Management />} />
+                    <Route path="vendors" element={<TmsModule />} />
+                    <Route path="reports" element={<Reports />} />
                     <Route path="receive" element={<Receive />} />
                     <Route path="activity" element={<Activity />} />
                   </>

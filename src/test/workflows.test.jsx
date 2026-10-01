@@ -313,7 +313,7 @@ describe('Documents and public access', () => {
 
 describe('Manager workspace', () => {
   const manager = branchManager;
-  it('allows verification and closure only for destination managers', () => {
+  it('allows managers to verify and close shipments across branches', () => {
     expect(actionsFor({ ...shipment, currentStatus: 'LR_IMAGE_UPLOADED' }, manager)).toEqual([
       'verify',
       'reject',
@@ -324,10 +324,10 @@ describe('Manager workspace', () => {
         { ...shipment, currentStatus: 'LR_IMAGE_UPLOADED' },
         { ...manager, branchId: origin },
       ),
-    ).toEqual([]);
+    ).toEqual(['verify', 'reject']);
     expect(
       actionsFor({ ...shipment, currentStatus: 'COMPLETED' }, { ...manager, branchId: origin }),
-    ).toEqual([]);
+    ).toEqual(['close']);
   });
   it('restores manager sessions and renders manager-only navigation', async () => {
     mount(<AppLayout />, { user: manager, path: '/manager/dashboard' });

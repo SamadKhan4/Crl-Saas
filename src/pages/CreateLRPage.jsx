@@ -111,7 +111,7 @@ export default function CreateLRPage() {
   } = useForm({
     resolver: zodResolver(lrCreateSchema),
     defaultValues: {
-      originBranchId: user.role !== 'ADMIN' ? idOf(user.branchId) : '',
+      originBranchId: !['ADMIN', 'MANAGER'].includes(user.role) ? idOf(user.branchId) : '',
       pickupRequestId: pickupRequestId || undefined,
       packageCount: 1,
       lrNumber: '',
@@ -275,7 +275,7 @@ export default function CreateLRPage() {
   useEffect(() => {
     const options = branches.data?.data || [];
     if (!options.length) return;
-    const originId = user.role === 'ADMIN' ? idOf(options.find((branch) => route.from && `${branch.name} ${branch.city}`.toLowerCase().includes(route.from.district.toLowerCase())) || options[0]) : idOf(user.branchId);
+    const originId = ['ADMIN', 'MANAGER'].includes(user.role) ? idOf(options.find((branch) => route.from && `${branch.name} ${branch.city}`.toLowerCase().includes(route.from.district.toLowerCase())) || options[0]) : idOf(user.branchId);
     const destinationId = idOf(options.find((branch) => route.to && `${branch.name} ${branch.city}`.toLowerCase().includes(route.to.district.toLowerCase()) && idOf(branch) !== originId) || options.find((branch) => idOf(branch) !== originId)) || originId;
     if (originId) setValue('originBranchId', originId, { shouldValidate: true });
     if (destinationId) setValue('destinationBranchId', destinationId, { shouldValidate: true });
@@ -412,7 +412,7 @@ export default function CreateLRPage() {
           {branches.isSuccess && !branchOptions.length && (
             <p className="field-error" role="alert">
               No active branches are configured. Create the origin and destination branches in Branch Master before creating an LR.
-              {user.role === 'ADMIN' && <> <Link to={`${base}/branches`}>Open Branch Master</Link></>}
+              {['ADMIN', 'MANAGER'].includes(user.role) && <> <Link to={`${base}/branches`}>Open Branch Master</Link></>}
             </p>
           )}
         </section>

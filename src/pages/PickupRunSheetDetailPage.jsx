@@ -9,6 +9,7 @@ import TransportPdfDownload from '../components/tms/TransportPdfDownload';
 import { DataTable, ErrorState, FormField, Loadingcrleleton, PageHeader, StatusBadge } from '../components/common/UI';
 import { useAuth } from '../features/auth/AuthContext';
 import { date, idOf, label } from '../lib/workflow';
+import { belongsToPrsBranch, eligiblePrsPickups } from '../lib/prs';
 
 const entryFor = (prs, request) => prs.purEntries?.find((entry) => idOf(entry.pickupRequestId) === idOf(request));
 
@@ -49,9 +50,9 @@ export default function PickupRunSheetDetailPage() {
   if (query.isPending || candidates.isPending) return <Loadingcrleleton />;
   if (query.isError || candidates.isError) return <ErrorState error={errorMessage(query.error || candidates.error)} retry={() => { query.refetch(); candidates.refetch(); }} />;
   const prs = query.data.data;
-  const branchId = idOf(prs.branchId);
-  const added = new Set((prs.pickupRequestIds || []).map(idOf));
-  const readyPur = (candidates.data?.data || []).filter((request) => idOf(request.branchId) === branchId && request.shipmentId && !request.pickupRunSheetId && !added.has(idOf(request)));
+  const candidateRows = candidates.data?.data || [];
+  const readyPur = eligiblePrsPickups(candidateRows, prs, user);
+  const awaitingLr = candidateRows.filter((request) => belongsToPrsBranch(request, prs, user) && !request.shipmentId && !request.pickupRunSheetId);
   const selectedPur = readyPur.find((request) => idOf(request) === pickupRequestId);
   const canEdit = prs.status !== 'DISPATCHED' && prs.status !== 'CANCELLED';
   const canReview = ['ADMIN', 'MANAGER'].includes(user.role) && prs.approvalStatus === 'PENDING';
@@ -92,7 +93,8 @@ export default function PickupRunSheetDetailPage() {
               <FormField label="Client amount" type="number" min="0" step="0.01" required value={amount} onChange={(event) => setAmount(event.target.value)} />
             </div>
             {selectedPur && <p className="form-hint">{selectedPur.totalBoxes} boxes · {selectedPur.totalWeightKg} kg · {selectedPur.shipper.city} → {selectedPur.recipient.city}</p>}
-            <button className="btn" disabled={action.isPending}><Plus size={16} /> Add PUR to sheet</button>
+            {!readyPur.length && <p className="form-hint" role="status">{awaitingLr.length ? 'LR generation is pending for the available PUR. Generate its LR first, then add it here.' : 'No eligible PUR available. PUR must have a generated LR, belong to this PRS branch and be unassigned to another sheet.'} <Link className="text-btn" to={`${base}/pickup-requests`}>View pickup requests</Link></p>}
+            <button className="btn" disabled={action.isPending || !readyPur.length}><Plus size={16} /> Add PUR to sheet</button>
           </form>
         )}
       </div>

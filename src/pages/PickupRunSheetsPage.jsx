@@ -31,14 +31,17 @@ export default function PickupRunSheetsPage() {
     enabled: feModalOpen && user.role === 'ADMIN',
   });
   const vendors = options.data?.data?.vendors || [];
+  const marketVehicles = options.data?.data?.marketVehicles || [];
   const fieldExecutives = options.data?.data?.fieldExecutives || [];
   const selectedVendor = vendors.find((vendor) => idOf(vendor) === form.vendorId);
-  const vehicles = (selectedVendor?.vehicles || []).filter((vehicle) => vehicle.status !== 'INACTIVE');
+  const selectedMarketVehicle = marketVehicles.find((vehicle) => `market:${idOf(vehicle.pickupRequestId)}` === form.vendorId);
+  const vehicles = selectedMarketVehicle ? [selectedMarketVehicle] : (selectedVendor?.vehicles || []).filter((vehicle) => vehicle.status !== 'INACTIVE');
   const setField = (name, value) => setForm((current) => ({ ...current, [name]: value }));
   const chooseVendor = (vendorId) => {
     const vendor = vendors.find((row) => idOf(row) === vendorId);
-    const vehicle = vendor?.vehicles?.find((row) => row.status !== 'INACTIVE');
-    setForm((current) => ({ ...current, vendorId, vehicleNumber: vehicle?.vehicleNumber || '', vehicleType: vehicle?.vehicleType || '' }));
+    const marketVehicle = marketVehicles.find((row) => `market:${idOf(row.pickupRequestId)}` === vendorId);
+    const vehicle = marketVehicle || vendor?.vehicles?.find((row) => row.status !== 'INACTIVE');
+    setForm((current) => ({ ...current, vendorId, ...(marketVehicle && { rateSource: 'MARKET' }), vehicleNumber: vehicle?.vehicleNumber || '', vehicleType: vehicle?.vehicleType || '' }));
   };
   const chooseVehicle = (vehicleNumber) => {
     const vehicle = vehicles.find((row) => row.vehicleNumber === vehicleNumber);
@@ -64,6 +67,8 @@ export default function PickupRunSheetsPage() {
   const create = useMutation({
     mutationFn: () => pickupRunSheetsApi.create({
       ...form,
+      vendorId: selectedMarketVehicle ? undefined : form.vendorId,
+      marketPickupRequestId: selectedMarketVehicle ? idOf(selectedMarketVehicle.pickupRequestId) : undefined,
       ...(form.rateSource === 'MARKET' ? { marketAmount: form.marketAmount } : { marketAmount: undefined }),
       remarks: form.remarks || undefined,
     }),
@@ -104,8 +109,8 @@ export default function PickupRunSheetsPage() {
         <div className="section-title"><span>01</span><div><h2>Create vendor dispatch sheet</h2><p>Vendor, rate, FE and vehicle come from their respective masters.</p></div></div>
         <div className="form-grid">
           <label><span>Vendor type *</span><select value={form.vendorCategory} onChange={(event) => setField('vendorCategory', event.target.value)}><option value="TRANSPORTER">Transporter</option><option value="BP_KG">BP (KG)</option></select></label>
-          <label><span>Rate source *</span><select value={form.rateSource} onChange={(event) => setField('rateSource', event.target.value)}><option value="MASTER">Vendor Master agreed rate</option><option value="MARKET">Market rate</option></select></label>
-          <label><span>Vendor name / code *</span><select required value={form.vendorId} onChange={(event) => chooseVendor(event.target.value)}><option value="">Select vendor</option>{vendors.map((vendor) => <option key={idOf(vendor)} value={idOf(vendor)}>{vendor.vendorCode} · {vendor.name}</option>)}</select></label>
+          <label><span>Rate source *</span><select disabled={Boolean(selectedMarketVehicle)} value={form.rateSource} onChange={(event) => setField('rateSource', event.target.value)}><option value="MASTER">Vendor Master agreed rate</option><option value="MARKET">Market rate</option></select></label>
+          <label><span>Vendor / market owner *</span><select required value={form.vendorId} onChange={(event) => chooseVendor(event.target.value)}><option value="">Select vendor or market vehicle</option><optgroup label="Vendor Master">{vendors.map((vendor) => <option key={idOf(vendor)} value={idOf(vendor)}>{vendor.vendorCode} · {vendor.name}</option>)}</optgroup><optgroup label="Market vehicles">{marketVehicles.map((vehicle) => <option key={idOf(vehicle.pickupRequestId)} value={`market:${idOf(vehicle.pickupRequestId)}`}>{vehicle.agentName} · {vehicle.vehicleNumber} · {vehicle.vehicleType || 'Vehicle'} · {vehicle.pickupRequestNumber}</option>)}</optgroup></select></label>
           <div className="field"><label htmlFor="prsFieldExecutive">Field Executive *</label><div className="fe-select-row"><select id="prsFieldExecutive" required value={form.fieldExecutiveId} onChange={(event) => setField('fieldExecutiveId', event.target.value)}><option value="">Select FE</option>{fieldExecutives.map((employee) => <option key={idOf(employee)} value={idOf(employee)}>{employee.employeeCode} · {employee.name} · {employee.mobile || 'Mobile missing'}</option>)}</select>{['ADMIN', 'MANAGER'].includes(user.role) && <button type="button" className="icon-btn fe-add-button" aria-label="Create field executive" title="Create field executive" onClick={openFeModal}><Plus size={18} /></button>}</div></div>
           <label><span>Vehicle number *</span><select required value={form.vehicleNumber} onChange={(event) => chooseVehicle(event.target.value)}><option value="">Select vendor vehicle</option>{vehicles.map((vehicle) => <option key={vehicle.vehicleNumber} value={vehicle.vehicleNumber}>{vehicle.vehicleNumber} · {vehicle.vehicleType || 'Vehicle'}</option>)}</select></label>
           <FormField label="Vehicle type" required readOnly value={form.vehicleType} />

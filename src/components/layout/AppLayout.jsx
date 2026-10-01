@@ -121,7 +121,7 @@ export default function AppLayout() {
               ['permissions', 'User Permissions', Settings],
               ['employees', 'Employees', Users],
             ]
-          : [['employees', 'Employees', Users]]),
+          : [['employees', 'Employees', Users], ['vendors', 'Vendor Master', Truck], ['branches', 'Branch Master', Building2]]),
         ...(manager ? [['onboarding', 'Onboarding Approval', PackageCheck]] : []),
       ]
     : [];

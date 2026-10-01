@@ -776,7 +776,7 @@ function RecordEditor({ resource, config, record, onClose }) {
     >
       <form onSubmit={save}>
         <div className="form-grid">
-          {user.role === 'ADMIN' && resource !== 'vendors' && (
+          {['ADMIN', 'MANAGER'].includes(user.role) && resource !== 'vendors' && (
             <Lookup
               resource="branches"
               branchOptions
@@ -916,7 +916,7 @@ export default function TmsModulePage() {
                 Manage POD
               </Link>
             )}
-            {config.edit && user.role === 'ADMIN' && (
+            {config.edit && ['ADMIN', 'MANAGER'].includes(user.role) && (
               <button className="text-btn" onClick={() => setEditor(row)}>
                 Edit
               </button>
@@ -932,7 +932,7 @@ export default function TmsModulePage() {
     ],
     [base, config, resource, user.role],
   );
-  const canCreate = !config.adminOnlyCreate || user.role === 'ADMIN';
+  const canCreate = !config.adminOnlyCreate || ['ADMIN', 'MANAGER'].includes(user.role);
   return (
     <>
       <PageHeader title={config.title} description={config.description}>
