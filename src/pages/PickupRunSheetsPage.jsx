@@ -7,6 +7,7 @@ import { branchesApi, pickupRunSheetsApi, usersApi } from '../api/services';
 import { errorMessage } from '../api/client';
 import { useAuth } from '../features/auth/AuthContext';
 import { date, idOf, label } from '../lib/workflow';
+import PrsActions from '../components/tms/PrsActions';
 import { DataTable, ErrorState, FormField, Loadingcrleleton, Modal, PageHeader, StatCard, StatusBadge } from '../components/common/UI';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -23,6 +24,7 @@ export default function PickupRunSheetsPage() {
   const [feModalOpen, setFeModalOpen] = useState(false);
   const [feError, setFeError] = useState('');
   const [error, setError] = useState('');
+  const [lrEntries, setLrEntries] = useState({});
   const options = useQuery({ queryKey: ['pickup-run-sheets', 'options'], queryFn: pickupRunSheetsApi.options });
   const runSheets = useQuery({ queryKey: ['pickup-run-sheets'], queryFn: () => pickupRunSheetsApi.list({ limit: 100, sortBy: 'createdAt', sortOrder: 'desc' }) });
   const branches = useQuery({
@@ -36,12 +38,19 @@ export default function PickupRunSheetsPage() {
   const selectedVendor = vendors.find((vendor) => idOf(vendor) === form.vendorId);
   const selectedMarketVehicle = marketVehicles.find((vehicle) => `market:${idOf(vehicle.pickupRequestId)}` === form.vendorId);
   const vehicles = selectedMarketVehicle ? [selectedMarketVehicle] : (selectedVendor?.vehicles || []).filter((vehicle) => vehicle.status !== 'INACTIVE');
+  const vendorLrs = (options.data?.data?.pickups || []).filter((pickup) => selectedMarketVehicle
+    ? idOf(pickup) === idOf(selectedMarketVehicle.pickupRequestId)
+    : Boolean(form.vendorId) && pickup.agentAssignment?.sourceType === 'VENDOR' && idOf(pickup.agentAssignment.vendorId) === form.vendorId);
+  const includedLrs = vendorLrs.filter((pickup) => lrEntries[idOf(pickup)]?.included !== false);
+  const routes = [...new Set(vendorLrs.map((pickup) => [pickup.shipper?.city, pickup.recipient?.city].filter(Boolean).join(' - ')).filter(Boolean))];
+  const updateEntry = (pickup, changes) => setLrEntries((current) => ({ ...current, [idOf(pickup)]: { ...current[idOf(pickup)], ...changes } }));
   const setField = (name, value) => setForm((current) => ({ ...current, [name]: value }));
   const chooseVendor = (vendorId) => {
     const vendor = vendors.find((row) => idOf(row) === vendorId);
     const marketVehicle = marketVehicles.find((row) => `market:${idOf(row.pickupRequestId)}` === vendorId);
     const vehicle = marketVehicle || vendor?.vehicles?.find((row) => row.status !== 'INACTIVE');
-    setForm((current) => ({ ...current, vendorId, ...(marketVehicle && { rateSource: 'MARKET' }), vehicleNumber: vehicle?.vehicleNumber || '', vehicleType: vehicle?.vehicleType || '' }));
+    setLrEntries({});
+    setForm((current) => ({ ...current, vendorId, route: '', rateSource: marketVehicle ? 'MARKET' : 'MASTER', vehicleNumber: vehicle?.vehicleNumber || '', vehicleType: vehicle?.vehicleType || '' }));
   };
   const chooseVehicle = (vehicleNumber) => {
     const vehicle = vehicles.find((row) => row.vehicleNumber === vehicleNumber);
@@ -67,14 +76,17 @@ export default function PickupRunSheetsPage() {
   const create = useMutation({
     mutationFn: () => pickupRunSheetsApi.create({
       ...form,
+      pickups: includedLrs.map((pickup) => ({ pickupRequestId: idOf(pickup), paymentTerm: lrEntries[idOf(pickup)]?.paymentTerm || 'CREDIT', amount: lrEntries[idOf(pickup)]?.amount ?? 0 })),
       vendorId: selectedMarketVehicle ? undefined : form.vendorId,
       marketPickupRequestId: selectedMarketVehicle ? idOf(selectedMarketVehicle.pickupRequestId) : undefined,
       ...(form.rateSource === 'MARKET' ? { marketAmount: form.marketAmount } : { marketAmount: undefined }),
       remarks: form.remarks || undefined,
     }),
     onSuccess: (result) => {
-      toast.success(`Draft PRS ${result.data.prsNumber} created. Add PURs now.`);
+      toast.success(`PRS ${result.data.prsNumber} created with ${includedLrs.length} LRs.`);
       setForm(initialForm);
+      setLrEntries({});
+      cache.invalidateQueries({ queryKey: ['pickup-requests'] });
       setError('');
       cache.invalidateQueries({ queryKey: ['pickup-run-sheets'] });
       navigate(`${base}/pickup-run-sheets/${idOf(result.data)}`);
@@ -84,6 +96,7 @@ export default function PickupRunSheetsPage() {
   const submit = (event) => {
     event.preventDefault();
     setError('');
+    if (!includedLrs.length) return setError('Select at least one available LR.');
     create.mutate();
   };
   const rows = runSheets.data?.data || [];
@@ -99,7 +112,7 @@ export default function PickupRunSheetsPage() {
 
   return (
     <>
-      <PageHeader title="Dispatch Create · PRS" description="Create vendor and FE sheet first, add PURs inside it, then dispatch the First Mile." />
+      <PageHeader title="Dispatch Create · PRS" description="Select a vendor, review its LRs, choose a route and submit to create PRS." />
       <div className="stats-grid agent-summary">
         <StatCard label="Draft / Ready" value={counts.draft} icon={ClipboardList} />
         <StatCard label="Manager approval" value={counts.approval} />
@@ -115,7 +128,7 @@ export default function PickupRunSheetsPage() {
           <label><span>Vehicle number *</span><select required value={form.vehicleNumber} onChange={(event) => chooseVehicle(event.target.value)}><option value="">Select vendor vehicle</option>{vehicles.map((vehicle) => <option key={vehicle.vehicleNumber} value={vehicle.vehicleNumber}>{vehicle.vehicleNumber} · {vehicle.vehicleType || 'Vehicle'}</option>)}</select></label>
           <FormField label="Vehicle type" required readOnly value={form.vehicleType} />
           <FormField label="Pickup date" type="date" required value={form.pickupDate} onChange={(event) => setField('pickupDate', event.target.value)} />
-          <FormField label="Route" required maxLength={250} value={form.route} onChange={(event) => setField('route', event.target.value)} />
+          <label><span>Route *</span><input required list="prs-routes" minLength={2} maxLength={250} placeholder="Select or enter route" value={form.route} onChange={(event) => setField('route', event.target.value)} /><datalist id="prs-routes">{routes.map((route) => <option key={route} value={route} />)}</datalist></label>
           {form.rateSource === 'MARKET' ? (
             <FormField label="Market amount (manager approval required)" type="number" min="0.01" step="0.01" required value={form.marketAmount} onChange={(event) => setField('marketAmount', event.target.value)} />
           ) : (
@@ -123,8 +136,19 @@ export default function PickupRunSheetsPage() {
           )}
           <div className="field full-span"><label htmlFor="prsRemarks">Remarks</label><textarea id="prsRemarks" rows="3" maxLength={500} value={form.remarks} onChange={(event) => setField('remarks', event.target.value)} /></div>
         </div>
+        <div className="panel-heading"><div><h2>Vendor LRs</h2><p>{form.vendorId ? `${includedLrs.length} LRs included. LRs already assigned to a PRS are excluded.` : 'Select a vendor to see available LRs.'}</p></div></div>
+        <DataTable rows={vendorLrs} empty="No available LRs for this vendor" columns={[
+          { key: 'include', label: 'Include', render: (pickup) => <input type="checkbox" aria-label={`Include ${pickup.shipmentId?.lrNumber}`} checked={lrEntries[idOf(pickup)]?.included !== false} onChange={(event) => updateEntry(pickup, { included: event.target.checked })} /> },
+          { key: 'lr', label: 'LR number', render: (pickup) => pickup.shipmentId?.lrNumber },
+          { key: 'pickupRequestNumber', label: 'PUR number' },
+          { key: 'client', label: 'Pickup client', render: (pickup) => pickup.shipper?.companyName },
+          { key: 'route', label: 'Route', render: (pickup) => `${pickup.shipper?.city || ''} - ${pickup.recipient?.city || ''}` },
+          { key: 'load', label: 'Load', render: (pickup) => `${pickup.totalBoxes} boxes / ${pickup.totalWeightKg} kg` },
+          { key: 'payment', label: 'Payment term', render: (pickup) => <select aria-label={`Payment term ${pickup.shipmentId?.lrNumber}`} value={lrEntries[idOf(pickup)]?.paymentTerm || 'CREDIT'} onChange={(event) => updateEntry(pickup, { paymentTerm: event.target.value })}><option value="CREDIT">Credit</option><option value="PAID">Paid</option><option value="PREPAID">Prepaid</option></select> },
+          { key: 'amount', label: 'Client amount', render: (pickup) => <input aria-label={`Client amount ${pickup.shipmentId?.lrNumber}`} type="number" min="0" max="100000000" step="0.01" required value={lrEntries[idOf(pickup)]?.amount ?? 0} onChange={(event) => updateEntry(pickup, { amount: event.target.value })} /> },
+        ]} />
         {error && <p className="field-error" role="alert">{error}</p>}
-        <div className="form-actions"><span>Sheet create hone ke baad uske View page me PUR add hoga.</span><button className="btn" disabled={create.isPending}><Plus size={16} /> {create.isPending ? 'Creating sheet…' : 'Create Draft PRS'}</button></div>
+        <div className="form-actions"><span>Selected LRs will be saved with this PRS.</span><button className="btn" disabled={create.isPending || !includedLrs.length}><Plus size={16} /> {create.isPending ? 'Creating sheet…' : 'Create PRS'}</button></div>
       </form>
       <section className="panel">
         <div className="panel-heading"><div><h2>PRS register</h2><p>Draft, approval and dispatched sheets.</p></div></div>
@@ -138,6 +162,7 @@ export default function PickupRunSheetsPage() {
           { key: 'pickupCount', label: 'PURs', render: (row) => row.pickupRequestIds?.length || 0 },
           { key: 'approvalStatus', label: 'Rate approval', render: (row) => <StatusBadge status={row.approvalStatus} /> },
           { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
+          { key: 'operations', label: 'Operations', render: (row) => <PrsActions prs={row} /> },
           { key: 'action', label: 'Action', render: (row) => <Link className="text-btn" to={`${base}/pickup-run-sheets/${idOf(row)}`}><Eye size={15} /> View PRS</Link> },
         ]} />
       </section>

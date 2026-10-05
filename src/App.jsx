@@ -38,7 +38,6 @@ const PickupRequests = lazy(() => import('./pages/PickupRequestsPage'));
 const AgentAlignment = lazy(() => import('./pages/AgentAlignmentPage'));
 const PickupRunSheets = lazy(() => import('./pages/PickupRunSheetsPage'));
 const PickupRunSheetDetail = lazy(() => import('./pages/PickupRunSheetDetailPage'));
-const AgentLrs = lazy(() => import('./pages/AgentLrsPage'));
 const VendorPortal = lazy(() => import('./pages/VendorPortalPage'));
 const NotificationOutbox = lazy(() => import('./pages/NotificationOutboxPage'));
 const Permissions = lazy(() => import('./pages/PermissionsPage'));
@@ -67,7 +66,6 @@ export default function App() {
                 <Route path="agent-alignment" element={<AgentAlignment />} />
                 <Route path="pickup-run-sheets" element={<PickupRunSheets />} />
                 <Route path="pickup-run-sheets/:id" element={<PickupRunSheetDetail />} />
-                <Route path="agent-lrs" element={<AgentLrs />} />
                 <Route path="hub-inward" element={<MiddleMile />} />
                 <Route path="segregations" element={<MiddleMile />} />
                 <Route path="loading-tallies" element={<MiddleMile />} />

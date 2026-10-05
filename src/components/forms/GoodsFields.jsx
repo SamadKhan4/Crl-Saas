@@ -4,7 +4,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { FormField } from '../common/UI';
 import { calculateGoods } from '../../lib/goods';
 
-export const emptyGoods = () => ({ description: '', packageNumber: '', packageType: '', quantity: 1, actualWeight: '', length: '', breadth: '', height: '', dimensionUnit: 'CM' });
+export const emptyGoods = () => ({ description: '', packageNumber: '', packageType: '', quantity: 1, actualWeight: '', length: '', breadth: '', height: '', dimensionUnit: 'IN' });
 
 export default function GoodsFields({ control, register, setValue, errors, autoPackageCount = true, autoWeight = true }) {
   const { fields, append, remove } = useFieldArray({ control, name: 'goods' });

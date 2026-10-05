@@ -132,7 +132,6 @@ export default function AppLayout() {
           ['agent-alignment', 'Agent Alignment', Users],
           ['shipments/create', 'LR Entry', Plus],
           ['pickup-run-sheets', 'PRS Creation', ClipboardList],
-          ['agent-lrs', 'Agent LR (Auto Reflecting)', Package],
         ]
       : operationStage === 'MM'
         ? [
