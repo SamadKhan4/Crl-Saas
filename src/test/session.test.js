@@ -43,18 +43,14 @@ describe('Session logistic', () => {
       accessToken: 'expired',
       user: { role: 'ADMIN', status: 'ACTIVE', name: 'Admin' },
     });
-    const refresh = vi.spyOn(logistic, 'post').mockResolvedValue({
-      data: {
-        data: { accessToken: 'fresh', user: { role: 'ADMIN', status: 'ACTIVE', name: 'Admin' } },
-      },
-    });
+    const refresh = vi.fn();
     api.defaults.adapter = async (config) => {
-      if (!config._retried)
-        throw new AxiosError('Expired', '401', config, null, {
-          status: 401,
-          data: { errorCode: 'UNAUTHORIZED' },
-          config,
-        });
+      if (config.url === '/auth/refresh') {
+        refresh();
+        return { status: 200, data: { success: true, data: { accessToken: 'fresh' } }, config, headers: {} };
+      }
+      if (!config.__retriedAfterRefresh)
+        throw new AxiosError('Expired', '401', config, null, { status: 401, data: { errorCode: 'UNAUTHORIZED' }, config });
       return { status: 200, data: {}, config, headers: {} };
     };
     await api.post('/auth/change-password', {});
@@ -98,12 +94,13 @@ describe('Session logistic', () => {
       await new Promise((resolve) => setTimeout(resolve, 15));
       return {
         data: {
+          success: true,
           data: { accessToken: 'fresh', user: { role: 'ADMIN', status: 'ACTIVE', name: 'Admin' } },
         },
       };
     });
     api.defaults.adapter = async (config) => {
-      if (!config._retried)
+      if (!config.__retriedAfterRefresh)
         throw new AxiosError('Expired', '401', config, null, { status: 401, data: {}, config });
       return { status: 200, data: config.headers.Authorization, config, headers: {} };
     };
@@ -122,7 +119,7 @@ describe('Session logistic', () => {
     api.defaults.adapter = async (config) => {
       throw new AxiosError('Expired', '401', config, null, { status: 401, data: {}, config });
     };
-    await expect(api.get('/shipments')).rejects.toThrow('Expired refresh');
+    await expect(api.get('/shipments')).rejects.toThrow('Expired');
     expect(listener).toHaveBeenLastCalledWith(null);
   });
   it('maps backend field validation and suppresses server stack details', () => {

@@ -13,13 +13,12 @@ const rows = (parts) => Object.entries(parts || {}).filter(([key]) => key !== '_
 
 function PayslipSheet({ payslip }) {
   const employee = payslip.employeeId || {};
-  const branch = payslip.branchId || {};
   return <div className="transport-print-document payslip-document">
     <header className="payslip-header"><img src="/crl-logo.png" alt="CRL" /><div><h1>PAYSLIP</h1><p>{new Date(`${payslip.salaryMonth}-01T00:00:00`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</p></div></header>
     <section className="payslip-meta">
       <div><span>Employee Name</span><b>{employee.name}</b></div><div><span>Employee Code</span><b>{employee.employeeCode}</b></div>
       <div><span>Designation</span><b>{payslip.designation || '—'}</b></div><div><span>Department</span><b>{payslip.department || '—'}</b></div>
-      <div><span>Branch</span><b>{branch.name || '—'}</b></div><div><span>Paid Days</span><b>{payslip.paidDays}</b></div>
+      <div><span>Paid Days</span><b>{payslip.paidDays}</b></div>
       <div><span>Payslip Number</span><b>{payslip.payslipNumber}</b></div><div><span>Status</span><b>{payslip.status}</b></div>
     </section>
     <div className="payslip-tables">

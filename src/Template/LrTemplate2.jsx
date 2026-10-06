@@ -179,7 +179,7 @@ const LrTemplate2 = forwardRef(function LrTemplate2({ shipment = {} }, ref) {
         <section className="lr2-section">
           <div className="lr2-title"><span className="lr2-raised-title">Booking, delivery and references</span></div>
           <div className="lr2-grid">
-            <Field title="Booking branch" value={s.bookingBranch || branch(s.originBranchId)} />
+            <Field title="Office" value={'Nagpur'} />
             <Field title="Delivery address" value={s.deliveryAddress} wide />
             <Field title="Contact number" value={s.contactNo || s.receiverMobile} />
             <Field title="Invoice number" value={s.invoiceNo} />

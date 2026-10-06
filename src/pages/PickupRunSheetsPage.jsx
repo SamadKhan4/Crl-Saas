@@ -1,17 +1,16 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
-import { ClipboardList, Eye, Plus, Truck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { branchesApi, pickupRunSheetsApi, usersApi } from '../api/services';
+import { pickupRunSheetsApi, usersApi } from '../api/services';
 import { errorMessage } from '../api/client';
 import { useAuth } from '../features/auth/AuthContext';
-import { date, idOf, label } from '../lib/workflow';
-import PrsActions from '../components/tms/PrsActions';
-import { DataTable, ErrorState, FormField, Loadingcrleleton, Modal, PageHeader, StatCard, StatusBadge } from '../components/common/UI';
+import { idOf, label } from '../lib/workflow';
+import { DataTable, ErrorState, FormField, Loadingcrleleton, Modal, PageHeader } from '../components/common/UI';
 
 const today = () => new Date().toISOString().slice(0, 10);
-const initialForm = { vendorCategory: 'TRANSPORTER', rateSource: 'MASTER', vendorId: '', fieldExecutiveId: '', vehicleNumber: '', vehicleType: '', pickupDate: today(), route: '', marketAmount: '', remarks: '' };
+const initialForm = { vendorCategory: 'TRANSPORTER', rateSource: 'MASTER', vendorId: '', fieldExecutiveId: '', vehicleNumber: '', vehicleType: '', pickupDate: today(), marketAmount: '', remarks: '' };
 const initialFeForm = { name: '', mobile: '', email: '', branchId: '', password: '' };
 
 export default function PickupRunSheetsPage() {
@@ -26,12 +25,6 @@ export default function PickupRunSheetsPage() {
   const [error, setError] = useState('');
   const [lrEntries, setLrEntries] = useState({});
   const options = useQuery({ queryKey: ['pickup-run-sheets', 'options'], queryFn: pickupRunSheetsApi.options });
-  const runSheets = useQuery({ queryKey: ['pickup-run-sheets'], queryFn: () => pickupRunSheetsApi.list({ limit: 100, sortBy: 'createdAt', sortOrder: 'desc' }) });
-  const branches = useQuery({
-    queryKey: ['branches', 'prs-fe-options'],
-    queryFn: () => branchesApi.list({ limit: 100, status: 'ACTIVE', sortBy: 'name', sortOrder: 'asc' }),
-    enabled: feModalOpen && user.role === 'ADMIN',
-  });
   const vendors = options.data?.data?.vendors || [];
   const marketVehicles = options.data?.data?.marketVehicles || [];
   const fieldExecutives = options.data?.data?.fieldExecutives || [];
@@ -42,7 +35,6 @@ export default function PickupRunSheetsPage() {
     ? idOf(pickup) === idOf(selectedMarketVehicle.pickupRequestId)
     : Boolean(form.vendorId) && pickup.agentAssignment?.sourceType === 'VENDOR' && idOf(pickup.agentAssignment.vendorId) === form.vendorId);
   const includedLrs = vendorLrs.filter((pickup) => lrEntries[idOf(pickup)]?.included !== false);
-  const routes = [...new Set(vendorLrs.map((pickup) => [pickup.shipper?.city, pickup.recipient?.city].filter(Boolean).join(' - ')).filter(Boolean))];
   const updateEntry = (pickup, changes) => setLrEntries((current) => ({ ...current, [idOf(pickup)]: { ...current[idOf(pickup)], ...changes } }));
   const setField = (name, value) => setForm((current) => ({ ...current, [name]: value }));
   const chooseVendor = (vendorId) => {
@@ -50,7 +42,7 @@ export default function PickupRunSheetsPage() {
     const marketVehicle = marketVehicles.find((row) => `market:${idOf(row.pickupRequestId)}` === vendorId);
     const vehicle = marketVehicle || vendor?.vehicles?.find((row) => row.status !== 'INACTIVE');
     setLrEntries({});
-    setForm((current) => ({ ...current, vendorId, route: '', rateSource: marketVehicle ? 'MARKET' : 'MASTER', vehicleNumber: vehicle?.vehicleNumber || '', vehicleType: vehicle?.vehicleType || '' }));
+    setForm((current) => ({ ...current, vendorId, rateSource: marketVehicle ? 'MARKET' : 'MASTER', vehicleNumber: vehicle?.vehicleNumber || '', vehicleType: vehicle?.vehicleType || '' }));
   };
   const chooseVehicle = (vehicleNumber) => {
     const vehicle = vehicles.find((row) => row.vehicleNumber === vehicleNumber);
@@ -76,14 +68,14 @@ export default function PickupRunSheetsPage() {
   const create = useMutation({
     mutationFn: () => pickupRunSheetsApi.create({
       ...form,
-      pickups: includedLrs.map((pickup) => ({ pickupRequestId: idOf(pickup), paymentTerm: lrEntries[idOf(pickup)]?.paymentTerm || 'CREDIT', amount: lrEntries[idOf(pickup)]?.amount ?? 0 })),
+      pickups: includedLrs.map((pickup) => ({ pickupRequestId: idOf(pickup) })),
       vendorId: selectedMarketVehicle ? undefined : form.vendorId,
       marketPickupRequestId: selectedMarketVehicle ? idOf(selectedMarketVehicle.pickupRequestId) : undefined,
       ...(form.rateSource === 'MARKET' ? { marketAmount: form.marketAmount } : { marketAmount: undefined }),
       remarks: form.remarks || undefined,
     }),
     onSuccess: (result) => {
-      toast.success(`PRS ${result.data.prsNumber} created with ${includedLrs.length} LRs.`);
+      toast.success(`PRS ${result.data.prsNumber} created and dispatched with ${includedLrs.length} LRs.`);
       setForm(initialForm);
       setLrEntries({});
       cache.invalidateQueries({ queryKey: ['pickup-requests'] });
@@ -99,38 +91,25 @@ export default function PickupRunSheetsPage() {
     if (!includedLrs.length) return setError('Select at least one available LR.');
     create.mutate();
   };
-  const rows = runSheets.data?.data || [];
-  const counts = {
-    draft: rows.filter((row) => ['DRAFT', 'READY'].includes(row.status)).length,
-    approval: rows.filter((row) => row.approvalStatus === 'PENDING').length,
-    dispatched: rows.filter((row) => row.status === 'DISPATCHED').length,
-  };
-
-  if (options.isPending || runSheets.isPending) return <Loadingcrleleton />;
-  if (options.isError || runSheets.isError)
-    return <ErrorState error={errorMessage(options.error || runSheets.error)} retry={() => { options.refetch(); runSheets.refetch(); }} />;
+  if (options.isPending) return <Loadingcrleleton />;
+  if (options.isError)
+    return <ErrorState error={errorMessage(options.error)} retry={options.refetch} />;
 
   return (
     <>
-      <PageHeader title="Dispatch Create · PRS" description="Select a vendor, review its LRs, choose a route and submit to create PRS." />
-      <div className="stats-grid agent-summary">
-        <StatCard label="Draft / Ready" value={counts.draft} icon={ClipboardList} />
-        <StatCard label="Manager approval" value={counts.approval} />
-        <StatCard label="Dispatched" value={counts.dispatched} icon={Truck} />
-      </div>
+      <PageHeader title="Dispatch Create · PRS" description="Select a vendor, review its LRs and submit to create PRS." />
       <form className="panel form-section" onSubmit={submit}>
         <div className="section-title"><span>01</span><div><h2>Create vendor dispatch sheet</h2><p>Vendor, rate, FE and vehicle come from their respective masters.</p></div></div>
         <div className="form-grid">
           <label><span>Vendor type *</span><select value={form.vendorCategory} onChange={(event) => setField('vendorCategory', event.target.value)}><option value="TRANSPORTER">Transporter</option><option value="BP_KG">BP (KG)</option></select></label>
           <label><span>Rate source *</span><select disabled={Boolean(selectedMarketVehicle)} value={form.rateSource} onChange={(event) => setField('rateSource', event.target.value)}><option value="MASTER">Vendor Master agreed rate</option><option value="MARKET">Market rate</option></select></label>
-          <label><span>Vendor / market owner *</span><select required value={form.vendorId} onChange={(event) => chooseVendor(event.target.value)}><option value="">Select vendor or market vehicle</option><optgroup label="Vendor Master">{vendors.map((vendor) => <option key={idOf(vendor)} value={idOf(vendor)}>{vendor.vendorCode} · {vendor.name}</option>)}</optgroup><optgroup label="Market vehicles">{marketVehicles.map((vehicle) => <option key={idOf(vehicle.pickupRequestId)} value={`market:${idOf(vehicle.pickupRequestId)}`}>{vehicle.agentName} · {vehicle.vehicleNumber} · {vehicle.vehicleType || 'Vehicle'} · {vehicle.pickupRequestNumber}</option>)}</optgroup></select></label>
+          <label><span>Vendor / market owner *</span><select required value={form.vendorId} onChange={(event) => chooseVendor(event.target.value)}><option value="">Select vendor or market vehicle</option><optgroup label="Vendor Master">{vendors.map((vendor) => <option key={idOf(vendor)} value={idOf(vendor)}>{vendor.vendorCode} · {vendor.name}</option>)}</optgroup><optgroup label="Market vehicles">{marketVehicles.map((vehicle) => <option key={idOf(vehicle.pickupRequestId)} value={`market:${idOf(vehicle.pickupRequestId)}`}>{vehicle.agentName} · {vehicle.vehicleNumber} · {vehicle.vehicleType || 'Vehicle'} · {vehicle.lrNumber || 'LR pending'}</option>)}</optgroup></select></label>
           <div className="field"><label htmlFor="prsFieldExecutive">Field Executive *</label><div className="fe-select-row"><select id="prsFieldExecutive" required value={form.fieldExecutiveId} onChange={(event) => setField('fieldExecutiveId', event.target.value)}><option value="">Select FE</option>{fieldExecutives.map((employee) => <option key={idOf(employee)} value={idOf(employee)}>{employee.employeeCode} · {employee.name} · {employee.mobile || 'Mobile missing'}</option>)}</select>{['ADMIN', 'MANAGER'].includes(user.role) && <button type="button" className="icon-btn fe-add-button" aria-label="Create field executive" title="Create field executive" onClick={openFeModal}><Plus size={18} /></button>}</div></div>
           <label><span>Vehicle number *</span><select required value={form.vehicleNumber} onChange={(event) => chooseVehicle(event.target.value)}><option value="">Select vendor vehicle</option>{vehicles.map((vehicle) => <option key={vehicle.vehicleNumber} value={vehicle.vehicleNumber}>{vehicle.vehicleNumber} · {vehicle.vehicleType || 'Vehicle'}</option>)}</select></label>
           <FormField label="Vehicle type" required readOnly value={form.vehicleType} />
           <FormField label="Pickup date" type="date" required value={form.pickupDate} onChange={(event) => setField('pickupDate', event.target.value)} />
-          <label><span>Route *</span><input required list="prs-routes" minLength={2} maxLength={250} placeholder="Select or enter route" value={form.route} onChange={(event) => setField('route', event.target.value)} /><datalist id="prs-routes">{routes.map((route) => <option key={route} value={route} />)}</datalist></label>
           {form.rateSource === 'MARKET' ? (
-            <FormField label="Market amount (manager approval required)" type="number" min="0.01" step="0.01" required value={form.marketAmount} onChange={(event) => setField('marketAmount', event.target.value)} />
+            <FormField label="Market amount (rate review required)" type="number" min="0.01" step="0.01" required value={form.marketAmount} onChange={(event) => setField('marketAmount', event.target.value)} />
           ) : (
             <div className="field"><label>Master agreed rate</label><div className="master-rate-preview"><strong>₹ {Number(selectedVendor?.commercial?.rate || 0).toLocaleString('en-IN')}</strong><small>{label(form.vendorCategory === 'BP_KG' ? 'PER_KG' : selectedVendor?.commercial?.rateBasis)}</small></div></div>
           )}
@@ -140,32 +119,16 @@ export default function PickupRunSheetsPage() {
         <DataTable rows={vendorLrs} empty="No available LRs for this vendor" columns={[
           { key: 'include', label: 'Include', render: (pickup) => <input type="checkbox" aria-label={`Include ${pickup.shipmentId?.lrNumber}`} checked={lrEntries[idOf(pickup)]?.included !== false} onChange={(event) => updateEntry(pickup, { included: event.target.checked })} /> },
           { key: 'lr', label: 'LR number', render: (pickup) => pickup.shipmentId?.lrNumber },
-          { key: 'pickupRequestNumber', label: 'PUR number' },
-          { key: 'client', label: 'Pickup client', render: (pickup) => pickup.shipper?.companyName },
-          { key: 'route', label: 'Route', render: (pickup) => `${pickup.shipper?.city || ''} - ${pickup.recipient?.city || ''}` },
-          { key: 'load', label: 'Load', render: (pickup) => `${pickup.totalBoxes} boxes / ${pickup.totalWeightKg} kg` },
-          { key: 'payment', label: 'Payment term', render: (pickup) => <select aria-label={`Payment term ${pickup.shipmentId?.lrNumber}`} value={lrEntries[idOf(pickup)]?.paymentTerm || 'CREDIT'} onChange={(event) => updateEntry(pickup, { paymentTerm: event.target.value })}><option value="CREDIT">Credit</option><option value="PAID">Paid</option><option value="PREPAID">Prepaid</option></select> },
-          { key: 'amount', label: 'Client amount', render: (pickup) => <input aria-label={`Client amount ${pickup.shipmentId?.lrNumber}`} type="number" min="0" max="100000000" step="0.01" required value={lrEntries[idOf(pickup)]?.amount ?? 0} onChange={(event) => updateEntry(pickup, { amount: event.target.value })} /> },
+          { key: 'client', label: 'Client', render: (pickup) => pickup.shipmentId?.customerId?.companyName || pickup.shipmentId?.customerId?.name || pickup.shipmentId?.senderName || pickup.shipper?.companyName },
+          { key: 'destination', label: 'Destination', render: (pickup) => pickup.shipmentId?.lrDetails?.to || pickup.recipient?.city },
+          { key: 'route', label: 'Route', render: (pickup) => pickup.agentAssignment?.route || `${pickup.shipper?.city || ''} - ${pickup.recipient?.city || ''}` },
+          { key: 'load', label: 'Load', render: (pickup) => `${pickup.shipmentId?.packageCount ?? pickup.totalBoxes} boxes / ${pickup.shipmentId?.weightKg ?? pickup.totalWeightKg} kg` },
+          { key: 'payment', label: 'Payment type', render: (pickup) => label(pickup.shipmentId?.lrDetails?.paymentMode) || 'Not entered' },
+          { key: 'amount', label: 'LR amount (?)', render: (pickup) => pickup.shipmentId?.lrDetails?.totalAmount != null ? Number(pickup.shipmentId.lrDetails.totalAmount).toLocaleString('en-IN') : 'Not entered' },
         ]} />
         {error && <p className="field-error" role="alert">{error}</p>}
-        <div className="form-actions"><span>Selected LRs will be saved with this PRS.</span><button className="btn" disabled={create.isPending || !includedLrs.length}><Plus size={16} /> {create.isPending ? 'Creating sheet…' : 'Create PRS'}</button></div>
+        <div className="form-actions"><span>Total LR amount: ? {includedLrs.reduce((sum, pickup) => sum + Number(pickup.shipmentId?.lrDetails?.totalAmount || 0), 0).toLocaleString('en-IN')}. Selected LRs will be dispatched on creation.</span><button className="btn" disabled={create.isPending || !includedLrs.length}><Plus size={16} /> {create.isPending ? 'Creating sheet…' : 'Create PRS'}</button></div>
       </form>
-      <section className="panel">
-        <div className="panel-heading"><div><h2>PRS register</h2><p>Draft, approval and dispatched sheets.</p></div></div>
-        <DataTable rows={rows} empty="No PRS created yet" columns={[
-          { key: 'prsNumber', label: 'PRS number' },
-          { key: 'dispatchId', label: 'Dispatch ID', render: (row) => row.dispatchId || 'After dispatch' },
-          { key: 'vendorName', label: 'Vendor', render: (row) => `${row.vendorCode} · ${row.vendorName}` },
-          { key: 'fieldExecutiveName', label: 'FE' },
-          { key: 'vehicleNumber', label: 'Vehicle' },
-          { key: 'pickupDate', label: 'Pickup date', render: (row) => date(row.pickupDate) },
-          { key: 'pickupCount', label: 'PURs', render: (row) => row.pickupRequestIds?.length || 0 },
-          { key: 'approvalStatus', label: 'Rate approval', render: (row) => <StatusBadge status={row.approvalStatus} /> },
-          { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
-          { key: 'operations', label: 'Operations', render: (row) => <PrsActions prs={row} /> },
-          { key: 'action', label: 'Action', render: (row) => <Link className="text-btn" to={`${base}/pickup-run-sheets/${idOf(row)}`}><Eye size={15} /> View PRS</Link> },
-        ]} />
-      </section>
       {feModalOpen && (
         <Modal title="Add Field Executive" onClose={() => !createFe.isPending && setFeModalOpen(false)}>
           <form onSubmit={(event) => { event.preventDefault(); setFeError(''); createFe.mutate(); }}>
@@ -174,15 +137,11 @@ export default function PickupRunSheetsPage() {
               <FormField label="FE name" required minLength={2} maxLength={100} value={feForm.name} onChange={(event) => setFeForm((current) => ({ ...current, name: event.target.value }))} />
               <FormField label="Mobile number" required inputMode="numeric" pattern="[0-9]{10,15}" value={feForm.mobile} onChange={(event) => setFeForm((current) => ({ ...current, mobile: event.target.value }))} />
               <FormField label="Login email" type="email" required value={feForm.email} onChange={(event) => setFeForm((current) => ({ ...current, email: event.target.value }))} />
-              {user.role === 'ADMIN' ? (
-                <div className="field"><label htmlFor="feBranch">Branch</label><select id="feBranch" required value={feForm.branchId} onChange={(event) => setFeForm((current) => ({ ...current, branchId: event.target.value }))}><option value="">Select branch</option>{(branches.data?.data || []).map((branch) => <option key={idOf(branch)} value={idOf(branch)}>{branch.branchCode} · {branch.name}</option>)}</select>{branches.isError && <small className="field-error">{errorMessage(branches.error)}</small>}</div>
-              ) : (
-                <FormField label="Branch" value={user.branchId?.name || user.branchId?.branchCode || 'Your assigned branch'} readOnly />
-              )}
+
               <FormField label="Initial password" type="password" required minLength={12} maxLength={128} autoComplete="new-password" value={feForm.password} onChange={(event) => setFeForm((current) => ({ ...current, password: event.target.value }))} />
             </div>
             {feError && <p className="field-error" role="alert">{feError}</p>}
-            <div className="modal-footer"><button type="button" className="btn secondary" disabled={createFe.isPending} onClick={() => setFeModalOpen(false)}>Cancel</button><button className="btn" disabled={createFe.isPending || (user.role === 'ADMIN' && branches.isPending)}><Plus size={16} /> {createFe.isPending ? 'Creating FE…' : 'Create & Select FE'}</button></div>
+            <div className="modal-footer"><button type="button" className="btn secondary" disabled={createFe.isPending} onClick={() => setFeModalOpen(false)}>Cancel</button><button className="btn" disabled={createFe.isPending}><Plus size={16} /> {createFe.isPending ? 'Creating FE…' : 'Create & Select FE'}</button></div>
           </form>
         </Modal>
       )}

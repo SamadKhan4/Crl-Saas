@@ -20,7 +20,7 @@ export function useList(resource, service, extra = {}) {
     'status',
     ...(resource === 'payslips' ? ['employeeId', 'salaryMonth'] : []),
     ...(resource === 'shipments'
-      ? ['customerId', 'originBranchId', 'destinationBranchId', 'lrNumber', 'dateFrom', 'dateTo']
+      ? ['customerId', 'lrNumber', 'dateFrom', 'dateTo']
       : []),
   ];
   const filters = Object.fromEntries([...params].filter(([key]) => allowed.includes(key)));

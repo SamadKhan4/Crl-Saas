@@ -1,3 +1,4 @@
+import RouteMasterPage from './RouteMasterPage';
 import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -23,6 +24,11 @@ const setPath = (target, path, value) => {
 };
 
 export default function MasterDataPage() {
+  const key = useLocation().pathname.split('/').at(-1);
+  return key === 'routes' ? <RouteMasterPage /> : <OtherMasterDataPage />;
+}
+
+function OtherMasterDataPage() {
   const key = useLocation().pathname.split('/').at(-1);
   const config = configs[key] || configs.locations;
   const client = useQueryClient();

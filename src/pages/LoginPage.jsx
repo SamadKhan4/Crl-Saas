@@ -33,7 +33,7 @@ export default function LoginPage() {
             Moving forward.
           </h1>
           <p>
-            One connected workspace for your branches, shipments, and the people who keep them
+            One connected workspace for your shipments and the people who keep them
             moving.
           </p>
           <div className="route-art" aria-hidden="true">

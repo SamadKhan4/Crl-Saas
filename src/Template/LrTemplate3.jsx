@@ -60,7 +60,7 @@ const LrTemplate3 = forwardRef(function LrTemplate3({ shipment = {} }, ref) {
         .lr3-root .lr3-title{height:24px;padding:4px 8px 8px;background:#dfe2e2;border-bottom:1px solid #111;text-align:center;font-size:9px;line-height:1;font-weight:900;letter-spacing:.8px;text-transform:uppercase}
         .lr3-root .lr3-party{height:130px;border-bottom:1px solid #111}.lr3-root .lr3-party-grid{display:grid;grid-template-columns:1fr 1fr}.lr3-root .lr3-field{height:43px;padding:3px 7px;border-right:1px solid #aaa;border-bottom:1px solid #aaa;min-width:0;overflow:hidden}.lr3-root .lr3-field:nth-child(2n){border-right:0}.lr3-root .lr3-field.wide{grid-column:span 2;border-right:0}
         .lr3-root .lr3-field span{font-size:7px;line-height:8px;margin-bottom:1px}.lr3-root .lr3-field strong{display:block;font-size:9px;line-height:13px;white-space:nowrap}
-        .lr3-root .lr3-instructions{height:137px;padding:8px}.lr3-root .lr3-instructions span{display:block;font-size:8px;font-weight:900;text-transform:uppercase;margin-bottom:7px}.lr3-root .lr3-instructions strong{font-size:10px;line-height:1.35;overflow-wrap:anywhere}
+        .lr3-root .lr3-acknowledgement{height:137px;padding:8px}.lr3-root .lr3-acknowledgement span{display:block;font-size:8px;font-weight:900;text-transform:uppercase;margin-bottom:7px}.lr3-root .lr3-acknowledgement strong{display:block;margin-bottom:12px;font-size:10px;line-height:1.35;overflow-wrap:anywhere}
         .lr3-root .lr3-reference{height:86px;display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #111}.lr3-root .lr3-reference .lr3-field{height:43px;padding:3px 7px}
         .lr3-root .lr3-goods{height:168px;border-bottom:1px solid #111}.lr3-root table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}.lr3-root th{height:24px;padding:5px 3px;background:#eceeee;border-right:1px solid #777;border-bottom:1px solid #111;font-size:7.5px;line-height:1.1;text-align:center;text-transform:uppercase}.lr3-root th span{display:inline-block;position:relative;top:-3px;font-weight:900}.lr3-root td{height:24px;padding:5px 3px;border-right:1px solid #aaa;border-bottom:1px solid #aaa;font-size:8.5px;line-height:1.1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lr3-root th:last-child,.lr3-root td:last-child{border-right:0}.lr3-root tbody tr:last-child td{border-bottom:0}
         .lr3-root .lr3-summary{height:80px;display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #111}.lr3-root .lr3-summary .lr3-field{height:40px;padding:3px 7px}
@@ -84,7 +84,7 @@ const LrTemplate3 = forwardRef(function LrTemplate3({ shipment = {} }, ref) {
           <section className="lr3-route">
             <div><span>From</span><strong>{show(s.from || branch(s.originBranchId))}</strong></div><div><span>To</span><strong>{show(s.to || branch(s.destinationBranchId))}</strong></div>
             <div><span>Booking date</span><strong>{date(s.bookingDate || s.createdAt)}</strong></div><div><span>Expected delivery</span><strong>{date(s.expectedDeliveryDate)}</strong></div>
-            <div><span>Booking branch</span><strong>{show(s.bookingBranch || branch(s.originBranchId))}</strong></div>
+            <div><span>Office</span><strong>{show('Nagpur')}</strong></div>
           </section>
         </header>
 
@@ -102,7 +102,7 @@ const LrTemplate3 = forwardRef(function LrTemplate3({ shipment = {} }, ref) {
               <Field label="Address" wide>{[s.consigneeAddress, s.consigneeAddress2, s.consigneeAddress3].filter(Boolean).join(', ')}</Field>
               <Field label="PIN code">{s.consigneePincode}</Field><Field label="GSTIN">{s.consigneeGstin}</Field>
             </div></div>
-            <div className="lr3-instructions"><span>Special instructions / Remarks</span><strong>{show(s.remarks)}</strong></div>
+            <div className="lr3-acknowledgement"><span>Receiver mobile</span><strong>{show(s.receiverMobilePrint || s.receiverMobile)}</strong><span>Receiver signature / Stamp</span><strong>{show(s.receiverSignature)}</strong></div>
           </div>
 
           <div className="lr3-column">
@@ -134,14 +134,13 @@ const LrTemplate3 = forwardRef(function LrTemplate3({ shipment = {} }, ref) {
             <div className="lr3-charge total"><span>GRAND TOTAL</span><strong>{money(s.totalAmount)}</strong></div>
             <div className="lr3-payment"><span>Insurance</span><div>{['INSURED', 'NOT_INSURED'].map((item) => <Tick key={item} label={readable(item)} active={s.insuranceType === item} />)}</div></div>
             <div className="lr3-pricing"><span>Freight basis: <b>{readable(s.freightBasis) || '-'}</b> | Rate: <b>{money(s.freightRate)}</b> | Fuel: <b>{show(s.fuelRatePercent)}%</b> | ROV: <b>{show(s.rovRatePercent)}%</b></span></div>
-            <div className="lr3-insurance"><span>Receiver mobile</span><strong>{show(s.receiverMobilePrint || s.receiverMobile)}</strong></div>
           </div>
         </section>
 
         <footer className="lr3-footer">
           <div><span>Terms and declaration</span><div className="lr3-terms">Goods are accepted subject to the terms and conditions of Chaple Roadlines Pvt. Ltd. Shipment particulars are declared by the consignor.</div></div>
           <div><span>Shipper signature</span><strong>{show(s.shipperSignature)}</strong></div>
-          <div><span>Receiver signature / Stamp</span><strong>{show(s.receiverSignature)}</strong></div>
+          <div><span>Special instructions / Remarks</span><strong>{show(s.remarks)}</strong></div>
         </footer>
       </div>
     </div>

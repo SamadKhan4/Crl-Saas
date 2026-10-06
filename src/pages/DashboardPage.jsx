@@ -126,7 +126,7 @@ export default function DashboardPage() {
   });
   const data = summary.data?.data;
   const cards = [
-    [admin ? 'Total shipments' : 'My branch shipments', 'totalShipments', Package],
+    [admin ? 'Total shipments' : 'Total shipments', 'totalShipments', Package],
     ['In transit', 'inTransit', Truck],
     ['Received', 'received', PackageCheck],
     ['Pending verification', 'lrImageUploaded', Files],
@@ -153,7 +153,7 @@ export default function DashboardPage() {
           admin
             ? 'Operations overview'
             : user.role === 'MANAGER'
-              ? 'Branch management overview'
+              ? 'Operations overview'
               : 'Your daily workspace'
         }
         description={`Welcome back, ${user.name?.split(' ')[0]}. Here’s where things stand today.`}
@@ -197,8 +197,8 @@ export default function DashboardPage() {
           <h2>A clear view. A smoother journey.</h2>
           <p>
             {admin
-              ? 'Keep your branches aligned and every shipment moving.'
-              : 'Book, receive, and manage your branch shipments in one place.'}
+              ? 'Keep every shipment moving.'
+              : 'Book, receive, and manage shipments in one place.'}
           </p>
         </div>
         <div className="banner-art" aria-hidden="true">
@@ -308,28 +308,28 @@ export default function DashboardPage() {
             <section className="panel chart-panel">
               <div className="panel-heading">
                 <div>
-                  <h2>{admin ? 'Branch activity' : 'Booking activity'}</h2>
+                  <h2>{admin ? 'Location activity' : 'Booking activity'}</h2>
                   <p>
-                    {admin ? 'Shipments by origin branch' : 'Today compared with the current month'}
+                    {admin ? 'Shipments by origin location' : 'Today compared with the current month'}
                   </p>
                 </div>
               </div>
-              {(admin ? data.branchWise.length : data.monthlyShipments) > 0 ? (
+              {(admin ? data.locationWise.length : data.monthlyShipments) > 0 ? (
                 <ResponsiveContainer width="100%" height={225}>
                   <BarChart
                     data={
                       admin
-                        ? data.branchWise
+                        ? data.locationWise
                         : [
-                            { branch: 'Today', count: data.todayShipments },
-                            { branch: 'This month', count: data.monthlyShipments },
+                            { location: 'Today', count: data.todayShipments },
+                            { location: 'This month', count: data.monthlyShipments },
                           ]
                     }
                     margin={{ left: -20, right: 15, top: 20 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e9edf1" />
                     <XAxis
-                      dataKey="branch"
+                      dataKey="location"
                       tick={{ fontSize: 11 }}
                       axisLine={false}
                       tickLine={false}

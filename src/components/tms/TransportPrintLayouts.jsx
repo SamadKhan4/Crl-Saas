@@ -39,7 +39,7 @@ export function DeliveryManifestSheet({ record, kind = 'drs' }) {
           <b>Manifest :</b><span>{number}{record.destination ? ` : ${record.destination}` : ''}</span>
           <b>Status :</b><span>{label(status)}</span>
           <b>Manifest Date :</b><span>{printableDate(record.deliveryDate || record.createdAt)}</span>
-          <b>Origin :</b><span>{[branch.branchCode, branch.name, branch.city].filter(Boolean).join(', ') || '—'}</span>
+          <b>Origin :</b><span>{record.origin || record.shipmentIds?.[0]?.lrDetails?.from || branch.city || '—'}</span>
           <b>Vehicle# :</b><span>{vehicle}</span>
         </div>
         <Barcode value={number} />
@@ -127,7 +127,6 @@ export function InvoiceSheet({ invoice }) {
 
 export function MoneyReceiptSheet({ receipt }) {
   const customer = receipt.customerId || {};
-  const branch = receipt.branchId || {};
   const shipments = receipt.shipmentIds || [];
   const allocations = receipt.allocations || [];
   return <div className="transport-print-document receipt-document">
@@ -154,7 +153,7 @@ export function MoneyReceiptSheet({ receipt }) {
       <div className="receipt-payment-grid">
         <div><b>Payment Mode</b><span>{label(receipt.paymentMode)}</span></div>
         <div><b>Transaction / Cheque Reference</b><span>{receipt.transactionReference || 'â€”'}</span></div>
-        <div><b>Receiving Branch</b><span>{[branch.branchCode, branch.name, branch.city].filter(Boolean).join(' - ') || 'â€”'}</span></div>
+        <div><b>Office</b><span>Nagpur</span></div>
       </div>
       <h3 className="receipt-section-title">LR Details</h3>
       <table className="receipt-table"><thead><tr><th>Sr.</th><th>LR Number</th><th>Route</th><th>Packages</th><th>Weight (kg)</th></tr></thead><tbody>

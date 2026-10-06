@@ -82,7 +82,6 @@ const configs = {
       ['name', 'Name'],
       ['email', 'Email', 'email'],
       ['mobile', 'Mobile'],
-      ['branchId', 'Branch'],
       ['password', 'Initial password', 'password'],
     ],
   },
@@ -142,11 +141,6 @@ function Management({ resource }) {
           { key: 'mobile', label: 'Mobile' },
           ...(['users', 'managers', 'hr-users'].includes(resource)
             ? [
-                {
-                  key: 'branchId',
-                  label: 'Branch',
-                  render: (r) => r.branchId?.name || idOf(r.branchId) || '—',
-                },
                 { key: 'role', label: 'Role' },
                 { key: 'lastLoginAt', label: 'Last login', render: (r) => date(r.lastLoginAt) },
               ]

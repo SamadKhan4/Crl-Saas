@@ -9,7 +9,7 @@ export const resourceApi = (resource) => ({
     api.patch(`/${resource}/${id}/status`, typeof body === 'string' ? { status: body } : body).then((r) => checkEnvelope(r.data)),
 });
 export const registerApi = (resource) => resourceApi(`tms-registers/${resource}`);
-export const customersApi = resourceApi('customers');
+export const customersApi = { ...resourceApi('customers'), lookup: (params) => get('/customers/lookup', params) };
 export const branchesApi = resourceApi('branches');
 export const usersApi = resourceApi('users');
 export const shipmentsApi = {
@@ -27,6 +27,7 @@ export const segregationsApi = resourceApi('segregations');
 export const tripsApi = resourceApi('trips');
 export const middleMileApi = {
   hubInward: (body) => post('/middle-mile/hub-inward', body),
+  sortings: (params) => get('/middle-mile/sorting', params),
   sortingInventory: (params) => get('/middle-mile/sorting/inventory', params),
   sort: (body) => post('/middle-mile/sorting', body),
   hold: (id, body) => post(`/middle-mile/shipments/${id}/hold`, body),
@@ -43,7 +44,7 @@ export const middleMileApi = {
     post(`/middle-mile/trips/${id}/inward`, { receivedShipmentIds, remarks }),
 };
 export const branchOptionsApi = { list: () => get('/branches/options') };
-export const masterOptionsApi = { list: (type) => get('/master-data/options', { type, status: 'ACTIVE', limit: 100 }) };
+export const masterOptionsApi = { list: (type, params = {}) => get('/master-data/options', { ...params, type, status: 'ACTIVE', limit: 100 }) };
 export const vendorOptionsApi = { list: () => get('/vendors/options', { limit: 100 }) };
 export const drsApi = resourceApi('drs');
 export const lastMileApi = {

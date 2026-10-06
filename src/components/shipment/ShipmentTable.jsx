@@ -43,8 +43,8 @@ export default function ShipmentTable({ base, compact = false, ...props }) {
       label: 'Route',
       render: (r) => (
         <div>
-          {r.originBranchId?.city || r.originBranchId?.name || '—'} <span className="muted">→</span>{' '}
-          {r.destinationBranchId?.city || r.destinationBranchId?.name || '—'}
+          {r.lrDetails?.from || r.originBranchId?.city || r.originBranchId?.name || '—'} <span className="muted">→</span>{' '}
+          {r.lrDetails?.to || r.destinationBranchId?.city || r.destinationBranchId?.name || '—'}
         </div>
       ),
     },

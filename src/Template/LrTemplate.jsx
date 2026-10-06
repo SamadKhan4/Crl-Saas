@@ -220,7 +220,7 @@ const LrTemplate = forwardRef(function LrTemplate({ shipment = {} }, ref) {
               </div>
               <div className="grid grid-cols-2 border-b border-black">
                 <div className="p-1 border-r border-black col-span-2">
-                  <Label>Booking Branch</Label> <span className="text-[9px]">{display(s.bookingBranch || branch(s.originBranchId))}</span>
+                  <Label>Office</Label> <span className="text-[9px]">{display('Nagpur')}</span>
                 </div>
               </div>
               <div className="grid grid-cols-2 border-b border-black">

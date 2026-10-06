@@ -58,6 +58,7 @@ api.interceptors.response.use(
     const status = error?.response?.status;
     if (
       status !== 401 ||
+      error?.response?.data?.errorCode === 'INVALID_PASSWORD' ||
       !request ||
       request.__skipAuthRefresh ||
       request.__retriedAfterRefresh ||
@@ -188,7 +189,13 @@ export function formErrors(error, setError) {
   }
 }
 
-export const get = (path, params) => api.get(path, { params }).then((response) => checkEnvelope(response.data));
+export const get = (path, params) => api.get(path, { params }).then((response) => {
+  const body = checkEnvelope(response.data);
+  if (/^\/(managers|branches\/options)$/.test(path) &&
+      (!Array.isArray(body.data) || body.data.some((row) => !row || typeof row !== 'object' || Array.isArray(row)))) throw invalidResponse();
+  if (/^\/managers\/[^/]+$/.test(path) && (typeof body.data !== 'object' || Array.isArray(body.data))) throw invalidResponse();
+  return body;
+});
 export const post = (path, body, config) => api.post(path, body, config).then((response) => checkEnvelope(response.data));
 
 export async function download(path, name) {

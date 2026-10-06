@@ -32,7 +32,7 @@ export default function ShipmentDetailPage() {
     <>
       <PageHeader
         title={s.lrNumber}
-        description={`${s.originBranchId?.name || 'Origin'} → ${s.destinationBranchId?.name || 'Destination'}`}
+        description={`${s.lrDetails?.from || s.originBranchId?.city || s.originBranchId?.name || 'Origin'} → ${s.lrDetails?.to || s.destinationBranchId?.city || s.destinationBranchId?.name || 'Destination'}`}
       >
         <Link className="btn secondary" to={`/${user.role.toLowerCase()}/shipments`}>
           Back to shipments
@@ -93,8 +93,8 @@ export default function ShipmentDetailPage() {
                 [
                   'Shipment details',
                   [
-                    ['Origin', s.originBranchId?.name],
-                    ['Destination', s.destinationBranchId?.name],
+                    ['Origin', s.lrDetails?.from || s.originBranchId?.city || s.originBranchId?.name],
+                    ['Destination', s.lrDetails?.to || s.destinationBranchId?.city || s.destinationBranchId?.name],
                     ['Delivery area', s.lrDetails?.to],
                     ['Delivery PIN code', s.lrDetails?.consigneePincode],
                     ['Description', s.description],

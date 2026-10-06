@@ -66,7 +66,6 @@ export default function App() {
                 <Route path="agent-alignment" element={<AgentAlignment />} />
                 <Route path="pickup-run-sheets" element={<PickupRunSheets />} />
                 <Route path="pickup-run-sheets/:id" element={<PickupRunSheetDetail />} />
-                <Route path="hub-inward" element={<MiddleMile />} />
                 <Route path="segregations" element={<MiddleMile />} />
                 <Route path="loading-tallies" element={<MiddleMile />} />
                 <Route path="shipments/create" element={<CreateLR />} />
@@ -80,7 +79,6 @@ export default function App() {
                 <Route path="manifests" element={<MiddleMile />} />
                 <Route path="manifests/:id" element={<TmsPrint resource="manifests" />} />
                 <Route path="trips" element={<MiddleMile />} />
-                <Route path="destination-inward" element={<MiddleMile />} />
                 <Route path="last-mile-arrivals" element={<LastMile />} />
                 <Route path="unloading-tallies" element={<LastMile />} />
                 <Route path="qc-deps" element={<LastMile />} />
@@ -138,7 +136,6 @@ export default function App() {
                     <Route path="vendor-users" element={<Management />} />
                     <Route path="permissions" element={<Permissions />} />
                     <Route path="employees" element={<Management />} />
-                    <Route path="branches" element={<Management />} />
                     <Route path="reports" element={<Reports />} />
                     <Route path="audit" element={<Activity />} />
                     <Route path="settings" element={<Settings />} />
@@ -157,7 +154,6 @@ export default function App() {
                   </>
                 ) : role === 'MANAGER' ? (
                   <>
-                    <Route path="branches" element={<Management />} />
                     <Route path="vendors" element={<TmsModule />} />
                     <Route path="reports" element={<Reports />} />
                     <Route path="receive" element={<Receive />} />

@@ -1294,12 +1294,11 @@ tbody tr:hover {
 }
 .prs-table th:nth-child(1) { width: 4%; }
 .prs-table th:nth-child(2) { width: 10%; }
-.prs-table th:nth-child(3) { width: 22%; }
-.prs-table th:nth-child(4) { width: 21%; }
+.prs-table th:nth-child(3) { width: 32%; }
+.prs-table th:nth-child(4) { width: 31%; }
 .prs-table th:nth-child(5) { width: 9%; }
 .prs-table th:nth-child(6) { width: 6%; }
 .prs-table th:nth-child(7) { width: 8%; }
-.prs-table th:nth-child(8) { width: 20%; }
 .prs-remarks {
   margin: 10px 0;
   padding: 8px;
@@ -3685,4 +3684,57 @@ progress {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
+}
+
+@media print {
+  dialog:has(.trip-print-document),
+  dialog:has(.tally-print-document) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    border: 0;
+  }
+}
+
+/* Loading tally uses its own column widths for both preview and print. */
+dialog:has(.tally-print-document), dialog:has(.trip-print-document) { width: min(960px, 96vw); max-width: 96vw; }
+.tally-document-actions { justify-content: flex-end; margin-bottom: 16px; }
+.tally-print-document, .trip-print-document { font-size: 11px; line-height: 1.5; }
+.tally-brand { display: grid; grid-template-columns: 86px 1fr auto; align-items: center; gap: 16px; padding-bottom: 16px; border-bottom: 3px solid #0f5a45; }
+.tally-brand img { width: 86px; height: 58px; object-fit: contain; }
+.tally-brand h1 { margin: 0 0 4px; color: #163c31; font-size: 17px; }
+.tally-brand span { color: #586c65; font-size: 11px; }
+.tally-brand > strong { border: 1px solid #0f5a45; padding: 10px 12px; color: #0f5a45; font-size: 13px; letter-spacing: .5px; white-space: nowrap; }
+.tally-heading { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 18px 0; }
+.tally-heading > div, .tally-info-grid > div { display: flex; flex-direction: column; gap: 5px; }
+.tally-heading h2 { margin: 0; font-size: 18px; color: #163c31; }
+.tally-heading small, .tally-info-grid small { color: #64736e; font-size: 9px; letter-spacing: .6px; text-transform: uppercase; }
+.tally-heading span { color: #586c65; }
+.tally-info-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid #cbd5d1; }
+.tally-info-grid > div { padding: 10px 12px; border-right: 1px solid #cbd5d1; overflow-wrap: anywhere; }
+.tally-info-grid > div:nth-child(3n) { border-right: 0; }
+.tally-info-grid > div:nth-child(-n + 3) { border-bottom: 1px solid #cbd5d1; }
+.tally-lr-table { width: 100%; margin-top: 20px; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
+.tally-lr-table th, .tally-lr-table td { border: 1px solid #cbd5d1; padding: 10px 8px; vertical-align: top; text-align: left; overflow-wrap: break-word; }
+.tally-lr-table th { background: #e7f0ed; color: #173f33; font-size: 9px; text-transform: uppercase; letter-spacing: .2px; }
+.tally-lr-table tbody tr:nth-child(even) { background: #f7faf8; }
+.tally-lr-table .tally-lr-number { font-weight: 700; overflow-wrap: anywhere; }
+.tally-lr-table .numeric { text-align: right; font-variant-numeric: tabular-nums; }
+.tally-lr-table tfoot { background: #e7f0ed; color: #173f33; font-weight: 700; }
+.tally-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; margin-top: 65px; }
+.tally-signatures > div { border-top: 1px solid #64736e; padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.tally-signatures span { text-transform: uppercase; font-size: 9px; color: #4f5f59; }
+.tally-signatures b { font-size: 10px; font-weight: 400; color: #64736e; }
+@media print {
+  dialog:has(.tally-print-document), dialog:has(.trip-print-document) { width: 100%; max-width: none; }
+  .tally-print-document, .trip-print-document { position: static; min-height: 0; }
+  .tally-lr-table thead { display: table-header-group; }
+  .tally-lr-table tfoot { display: table-row-group; }
+  .tally-lr-table tr, .tally-signatures, .tally-brand, .tally-info-grid { break-inside: avoid; }
+  .tally-document-actions, dialog:has(.tally-print-document) > .modal-heading, dialog:has(.trip-print-document) > .modal-heading { display: none; }
 }

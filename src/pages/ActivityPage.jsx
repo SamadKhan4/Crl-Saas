@@ -64,7 +64,7 @@ export default function ActivityPage() {
           user.role === 'ADMIN'
             ? 'Team activity'
             : user.role === 'MANAGER'
-              ? 'Branch activity'
+              ? 'Team activity'
               : 'My activity'
         }
         description="See who created, updated or processed a record and when."

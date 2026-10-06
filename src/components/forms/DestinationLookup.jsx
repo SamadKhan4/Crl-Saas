@@ -53,6 +53,14 @@ export default function DestinationLookup({ label, value, onChange, error, rates
           </optgroup>
         ))}
       </select>
+      <label htmlFor={`${label}-manual`}>Or enter destination manually</label>
+      <input id={`${label}-manual`} maxLength={120} value={value?.name || ''} placeholder="Type a location / city"
+        onChange={(event) => {
+          const name = event.target.value;
+          const known = serviceLocations.find((row) => row.location.toLowerCase() === name.trim().toLowerCase());
+          const rate = (rates || []).find((row) => row.location.toLowerCase() === name.trim().toLowerCase());
+          onChange(name ? (known ? asPlace(known, rate) : { id: `manual-${name}`, name, district: name, ratePerKg: rate ? Number(rate.ratePerKg) : undefined, transitDays: rate?.transitDays, hasConfiguredRate: Boolean(rate) }) : null);
+        }} />
       {value?.pincode && <small>Auto-filled from consignee PIN {value.pincode}</small>}
       {error && <small className="field-error" role="alert">{error}</small>}
     </div>

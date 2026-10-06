@@ -111,7 +111,7 @@ export default function CreateLRPage() {
   } = useForm({
     resolver: zodResolver(lrCreateSchema),
     defaultValues: {
-      originBranchId: !['ADMIN', 'MANAGER'].includes(user.role) ? idOf(user.branchId) : '',
+
       pickupRequestId: pickupRequestId || undefined,
       packageCount: 1,
       lrNumber: '',
@@ -273,16 +273,6 @@ export default function CreateLRPage() {
     const destination = destinations.find((place) => place.serviceLevel) || destinations[0];
     if (destination) selectDestination(destination);
   }, [destinationQuery.data, isCreditCustomer, selectedCustomer, selectDestination]);
-  const branches = useQuery({ queryKey: ['branches', 'route-options'], queryFn: () => get('/branches/options') });
-  const branchOptions = branches.data?.data || [];
-  useEffect(() => {
-    const options = branches.data?.data || [];
-    if (!options.length) return;
-    const originId = ['ADMIN', 'MANAGER'].includes(user.role) ? idOf(options.find((branch) => route.from && `${branch.name} ${branch.city}`.toLowerCase().includes(route.from.district.toLowerCase())) || options[0]) : idOf(user.branchId);
-    const destinationId = idOf(options.find((branch) => route.to && `${branch.name} ${branch.city}`.toLowerCase().includes(route.to.district.toLowerCase()) && idOf(branch) !== originId) || options.find((branch) => idOf(branch) !== originId)) || originId;
-    if (originId) setValue('originBranchId', originId, { shouldValidate: true });
-    if (destinationId) setValue('destinationBranchId', destinationId, { shouldValidate: true });
-  }, [branches.data, route.from, route.to, setValue, user.branchId, user.role]);
   async function submit(values) {
     setError('');
     try {
@@ -322,7 +312,7 @@ export default function CreateLRPage() {
     setError(message);
     toast.error(message);
     requestAnimationFrame(() => {
-      document.querySelector('[aria-invalid="true"], .field-error:not(:empty)')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.querySelector('[aria-invalid="true"], .field-error:not(:empty)')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
     });
   }
   if (created)
@@ -412,12 +402,7 @@ export default function CreateLRPage() {
             render={({ field }) => <CustomerCodeLookup {...field} initialCustomer={sourcePickup ? (sourcePickup.customerId || RETAIL_CUSTOMER) : undefined} onCustomer={setSelectedCustomer} />}
           />
           {errors.customerId && <small className="field-error">{errors.customerId.message}</small>}
-          {branches.isSuccess && !branchOptions.length && (
-            <p className="field-error" role="alert">
-              No active branches are configured. Create the origin and destination branches in Branch Master before creating an LR.
-              {['ADMIN', 'MANAGER'].includes(user.role) && <> <Link to={`${base}/branches`}>Open Branch Master</Link></>}
-            </p>
-          )}
+
         </section>
         <section className="panel form-section">
           <div className="section-title">
@@ -477,11 +462,11 @@ export default function CreateLRPage() {
             <span>03</span>
             <div>
               <h2>Route & shipment</h2>
-              <p>{sourcePickup ? 'Route is copied from the pickup request.' : 'From is fixed at Nagpur. To is auto-filled from the consignee PIN.'}</p>
+              <p>{sourcePickup ? 'Route is copied from the pickup request.' : 'Enter locations manually or choose an existing destination. Nagpur is the default origin.'}</p>
             </div>
           </div>
           <div className="form-grid">
-            <FormField label="From" readOnly {...register('from')} error={errors.from?.message} />
+            <FormField label="From" {...register('from')} error={errors.from?.message} />
             <DestinationLookup label="To" value={route.to} rates={isCreditCustomer ? selectedCustomer.creditRateCard : undefined} error={errors.to?.message} onChange={selectDestination} />
             {destinationQuery.isFetching && <small>Finding destination for this PIN...</small>}
             {destinationQuery.isError && <div role="alert"><small className="field-error">{errorMessage(destinationQuery.error)}</small> <button type="button" className="table-action" onClick={() => destinationQuery.refetch()}>Retry</button></div>}
@@ -511,7 +496,12 @@ export default function CreateLRPage() {
             />
             <div className="field">
               <label htmlFor="description">Description of goods</label>
-              <textarea id="description" rows="3" maxLength={500} {...register('description')} />
+              <input id="description" list="goods-description-options" maxLength={500} placeholder="Select or enter goods description" {...register('description')} />
+              <datalist id="goods-description-options">
+                {['Industrial Goods', 'Household Goods', 'Electronics & Electrical Goods', 'Furniture', 'Garments & Textiles', 'Automobile Parts', 'Food & Grocery Items'].map((description) => (
+                  <option key={description} value={description} />
+                ))}
+              </datalist>
               <small className="field-error">{errors.description?.message}</small>
             </div>
           </div>
@@ -520,7 +510,6 @@ export default function CreateLRPage() {
             errors={errors}
             fields={[
               ['bookingDate', 'Booking date', 'date'],
-              ['bookingBranch', 'Booking branch'],
               ['deliveryAddress', 'Delivery address (if different)'],
               ['contactNo', 'Contact number'],
             ]}
@@ -588,7 +577,7 @@ export default function CreateLRPage() {
         )}
         <div className="form-actions">
           <span>Enter your LR number. Chargeable weight uses the higher of total actual and volumetric weight.</span>
-          <button type="submit" className="btn" disabled={isSubmitting || branches.isPending || !branchOptions.length}>
+          <button type="submit" className="btn" disabled={isSubmitting}>
             {isSubmitting ? 'Creating LR…' : 'Create LR'}
             <Plus size={17} />
           </button>

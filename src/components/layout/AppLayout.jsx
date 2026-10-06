@@ -99,8 +99,7 @@ export default function AppLayout() {
   const hr = user.role === 'HR';
   const vendor = user.role === 'VENDOR';
   const hubItems = [
-    ['hub-inward', 'Hub Inward', Warehouse],
-    ['segregations', 'Segregation & Sorting', PackageCheck],
+    ['segregations', 'City-wise Sorting', PackageCheck],
     ['loading-tallies', 'Loading Tally', HandCoins],
   ];
   const masterItems = admin || manager
@@ -115,13 +114,12 @@ export default function AppLayout() {
         ...(admin
           ? [
               ['vendors', 'Vendor Master', Truck],
-              ['branches', 'Branch Master', Building2],
               ['managers', 'Managers', Users],
               ['hr-users', 'HR Users', Users],
               ['permissions', 'User Permissions', Settings],
               ['employees', 'Employees', Users],
             ]
-          : [['employees', 'Employees', Users], ['vendors', 'Vendor Master', Truck], ['branches', 'Branch Master', Building2]]),
+          : [['employees', 'Employees', Users]]),
         ...(manager ? [['onboarding', 'Onboarding Approval', PackageCheck]] : []),
       ]
     : [];
@@ -137,14 +135,13 @@ export default function AppLayout() {
         ? [
             [
               'hub-management',
-              'Hub Management',
+              'Route & Loading',
               Warehouse,
               false,
               hubItems.filter(([path]) => path !== 'pickups'),
             ],
             ['manifests', 'Manifest', ClipboardList],
             ['trips', 'Trip Creation & Dispatch', Route],
-            ['destination-inward', 'Destination Hub Inward', Warehouse],
           ]
         : operationStage === 'LM'
           ? [
@@ -216,7 +213,7 @@ export default function AppLayout() {
               ['claims', 'Claims / Damage', Package],
               ['notifications', 'Notifications', History],
               ['system-settings', 'Operational Settings', Settings],
-              [admin ? 'audit' : 'activity', admin ? 'Team Activity' : 'Branch Activity', History],
+              [admin ? 'audit' : 'activity', 'Team Activity', History],
               ['settings', 'Settings', Settings],
             ]
           : [],
@@ -226,7 +223,7 @@ export default function AppLayout() {
     group.items.flatMap((item) => item[4] || [item]),
   );
   useEffect(() => {
-    sidebarRef.current?.querySelector('nav a.active')?.scrollIntoView({ block: 'nearest' });
+    sidebarRef.current?.querySelector('nav a.active')?.scrollIntoView?.({ block: 'nearest' });
   }, [location.pathname]);
   const title =
     items.find((x) => location.pathname === `${base}/${x[0]}`)?.[1] || 'Shipment workspace';
@@ -267,7 +264,7 @@ export default function AppLayout() {
           <div className="workspace-pill">
             <span className="live-dot" />
             <span>
-              {admin ? 'Administration' : manager ? 'Manager workspace' : 'Branch operations'}
+              {admin ? 'Administration' : manager ? 'Manager workspace' : 'Operations'}
             </span>
           </div>
           <nav aria-label="Main navigation">

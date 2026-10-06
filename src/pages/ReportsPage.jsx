@@ -11,14 +11,38 @@ import Lookup from '../components/forms/Lookup';
 import ShipmentTable from '../components/shipment/ShipmentTable';
 import { statuses, label } from '../lib/workflow';
 import { dateRangeParams } from '../lib/filters';
+import PrsRegisterReport from './PrsRegisterReport';
 export default function ReportsPage() {
+  const [params, setParams] = useSearchParams();
+  const report = params.get('report') === 'prs' ? 'prs' : 'shipments';
+  return (
+    <>
+      <section className="panel form-section">
+        <label htmlFor="reportType">Report
+          <select id="reportType" value={report} onChange={(event) => setParams((current) => {
+            const next = new URLSearchParams(current);
+            if (event.target.value === 'prs') next.set('report', 'prs');
+            else next.delete('report');
+            return next;
+          })}>
+            <option value="shipments">Shipment reports</option>
+            <option value="prs">PRS register</option>
+          </select>
+        </label>
+      </section>
+      {report === 'prs' ? <PrsRegisterReport /> : <ShipmentReport />}
+    </>
+  );
+}
+
+function ShipmentReport() {
   const { user } = useAuth();
   const [params, setParams] = useSearchParams(),
     [busy, setBusy] = useState(false),
     [page, setPage] = useState(1);
   const filters = Object.fromEntries(
     [...params].filter(([key]) =>
-      ['dateFrom', 'dateTo', 'status', 'branch', 'customer'].includes(key),
+      ['dateFrom', 'dateTo', 'status', 'customer'].includes(key),
     ),
   );
   const query = useQuery({
@@ -82,12 +106,6 @@ export default function ReportsPage() {
             label="Customer"
             value={filters.customer}
             onChange={(v) => update('customer', v)}
-          />
-          <Lookup
-            resource="branches"
-            label="Branch (origin or destination)"
-            value={filters.branch}
-            onChange={(v) => update('branch', v)}
           />
           <button
             className="text-btn"

@@ -1,190 +1,224 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ClipboardCheck, PackageCheck, RefreshCw, ScanLine, Truck } from 'lucide-react';
 import { toast } from 'sonner';
-import LoadingScanModal from '../components/tms/LoadingScanModal';
 import TripVehicleFields from '../components/tms/TripVehicleFields';
-import {
-  branchOptionsApi,
-  masterOptionsApi,
-  middleMileApi,
-  vendorOptionsApi,
-} from '../api/services';
+import TransportPdfDownload from '../components/tms/TransportPdfDownload';
+import { masterOptionsApi, middleMileApi, vendorOptionsApi } from '../api/services';
 import { errorMessage } from '../api/client';
 import { useAuth } from '../features/auth/AuthContext';
 import { date, idOf } from '../lib/workflow';
-import {
-  DataTable,
-  ErrorState,
-  Loadingcrleleton,
-  Modal,
-  PageHeader,
-  StatCard,
-  StatusBadge,
-} from '../components/common/UI';
+import { DataTable, ErrorState, Loadingcrleleton, Modal, PageHeader, StatusBadge } from '../components/common/UI';
 
 const rows = (query) => query.data?.data || [];
-const busyLabel = (pending, text) => (pending ? 'Saving…' : text);
-const optionName = (record) =>
-  record.branchCode
-    ? `${record.branchCode} - ${record.name}`
-    : record.code
-      ? `${record.code} - ${record.name}`
-      : record.name;
-
-function useMasters() {
-  const branches = useQuery({ queryKey: ['branch-options'], queryFn: branchOptionsApi.list });
-  const routes = useQuery({ queryKey: ['master-options', 'ROUTE'], queryFn: () => masterOptionsApi.list('ROUTE') });
-  return { branches: rows(branches), routes: rows(routes), pending: branches.isPending || routes.isPending };
+async function allRows(list, params = {}) {
+  const first = await list({ ...params, page: 1, limit: 100 });
+  const data = [...first.data];
+  for (let page = 2; page <= (first.pagination?.pages || 1); page++) data.push(...(await list({ ...params, page, limit: 100 })).data);
+  return { ...first, data };
 }
-
-function HubRouteFields({ branches, routes, defaults = {}, includeCurrent = true }) {
-  return <>
-    {includeCurrent && <label>Current / From Hub<select name="branchId" defaultValue={idOf(defaults.fromHubId) || ''} required><option value="">Select hub</option>{branches.map((branch) => <option key={idOf(branch)} value={idOf(branch)}>{optionName(branch)}</option>)}</select></label>}
-    <label>Next / To Hub<select name="nextHubId" defaultValue={idOf(defaults.nextHubId || defaults.toHubId) || ''} required><option value="">Select next hub</option>{branches.map((branch) => <option key={idOf(branch)} value={idOf(branch)}>{optionName(branch)}</option>)}</select></label>
-    <label>Route<select name="routeId" defaultValue={idOf(defaults.routeId) || ''}><option value="">No route selected</option>{routes.map((route) => <option key={idOf(route)} value={idOf(route)}>{optionName(route)} ({route.origin} → {route.destination})</option>)}</select></label>
-  </>;
+function useRefresh() {
+  const cache = useQueryClient();
+  return () => ['loading-tallies', 'middle-mile-manifests', 'middle-mile-trips', 'middle-mile-sorting-inventory', 'middle-mile-sortings', 'last-mile-arrivals'].forEach((key) => cache.invalidateQueries({ queryKey: [key] }));
 }
+const lrColumns = [
+  { key: 'lrNumber', label: 'LR number' }, { key: 'destination', label: 'Destination', render: (lr) => lr.lrDetails?.to || lr.destinationBranchId?.city || '-' }, { key: 'receiverName', label: 'Receiver' },
+  { key: 'packageCount', label: 'Packages' }, { key: 'weightKg', label: 'Weight (kg)' },
+];
 
-function InwardWorkspace() {
-  const { branches, routes, pending } = useMasters();
-  const client = useQueryClient();
-  const mutation = useMutation({
-    mutationFn: middleMileApi.hubInward,
-    onSuccess: (response) => {
-      toast.success(`${response.data.lrNumber} inwarded and ready for sorting`);
-      client.invalidateQueries({ queryKey: ['middle-mile-sorting-inventory'] });
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-  const save = (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    mutation.mutate({
-      lrNumber: form.get('lrNumber'), branchId: form.get('branchId'), nextHubId: form.get('nextHubId'),
-      routeId: form.get('routeId') || undefined, remarks: form.get('remarks') || undefined,
-    });
-  };
+function RouteSortingWorkspace() {
+  const [destination, setDestination] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [selected, setSelected] = useState([]);
+  const refresh = useRefresh();
+  const available = useQuery({ queryKey: ['middle-mile-sorting-inventory', 'cities'], queryFn: () => allRows(middleMileApi.sortingInventory) });
+  const cities = [...new Set(rows(available).map((lr) => lr.lrDetails?.to || lr.destinationBranchId?.city).filter(Boolean))].sort();
+  const inventory = useQuery({ queryKey: ['middle-mile-sorting-inventory', destination, pincode], queryFn: () => allRows(middleMileApi.sortingInventory, { destination, ...(pincode && { destinationPincode: pincode }) }), enabled: Boolean(destination) && (!pincode || /^\d{6}$/.test(pincode)) });
+  const batches = useQuery({ queryKey: ['middle-mile-sortings'], queryFn: () => allRows(middleMileApi.sortings) });
+  const create = useMutation({ mutationFn: () => middleMileApi.sort({ destination, ...(pincode && { destinationPincode: pincode }), shipmentIds: selected }), onSuccess: (result) => { toast.success(`Sorting ${result.data.segregationNumber} saved. Create its loading tally next.`); setSelected([]); refresh(); }, onError: (error) => { toast.error(errorMessage(error)); inventory.refetch(); } });
   return <>
-    <PageHeader title="Hub Inward" description="Confirm physical receipt at the origin/current hub before an LR enters Middle Mile." />
-    <section className="panel"><div className="panel-heading"><div><h2>Inward First Mile LR</h2><p>The same LR and package records continue into Middle Mile.</p></div></div>
-      {pending ? <Loadingcrleleton /> : <form onSubmit={save}><div className="form-grid"><label>LR / Docket Number<input name="lrNumber" required autoFocus placeholder="Scan or enter LR number" /></label><HubRouteFields branches={branches} routes={routes} /><label className="full-span">Remarks<textarea name="remarks" /></label></div><div className="modal-footer"><button className="btn" disabled={mutation.isPending}><ScanLine size={17} /> {busyLabel(mutation.isPending, 'Confirm Hub Inward')}</button></div></form>}
+    <PageHeader title="City-wise Sorting" description="Sort available LRs by destination city and PIN code before creating a city loading tally." />
+    <section className="panel form-section">
+      {available.isError ? <ErrorState error={errorMessage(available.error)} retry={available.refetch} /> : <div className="form-grid">
+        <label>Destination city<select required value={destination} onChange={(event) => { setDestination(event.target.value); setPincode(''); setSelected([]); }}><option value="">Select destination city</option>{cities.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
+        <label>Destination PIN code (optional)<input value={pincode} inputMode="numeric" maxLength={6} pattern="[0-9]{6}" placeholder="All PIN codes in this city" onChange={(event) => { setPincode(event.target.value.replace(/\D/g, '')); setSelected([]); }} /></label>
+      </div>}
+      {pincode && pincode.length !== 6 && <p>Enter a six-digit destination PIN code.</p>}
+      {destination && (!pincode || pincode.length === 6) && (inventory.isPending ? <Loadingcrleleton /> : inventory.isError ? <ErrorState error={errorMessage(inventory.error)} retry={inventory.refetch} /> : <DataTable rows={rows(inventory)} empty="No available LRs for this destination" columns={[
+        { key: 'select', label: 'Select LR', render: (lr) => <input type="checkbox" aria-label={`Select ${lr.lrNumber}`} checked={selected.includes(idOf(lr))} onChange={(event) => setSelected((current) => event.target.checked ? [...current, idOf(lr)] : current.filter((value) => value !== idOf(lr)))} /> },
+        ...lrColumns, { key: 'pincode', label: 'Destination PIN', render: (lr) => lr.lrDetails?.consigneePincode || '-' },
+      ]} />)}
+      <div className="form-actions"><span>{selected.length} LRs selected</span><button className="btn" disabled={!destination || !selected.length || create.isPending || inventory.isFetching || (pincode && pincode.length !== 6)} onClick={() => create.mutate()}>{create.isPending ? 'Saving...' : 'Save Sorting'}</button></div>
     </section>
+    <section className="panel"><h2>Sorted LRs awaiting loading tally</h2>{batches.isError ? <ErrorState error={errorMessage(batches.error)} retry={batches.refetch} /> : <DataTable rows={rows(batches)} columns={[
+      { key: 'segregationNumber', label: 'Sorting number' }, { key: 'destination', label: 'Destination city' }, { key: 'destinationPincode', label: 'PIN code', render: (row) => row.destinationPincode || 'All' }, { key: 'lrs', label: 'Selected LRs', render: (row) => (row.shipmentIds || []).map((lr) => lr.lrNumber).join(', ') },
+    ]} />}</section>
   </>;
 }
 
-function SortingWorkspace() {
-  const { branches, routes } = useMasters();
-  const client = useQueryClient();
-  const [page, setPage] = useState(1), [search, setSearch] = useState(''), [selected, setSelected] = useState(null);
-  const query = useQuery({ queryKey: ['middle-mile-sorting-inventory', page, search], queryFn: () => middleMileApi.sortingInventory({ page, limit: 20, search: search || undefined }) });
-  const mutation = useMutation({
-    mutationFn: middleMileApi.sort,
-    onSuccess: () => { toast.success('LR sorted and released for loading'); setSelected(null); client.invalidateQueries({ queryKey: ['middle-mile-sorting-inventory'] }); client.invalidateQueries({ queryKey: ['sorting-options'] }); },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-  const hold = useMutation({
-    mutationFn: ({ row, action, reason }) => middleMileApi.hold(idOf(row), { action, reason }),
-    onSuccess: (_, variables) => { toast.success(variables.action === 'HOLD' ? 'LR placed on hold' : 'LR released'); client.invalidateQueries({ queryKey: ['middle-mile-sorting-inventory'] }); },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-  const save = (event) => {
-    event.preventDefault(); const form = new FormData(event.currentTarget);
-    mutation.mutate({ shipmentIds: [idOf(selected)], branchId: idOf(selected.currentHubId), nextHubId: form.get('nextHubId'), routeId: form.get('routeId') || undefined, sortZone: form.get('sortZone'), bay: form.get('bay') || undefined, rack: form.get('rack') || undefined, remarks: form.get('remarks') || undefined });
-  };
-  return <>
-    <PageHeader title="Segregation & Sorting" description="Only physically inwarded LRs at the current hub are shown."><div className="actions"><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search LR or customer" /><button className="btn secondary" onClick={() => query.refetch()}><RefreshCw size={16} /> Refresh</button></div></PageHeader>
-    <section className="panel">{query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={rows(query)} pagination={query.data.pagination} onPage={setPage} empty="No inwarded LRs waiting for sorting" columns={[
-      { key: 'lrNumber', label: 'LR' }, { key: 'client', label: 'Client', render: (row) => row.customerId?.name || row.senderName },
-      { key: 'lane', label: 'Movement', render: (row) => `${row.currentHubId?.name || '—'} → ${row.nextHubId?.name || '—'}` },
-      { key: 'packages', label: 'Packages', render: (row) => row.packageCount }, { key: 'weightKg', label: 'Weight (kg)' },
-      { key: 'movementState', label: 'Status', render: (row) => <StatusBadge status={row.movementState} /> },
-      { key: 'action', label: 'Actions', render: (row) => <div className="actions">{row.movementState === 'HOLD' ? <button className="text-btn" onClick={() => { const reason = window.prompt('Release remarks'); if (reason?.trim()) hold.mutate({ row, action: 'RELEASE', reason }); }}>Release</button> : <><button className="text-btn" onClick={() => setSelected(row)}>Sort LR</button><button className="text-btn" onClick={() => { const reason = window.prompt('Hold reason'); if (reason?.trim()) hold.mutate({ row, action: 'HOLD', reason }); }}>Hold</button></>}</div> },
-    ]} />}</section>
-    {selected && <Modal title={`Sort ${selected.lrNumber}`} onClose={() => setSelected(null)}><form onSubmit={save}><div className="form-grid"><HubRouteFields branches={branches} routes={routes} defaults={selected} includeCurrent={false} /><label>Sort Zone<input name="sortZone" required autoFocus /></label><label>Bay<input name="bay" /></label><label>Rack<input name="rack" /></label><label className="full-span">Remarks<textarea name="remarks" /></label></div><div className="modal-footer"><button type="button" className="btn secondary" onClick={() => setSelected(null)}>Cancel</button><button className="btn" disabled={mutation.isPending}>{busyLabel(mutation.isPending, 'Mark Sorted')}</button></div></form></Modal>}
-  </>;
+function TallyDocument({ tallyId, onClose }) {
+  const printRef = useRef(null);
+  const query = useQuery({ queryKey: ['loading-tallies', 'detail', tallyId], queryFn: () => middleMileApi.tallies.detail(tallyId) });
+  const tally = query.data?.data;
+  return <Modal title={tally?.tallyNumber || 'Loading tally'} onClose={onClose}>
+    {query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <>
+      <div className="actions tally-document-actions"><button className="btn secondary" onClick={() => window.print()}>Print Tally</button><TransportPdfDownload targetRef={printRef} documentNumber={tally.tallyNumber} label="Download Tally PDF" /></div>
+      <div ref={printRef} className="transport-document-shell"><div className="transport-print-document prs-document tally-print-document">
+        <header className="tally-brand"><img src="/crl-logo.png" alt="CRL" /><div><h1>CHAPLE ROADLINES PVT. LTD.</h1><span>Middle Mile Operations</span></div><strong>LOADING TALLY</strong></header>
+        <section className="tally-heading"><div><small>Tally number</small><h2>{tally.tallyNumber}</h2></div><div><small>Destination city</small><b>{tally.destination || '-'}</b><span>{tally.origin || '-'} to {tally.destination || '-'}</span></div></section>
+        <section className="tally-info-grid">{[
+          ['Sorting number', tally.segregationId?.segregationNumber || '-'], ['Date', date(tally.createdAt)],
+          ['Loading bay', tally.loadingBay || '-'], ['Vehicle type', tally.vehicleType || '-'],
+          ['Capacity (kg)', tally.vehicleCapacityKg ?? '-'], ['Status', tally.status?.replaceAll('_', ' ') || '-'],
+        ].map(([label, value]) => <div key={label}><small>{label}</small><b>{value}</b></div>)}</section>
+        <table className="tally-lr-table">
+          <colgroup><col style={{ width: '6%' }} /><col style={{ width: '21%' }} /><col style={{ width: '23%' }} /><col style={{ width: '26%' }} /><col style={{ width: '11%' }} /><col style={{ width: '13%' }} /></colgroup>
+          <thead><tr><th>Sr.</th><th>LR number</th><th>Destination</th><th>Receiver</th><th className="numeric">Packages</th><th className="numeric">Weight (kg)</th></tr></thead>
+          <tbody>{(tally.items || []).map((item, index) => <tr key={idOf(item.shipmentId) || index}><td>{index + 1}</td><td className="tally-lr-number">{item.shipmentId?.lrNumber || '-'}</td><td>{item.shipmentId?.lrDetails?.to || item.shipmentId?.destinationBranchId?.city || tally.destination || '-'}</td><td>{item.shipmentId?.receiverName || '-'}</td><td className="numeric">{item.expectedPackages ?? 0}</td><td className="numeric">{Number(item.weightKg || 0).toLocaleString('en-IN')}</td></tr>)}
+          {!(tally.items || []).length && <tr><td colSpan={6}>No LRs added to this tally.</td></tr>}</tbody>
+          <tfoot><tr><td colSpan={4}>Total: {tally.totalLrs ?? tally.items?.length ?? 0} LRs</td><td className="numeric">{tally.totalPackages ?? 0}</td><td className="numeric">{Number(tally.totalWeightKg || 0).toLocaleString('en-IN')}</td></tr></tfoot>
+        </table>
+        <footer className="tally-signatures"><div><span>Prepared by</span><b>Signature / Name</b></div><div><span>Loading supervisor</span><b>Signature / Name</b></div></footer>
+      </div></div>
+    </>}
+  </Modal>;
 }
 
 function TallyWorkspace() {
-  const client = useQueryClient(); const [page, setPage] = useState(1), [open, setOpen] = useState(false), [scanRow, setScanRow] = useState(null);
-  const query = useQuery({ queryKey: ['loading-tallies', page], queryFn: () => middleMileApi.tallies.list({ page, limit: 20 }) });
-  const options = useQuery({ queryKey: ['sorting-options'], queryFn: () => middleMileApi.sortingOptions({ limit: 100 }) });
-  const refresh = () => { client.invalidateQueries({ queryKey: ['loading-tallies'] }); client.invalidateQueries({ queryKey: ['sorting-options'] }); };
-  const create = useMutation({ mutationFn: middleMileApi.tallies.create, onSuccess: () => { toast.success('Loading tally created'); setOpen(false); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
-  const complete = useMutation({ mutationFn: middleMileApi.completeTally, onSuccess: () => { toast.success('Loading tally completed and locked'); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
-  const totalScanned = (row) => row.items?.reduce((sum, item) => sum + Number(item.scannedPackages || 0), 0) || 0;
+  const [page, setPage] = useState(1);
+  const [open, setOpen] = useState(false);
+  const [destination, setDestination] = useState('');
+  const [batchId, setBatchId] = useState('');
+  const [viewId, setViewId] = useState(null);
+  const [error, setError] = useState('');
+  const refresh = useRefresh();
+  const register = useQuery({ queryKey: ['loading-tallies', page], queryFn: () => middleMileApi.tallies.list({ page, limit: 20 }) });
+  const batches = useQuery({ queryKey: ['middle-mile-sortings'], queryFn: () => allRows(middleMileApi.sortings), enabled: open });
+  const availableCities = [...new Set(rows(batches).map((row) => row.destination).filter(Boolean))].sort();
+  const cityBatches = rows(batches).filter((row) => row.destination === destination);
+  const selectedBatch = cityBatches.find((row) => idOf(row) === batchId) || (cityBatches.length === 1 ? cityBatches[0] : null);
+  const create = useMutation({ mutationFn: middleMileApi.tallies.create, onSuccess: (result) => { toast.success(`Loading tally ${result.data.tallyNumber} created`); setOpen(false); setViewId(idOf(result.data)); refresh(); }, onError: (reason) => { setError(errorMessage(reason)); batches.refetch(); } });
   return <>
-    <PageHeader title="Loading Tally" description="Scan every package from a sorted batch and reconcile quantity before manifestation."><button className="btn" onClick={() => setOpen(true)}><PackageCheck size={17} /> Create Tally</button></PageHeader>
-    <section className="panel">{query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={rows(query)} pagination={query.data.pagination} onPage={setPage} columns={[
-      { key: 'tallyNumber', label: 'Tally' }, { key: 'lane', label: 'Movement', render: (row) => `${row.fromHubId?.name || '—'} → ${row.toHubId?.name || '—'}` },
-      { key: 'lrs', label: 'LRs', render: (row) => row.totalLrs }, { key: 'packages', label: 'Scanned / Expected', render: (row) => `${totalScanned(row)} / ${row.totalPackages}` },
-      { key: 'weight', label: 'Weight', render: (row) => `${row.totalWeightKg} kg` }, { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
-      { key: 'action', label: 'Actions', render: (row) => <div className="actions">{['DRAFT', 'LOADING'].includes(row.status) && <><button className="text-btn" onClick={() => setScanRow(row)}>Scan</button><button className="text-btn" onClick={() => complete.mutate(idOf(row))}>Complete</button></>}</div> },
+    <PageHeader title="Loading Tally" description="Create a loading tally from previously sorted LRs, then view or print it."><button className="btn" onClick={() => { setDestination(''); setBatchId(''); setError(''); setOpen(true); }}>Create Loading Tally</button></PageHeader>
+    <section className="panel">{register.isPending ? <Loadingcrleleton /> : register.isError ? <ErrorState error={errorMessage(register.error)} retry={register.refetch} /> : <DataTable rows={rows(register)} pagination={register.data?.pagination} onPage={setPage} columns={[
+      { key: 'tallyNumber', label: 'Loading tally number' }, { key: 'destination', label: 'Destination city' }, { key: 'loadingBay', label: 'Loading bay' }, { key: 'vehicleType', label: 'Vehicle type' }, { key: 'vehicleCapacityKg', label: 'Capacity (kg)' },
+      { key: 'totalLrs', label: 'LRs' }, { key: 'totalWeightKg', label: 'Weight (kg)' }, { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
+      { key: 'actions', label: 'Actions', render: (row) => <div className="actions"><button className="text-btn" onClick={() => setViewId(idOf(row))}>View Tally</button><button className="text-btn" onClick={() => setViewId(idOf(row))}>Print Tally</button></div> },
     ]} />}</section>
-    {open && <Modal title="Create Loading Tally" onClose={() => setOpen(false)}><form onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); create.mutate({ segregationId: form.get('segregationId'), loadingBay: form.get('loadingBay') || undefined, vehicleType: form.get('vehicleType') || undefined, vehicleCapacityKg: form.get('vehicleCapacityKg') || undefined }); }}><div className="form-grid"><label>Sorted Batch<select name="segregationId" required><option value="">Select batch</option>{rows(options).map((item) => <option key={idOf(item)} value={idOf(item)}>{item.segregationNumber} - {item.destination} ({item.shipmentIds.length} LRs)</option>)}</select></label><label>Loading Bay<input name="loadingBay" /></label><label>Vehicle Type<input name="vehicleType" /></label><label>Capacity (kg)<input name="vehicleCapacityKg" type="number" min="1" /></label></div><div className="modal-footer"><button type="button" className="btn secondary" onClick={() => setOpen(false)}>Cancel</button><button className="btn" disabled={create.isPending}>{busyLabel(create.isPending, 'Create Tally')}</button></div></form></Modal>}
-    {scanRow && <LoadingScanModal tally={scanRow} onClose={() => setScanRow(null)} onScanned={refresh} />}
+    {open && <Modal title="Create Loading Tally" onClose={() => setOpen(false)}>{batches.isPending ? <Loadingcrleleton /> : batches.isError ? <ErrorState error={errorMessage(batches.error)} retry={batches.refetch} /> : <form onSubmit={(event) => {
+      event.preventDefault(); const form = new FormData(event.currentTarget);
+      create.mutate({ segregationId: idOf(selectedBatch), loadingBay: form.get('loadingBay'), vehicleType: form.get('vehicleType'), vehicleCapacityKg: Number(form.get('vehicleCapacityKg')) });
+    }}>
+      {!rows(batches).length && <p>Save city-wise sorting first. No sorted LRs are awaiting loading.</p>}
+      <div className="form-grid">
+        <label>Destination city<select required value={destination} onChange={(event) => { setDestination(event.target.value); setBatchId(''); }}><option value="">Select destination city</option>{availableCities.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
+        {cityBatches.length > 1 && <label>Sorted LR batch<select required value={batchId} onChange={(event) => setBatchId(event.target.value)}><option value="">Select sorting batch</option>{cityBatches.map((row) => <option key={idOf(row)} value={idOf(row)}>{row.segregationNumber} - {row.shipmentIds.length} LRs / PIN: {row.destinationPincode || 'All'}</option>)}</select></label>}
+        <label>Loading bay<input name="loadingBay" required maxLength={80} list="loading-bays" placeholder="Select or enter bay" /><datalist id="loading-bays">{['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4'].map((bay) => <option key={bay} value={bay} />)}</datalist></label>
+        <label>Vehicle type<input name="vehicleType" required maxLength={80} list="loading-vehicle-types" placeholder="Select or enter vehicle type" /><datalist id="loading-vehicle-types">{['Pickup', 'Tata Ace', 'LCV', 'Truck', 'Container', 'Trailer'].map((type) => <option key={type} value={type} />)}</datalist></label>
+        <label>Capacity (kg)<input name="vehicleCapacityKg" type="number" required min="0.01" max="1000000" step="any" /></label>
+      </div>
+      {selectedBatch && <><h3>LRs selected during sorting</h3><DataTable rows={selectedBatch.shipmentIds || []} columns={lrColumns} /><p>Total weight: {(selectedBatch.shipmentIds || []).reduce((sum, lr) => sum + Number(lr.weightKg || 0), 0)} kg</p></>}
+      {error && <p role="alert" className="field-error">{error}</p>}
+      <div className="modal-footer"><button className="btn" disabled={!selectedBatch || create.isPending || batches.isFetching}>{create.isPending ? 'Creating...' : 'Create Tally'}</button></div>
+    </form>}</Modal>}
+    {viewId && <TallyDocument tallyId={viewId} onClose={() => setViewId(null)} />}
   </>;
 }
 
 function ManifestWorkspace() {
-  const { user } = useAuth(); const canLock = ['ADMIN', 'MANAGER'].includes(user.role); const client = useQueryClient(); const [page, setPage] = useState(1), [open, setOpen] = useState(false);
-  const query = useQuery({ queryKey: ['middle-mile-manifests', page], queryFn: () => middleMileApi.manifests.list({ page, limit: 20 }) });
-  const tallies = useQuery({ queryKey: ['loading-tallies', 'manifest-ready'], queryFn: () => middleMileApi.tallies.list({ limit: 100 }) });
-  const refresh = () => { client.invalidateQueries({ queryKey: ['middle-mile-manifests'] }); client.invalidateQueries({ queryKey: ['loading-tallies'] }); };
-  const create = useMutation({ mutationFn: middleMileApi.manifests.create, onSuccess: () => { toast.success('Draft manifest created from tally'); setOpen(false); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
-  const finalize = useMutation({ mutationFn: middleMileApi.finalizeManifest, onSuccess: () => { toast.success('Manifest finalized and locked'); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
-  const eligibleTallies = rows(tallies).filter((row) => row.status === 'TALLY_COMPLETED');
+  const [tallyId, setTallyId] = useState('');
+  const [verified, setVerified] = useState([]);
+  const [page, setPage] = useState(1);
+  const refresh = useRefresh();
+  const tallies = useQuery({ queryKey: ['loading-tallies', 'available'], queryFn: () => allRows(middleMileApi.tallies.list, { status: 'TALLY_COMPLETED' }) });
+  const detail = useQuery({ queryKey: ['loading-tallies', 'detail', tallyId], queryFn: () => middleMileApi.tallies.detail(tallyId), enabled: Boolean(tallyId) });
+  const register = useQuery({ queryKey: ['middle-mile-manifests', page], queryFn: () => middleMileApi.manifests.list({ page, limit: 20 }) });
+  const lrs = (detail.data?.data?.items || []).map((item) => item.shipmentId);
+  const create = useMutation({ mutationFn: () => middleMileApi.manifests.create({ loadingTallyId: tallyId, verifiedShipmentIds: verified }), onSuccess: (result) => { toast.success(`Manifest ${result.data.manifestNumber} created`); setTallyId(''); setVerified([]); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
   return <>
-    <PageHeader title="Middle Mile Manifest" description="Create from a completed loading tally; no LR information needs to be entered again."><button className="btn" onClick={() => setOpen(true)}><ClipboardCheck size={17} /> Create Manifest</button></PageHeader>
-    <section className="panel">{query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={rows(query)} pagination={query.data.pagination} onPage={setPage} columns={[
-      { key: 'manifestNumber', label: 'Manifest' }, { key: 'date', label: 'Created', render: (row) => date(row.createdAt) },
-      { key: 'lane', label: 'Movement', render: (row) => `${row.fromHubId?.name || '—'} → ${row.toHubId?.name || row.destination}` },
-      { key: 'lrs', label: 'LRs', render: (row) => row.totalLrs }, { key: 'packages', label: 'Packages', render: (row) => row.totalPackages },
-      { key: 'weight', label: 'Weight', render: (row) => `${row.totalWeightKg} kg` }, { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.workflowStatus || row.status} /> },
-      { key: 'action', label: '', render: (row) => canLock && row.workflowStatus === 'DRAFT' ? <button className="text-btn" onClick={() => finalize.mutate(idOf(row))}>Finalize & Lock</button> : null },
+    <PageHeader title="Manifest Creation" description="Select a loading tally and verify every loaded LR before submitting." />
+    <section className="panel form-section">
+      {tallies.isError ? <ErrorState error={errorMessage(tallies.error)} retry={tallies.refetch} /> : <label>Loading tally<select value={tallyId} onChange={(event) => { setTallyId(event.target.value); setVerified([]); }}><option value="">Select loading tally</option>{rows(tallies).map((row) => <option key={idOf(row)} value={idOf(row)}>{row.tallyNumber} - {row.totalLrs} LRs</option>)}</select></label>}
+      {tallyId && (detail.isPending ? <Loadingcrleleton /> : detail.isError ? <ErrorState error={errorMessage(detail.error)} retry={detail.refetch} /> : <DataTable rows={lrs} columns={[
+        { key: 'verify', label: 'Loaded / verified', render: (lr) => <input type="checkbox" aria-label={`Verify ${lr.lrNumber}`} checked={verified.includes(idOf(lr))} onChange={(event) => setVerified((current) => event.target.checked ? [...current, idOf(lr)] : current.filter((value) => value !== idOf(lr)))} /> }, ...lrColumns,
+      ]} />)}
+      <div className="form-actions"><span>{verified.length} / {lrs.length} LRs verified</span><button className="btn" disabled={!lrs.length || verified.length !== lrs.length || detail.isFetching || create.isPending} onClick={() => create.mutate()}>{create.isPending ? 'Creating...' : 'Create Manifest'}</button></div>
+    </section>
+    <section className="panel">{register.isError ? <ErrorState error={errorMessage(register.error)} retry={register.refetch} /> : <DataTable rows={rows(register)} pagination={register.data?.pagination} onPage={setPage} columns={[
+      { key: 'manifestNumber', label: 'Manifest number' }, { key: 'destination', label: 'Destination' }, { key: 'totalLrs', label: 'LRs' }, { key: 'totalPackages', label: 'Packages' },
+      { key: 'workflowStatus', label: 'Status', render: (row) => <StatusBadge status={row.workflowStatus} /> },
     ]} />}</section>
-    {open && <Modal title="Create Manifest from Loading Tally" onClose={() => setOpen(false)}><form onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); create.mutate({ loadingTallyId: form.get('loadingTallyId'), vendorReference: form.get('vendorReference') || undefined, remarks: form.get('remarks') || undefined }); }}><div className="form-grid"><label>Completed Loading Tally<select name="loadingTallyId" required><option value="">Select tally</option>{eligibleTallies.map((row) => <option key={idOf(row)} value={idOf(row)}>{row.tallyNumber} - {row.totalLrs} LRs / {row.totalPackages} packages</option>)}</select></label><label>Vendor Reference<input name="vendorReference" /></label><label className="full-span">Remarks<textarea name="remarks" /></label></div><div className="modal-footer"><button type="button" className="btn secondary" onClick={() => setOpen(false)}>Cancel</button><button className="btn" disabled={create.isPending}>{busyLabel(create.isPending, 'Create Draft')}</button></div></form></Modal>}
   </>;
 }
 
-function TripWorkspace({ inwardOnly = false }) {
-  const { user } = useAuth(); const canDispatch = ['ADMIN', 'MANAGER'].includes(user.role); const client = useQueryClient();
-  const [page, setPage] = useState(1), [open, setOpen] = useState(false), [source, setSource] = useState('VV'), [vendorId, setVendorId] = useState(''), [inwardRow, setInwardRow] = useState(null);
+function TripDocument({ trip, onClose }) {
+  const printRef = useRef(null);
+  return <Modal title={trip.tripNumber} onClose={onClose}>
+    <div className="actions tally-document-actions"><button className="btn secondary" onClick={() => window.print()}>Print Trip</button><TransportPdfDownload targetRef={printRef} documentNumber={trip.tripNumber} label="Download Trip PDF" /></div>
+    <div ref={printRef} className="transport-document-shell"><div className="transport-print-document prs-document trip-print-document">
+      <header className="tally-brand"><img src="/crl-logo.png" alt="CRL" /><div><h1>CHAPLE ROADLINES PVT. LTD.</h1><span>Middle Mile Operations</span></div><strong>TRIP SHEET</strong></header>
+      <section className="tally-heading"><div><small>Trip number</small><h2>{trip.tripNumber}</h2></div><div><small>Route / Destination</small><b>{trip.origin || '-'} to {trip.destination || '-'}</b><span>{trip.routeId?.name || 'Middle mile trip'}</span></div></section>
+      <section className="tally-info-grid">{[
+        ['Vehicle / Type', `${trip.vehicleNumber || '-'} / ${trip.vehicleType || trip.vehicleSource || '-'}`],
+        ['Vendor', trip.vendorId?.name || 'Market vehicle'], ['Driver', [trip.driverName, trip.driverMobile].filter(Boolean).join(' / ') || '-'],
+        ['Seal number', trip.sealNumber || '-'], ['Departure', date(trip.departureDate)],
+        ['Trip cost', `INR ${Number(trip.freightAmount || 0).toLocaleString('en-IN')}`],
+      ].map(([label, value]) => <div key={label}><small>{label}</small><b>{value}</b></div>)}</section>
+      <table className="tally-lr-table trip-manifest-table">
+        <colgroup><col style={{ width: '6%' }} /><col style={{ width: '30%' }} /><col style={{ width: '25%' }} /><col style={{ width: '10%' }} /><col style={{ width: '13%' }} /><col style={{ width: '16%' }} /></colgroup>
+        <thead><tr><th>Sr.</th><th>Manifest number</th><th>Destination</th><th className="numeric">LRs</th><th className="numeric">Packages</th><th className="numeric">Weight (kg)</th></tr></thead>
+        <tbody>{(trip.manifestIds || []).map((manifest, index) => <tr key={idOf(manifest) || index}>
+          <td>{index + 1}</td><td className="tally-lr-number">{manifest.manifestNumber || '-'}</td><td>{manifest.destination || trip.destination || '-'}</td>
+          <td className="numeric">{manifest.totalLrs ?? manifest.shipmentIds?.length ?? 0}</td><td className="numeric">{manifest.totalPackages ?? 0}</td><td className="numeric">{Number(manifest.totalWeightKg || 0).toLocaleString('en-IN')}</td>
+        </tr>)}{!(trip.manifestIds || []).length && <tr><td colSpan={6}>No manifests added to this trip.</td></tr>}</tbody>
+        <tfoot><tr><td colSpan={3}>Total: {trip.manifestIds?.length || 0} manifests</td><td className="numeric">{trip.totalLrs ?? 0}</td><td className="numeric">{trip.totalPackages ?? 0}</td><td className="numeric">{Number(trip.totalWeightKg || 0).toLocaleString('en-IN')}</td></tr></tfoot>
+      </table>
+      <footer className="tally-signatures"><div><span>Prepared by</span><b>Signature / Name</b></div><div><span>Driver signature</span><b>Signature / Name</b></div></footer>
+    </div></div>
+  </Modal>;
+}
+
+function TripWorkspace() {
+  const { user } = useAuth();
+  const refresh = useRefresh();
+  const [page, setPage] = useState(1), [open, setOpen] = useState(false), [source, setSource] = useState('VV'), [vendorId, setVendorId] = useState(''), [destination, setDestination] = useState(''), [printTrip, setPrintTrip] = useState(null);
   const query = useQuery({ queryKey: ['middle-mile-trips', page], queryFn: () => middleMileApi.trips.list({ page, limit: 20 }) });
-  const manifests = useQuery({ queryKey: ['middle-mile-manifests', 'eligible'], queryFn: () => middleMileApi.manifests.list({ limit: 100 }) });
+  const manifests = useQuery({ queryKey: ['middle-mile-manifests', 'available'], queryFn: () => allRows(middleMileApi.manifests.list) });
   const vendors = useQuery({ queryKey: ['vendor-options'], queryFn: vendorOptionsApi.list });
-  const refresh = () => { client.invalidateQueries({ queryKey: ['middle-mile-trips'] }); client.invalidateQueries({ queryKey: ['middle-mile-manifests'] }); client.invalidateQueries({ queryKey: ['middle-mile-sorting-inventory'] }); };
-  const create = useMutation({ mutationFn: middleMileApi.trips.create, onSuccess: () => { toast.success('Middle Mile trip ready for dispatch'); setOpen(false); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
-  const action = useMutation({ mutationFn: ({ type, row, receivedShipmentIds }) => type === 'dispatch' ? middleMileApi.dispatchTrip(idOf(row)) : type === 'arrive' ? middleMileApi.arriveTrip(idOf(row)) : middleMileApi.destinationInward(idOf(row), receivedShipmentIds), onSuccess: (_, variables) => { toast.success(variables.type === 'inward' ? 'Destination inward completed' : `Trip marked ${variables.type}`); setInwardRow(null); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
-  const availableManifests = rows(manifests).filter((row) => row.workflowStatus === 'LOCKED' && !row.tripId);
-  const selectedVendor = rows(vendors).find((row) => idOf(row) === vendorId);
-  const visibleTrips = inwardOnly ? rows(query).filter((row) => ['DISPATCHED', 'ARRIVED'].includes(row.status)) : rows(query);
-  const save = (event) => {
-    event.preventDefault(); const form = new FormData(event.currentTarget); const selectedManifestIds = form.getAll('manifestIds');
-    const vehicle = selectedVendor?.vehicles?.find((row) => row.vehicleNumber === form.get('vehicleNumber'));
-    create.mutate({ manifestIds: selectedManifestIds, vehicleSource: source, vendorId: form.get('vendorId') || undefined, vehicleNumber: form.get('vehicleNumber'), vehicleType: form.get('vehicleType') || vehicle?.vehicleType || undefined, vehicleCapacityKg: form.get('vehicleCapacityKg') || vehicle?.capacityKg || undefined, driverName: form.get('driverName') || vehicle?.driverName, driverMobile: form.get('driverMobile') || vehicle?.driverMobile || undefined, departureDate: form.get('departureDate'), expectedArrival: form.get('expectedArrival') || undefined, freightAmount: form.get('freightAmount') || 0, advanceAmount: form.get('advanceAmount') || 0, remarks: form.get('remarks') || undefined });
-  };
+  const routes = useQuery({ queryKey: ['master-options', 'ROUTE', 'trip-all'], queryFn: () => allRows((params) => masterOptionsApi.list('ROUTE', params)), enabled: open });
+  const available = rows(manifests).filter((row) => row.workflowStatus === 'LOCKED' && !row.tripId);
+  const destinations = [...new Set(available.map((row) => row.destination))];
+  const create = useMutation({ mutationFn: middleMileApi.trips.create, onSuccess: (result) => { toast.success(`Trip ${result.data.tripNumber} created. Print is available in the register.`); setOpen(false); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
+  const action = useMutation({ mutationFn: ({ type, row }) => type === 'dispatch' ? middleMileApi.dispatchTrip(idOf(row)) : middleMileApi.arriveTrip(idOf(row)), onSuccess: () => { toast.success('Trip updated'); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
   return <>
-    <PageHeader title={inwardOnly ? 'Destination Hub Inward' : 'Middle Mile Trip Creation'} description={inwardOnly ? 'Receive arrived trip shipments without marking them delivered.' : 'Combine compatible locked manifests, assign VV/MV vehicle and dispatch atomically.'}>{!inwardOnly && <button className="btn" onClick={() => setOpen(true)}><Truck size={17} /> Create Trip</button>}</PageHeader>
-    <section className="panel">{query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={visibleTrips} pagination={inwardOnly ? undefined : query.data.pagination} onPage={setPage} empty={inwardOnly ? 'No dispatched or arrived trips' : 'No Middle Mile trips'} columns={[
-      { key: 'tripNumber', label: 'Trip' }, { key: 'lane', label: 'Movement', render: (row) => `${row.fromHubId?.name || row.origin} → ${row.toHubId?.name || row.destination}` },
-      { key: 'vehicle', label: 'Vehicle / Source', render: (row) => `${row.vehicleNumber} / ${row.vehicleSource || 'Legacy'}` }, { key: 'driverName', label: 'Driver' },
-      { key: 'manifest', label: 'Manifests', render: (row) => row.manifestIds?.length || 0 }, { key: 'packages', label: 'Packages', render: (row) => row.totalPackages },
-      { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.workflowStatus || row.status} /> },
-      { key: 'action', label: 'Actions', render: (row) => <div className="actions">{!inwardOnly && canDispatch && row.status === 'PLANNED' && <button className="text-btn" onClick={() => action.mutate({ type: 'dispatch', row })}>Dispatch</button>}{row.status === 'DISPATCHED' && <button className="text-btn" onClick={() => action.mutate({ type: 'arrive', row })}>Mark Arrived</button>}{row.status === 'ARRIVED' && <button className="text-btn" onClick={() => setInwardRow(row)}>Verify & Inward</button>}</div> },
+    <PageHeader title="Middle Mile Trip Creation" description="Select MV/VV, destination city, trip route and manifest, then enter the seal number."><button className="btn" onClick={() => { setDestination(''); setOpen(true); }}>Create Trip</button></PageHeader>
+    <section className="panel">{query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={rows(query)} pagination={query.data?.pagination} onPage={setPage} columns={[
+      { key: 'tripNumber', label: 'Trip' }, { key: 'destination', label: 'Destination' }, { key: 'vehicleNumber', label: 'Vehicle' }, { key: 'sealNumber', label: 'Seal number' },
+      { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
+      { key: 'actions', label: 'Actions', render: (row) => <div className="actions"><button className="text-btn" onClick={() => setPrintTrip(row)}>Print Trip</button>{['ADMIN', 'MANAGER'].includes(user.role) && row.status === 'PLANNED' && <button className="text-btn" disabled={action.isPending} onClick={() => action.mutate({ type: 'dispatch', row })}>Dispatch</button>}{row.status === 'DISPATCHED' && <button className="text-btn" disabled={action.isPending} onClick={() => action.mutate({ type: 'arrive', row })}>Mark Arrived</button>}</div> },
     ]} />}</section>
-    {open && <Modal title="Create Middle Mile Trip" onClose={() => setOpen(false)}><form onSubmit={save}><div className="form-grid"><fieldset className="full-span"><legend>Eligible Locked Manifests</legend>{availableManifests.length ? availableManifests.map((row) => <label key={idOf(row)}><input type="checkbox" name="manifestIds" value={idOf(row)} /> {row.manifestNumber} - {row.totalPackages} packages / {row.totalWeightKg} kg</label>) : <p>No compatible locked manifests available.</p>}</fieldset><TripVehicleFields vendors={rows(vendors)} source={source} vendorId={vendorId} onSourceChange={setSource} onVendorChange={setVendorId} /><label>Planned Departure<input name="departureDate" type="datetime-local" required /></label><label>Expected Arrival<input name="expectedArrival" type="datetime-local" /></label><label>Freight Amount<input name="freightAmount" type="number" min="0" defaultValue="0" /></label><label>Advance Amount<input name="advanceAmount" type="number" min="0" defaultValue="0" /></label><label className="full-span">Remarks<textarea name="remarks" /></label></div><div className="modal-footer"><button type="button" className="btn secondary" onClick={() => setOpen(false)}>Cancel</button><button className="btn" disabled={create.isPending || !availableManifests.length}>{busyLabel(create.isPending, 'Confirm Trip')}</button></div></form></Modal>}
-    {inwardRow && <Modal title={`Verify ${inwardRow.tripNumber}`} onClose={() => setInwardRow(null)}><p>Select every physically received LR. The server will reject shortages or unexpected records.</p><form onSubmit={(event) => { event.preventDefault(); const receivedShipmentIds = new FormData(event.currentTarget).getAll('receivedShipmentIds'); action.mutate({ type: 'inward', row: inwardRow, receivedShipmentIds }); }}><fieldset><legend>Expected LRs ({inwardRow.shipmentIds.length})</legend>{inwardRow.shipmentIds.map((shipment) => <label key={idOf(shipment)}><input type="checkbox" name="receivedShipmentIds" value={idOf(shipment)} /> {shipment.lrNumber} - {shipment.packageCount} packages / {shipment.weightKg} kg</label>)}</fieldset><div className="modal-footer"><button type="button" className="btn secondary" onClick={() => setInwardRow(null)}>Cancel</button><button className="btn" disabled={action.isPending}>{busyLabel(action.isPending, 'Confirm Destination Inward')}</button></div></form></Modal>}
+    {open && <Modal title="Create Middle Mile Trip" onClose={() => setOpen(false)}>{manifests.isError || vendors.isError ? <ErrorState error={errorMessage(manifests.error || vendors.error)} retry={() => { manifests.refetch(); vendors.refetch(); }} /> : <form onSubmit={(event) => {
+      event.preventDefault(); const form = new FormData(event.currentTarget);
+      create.mutate({ vehicleSource: source, destination, routeId: form.get('routeId'), manifestIds: [form.get('manifestId')], sealNumber: form.get('sealNumber'), vendorId: form.get('vendorId') || undefined,
+        vehicleNumber: form.get('vehicleNumber'), vehicleType: form.get('vehicleType') || undefined, vehicleCapacityKg: form.get('vehicleCapacityKg') || undefined,
+        driverName: form.get('driverName'), driverMobile: form.get('driverMobile') || undefined, departureDate: form.get('departureDate'), freightAmount: form.get('freightAmount') || 0 });
+    }}><div className="form-grid">
+      <TripVehicleFields vendors={rows(vendors)} source={source} vendorId={vendorId} onSourceChange={setSource} onVendorChange={setVendorId} />
+      <label>Trip cost {source === 'MV' ? '(required for MV)' : ''}<input name="freightAmount" type="number" min={source === 'MV' ? '0.01' : '0'} step="0.01" required={source === 'MV'} /></label>
+      <label>Destination<select required value={destination} onChange={(event) => setDestination(event.target.value)}><option value="">Select destination</option>{destinations.map((row) => <option key={row} value={row}>{row}</option>)}</select></label>
+      <label>Route *<select name="routeId" key={destination + '-route'} required><option value="">Select trip route</option>{rows(routes).filter((route) => route.destination?.trim().toLowerCase() === destination.trim().toLowerCase()).map((route) => <option key={idOf(route)} value={idOf(route)}>{route.name} ({route.origin} to {route.destination})</option>)}</select></label>
+      {routes.isError && <ErrorState error={errorMessage(routes.error)} retry={routes.refetch} />}
+      <label>Manifest number<select name="manifestId" key={destination} required><option value="">Select manifest</option>{available.filter((row) => row.destination === destination).map((row) => <option key={idOf(row)} value={idOf(row)}>{row.manifestNumber} - {row.totalLrs} LRs / {Number(row.totalWeightKg || 0).toLocaleString('en-IN')} kg</option>)}</select></label>
+      <label>Seal number<input name="sealNumber" required maxLength={80} /></label><label>Departure date<input name="departureDate" type="datetime-local" required /></label>
+    </div><div className="modal-footer"><button className="btn" disabled={create.isPending || manifests.isPending || vendors.isPending || routes.isPending || routes.isError}>{create.isPending ? 'Creating...' : 'Create Trip'}</button></div></form>}</Modal>}
+    {printTrip && <TripDocument trip={printTrip} onClose={() => setPrintTrip(null)} />}
   </>;
 }
 
 export default function MiddleMilePage() {
   const path = useLocation().pathname.split('/').at(-1);
-  if (path === 'hub-inward') return <InwardWorkspace />;
-  if (path === 'segregations') return <SortingWorkspace />;
+  if (path === 'segregations') return <RouteSortingWorkspace />;
   if (path === 'loading-tallies') return <TallyWorkspace />;
   if (path === 'manifests') return <ManifestWorkspace />;
-  if (path === 'destination-inward') return <TripWorkspace inwardOnly />;
   return <TripWorkspace />;
 }

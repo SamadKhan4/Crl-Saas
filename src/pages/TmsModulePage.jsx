@@ -410,7 +410,7 @@ const configs = {
     service: stationeryApi,
     number: 'transactionNumber',
     description:
-      'Receive stock and issue controlled stationery to vendors, branches or field executives.',
+      'Receive stock and issue controlled stationery to vendors or field executives.',
     primary: (row) => label(row.itemType),
     secondary: (row) => `${label(row.transactionType)} · Qty ${row.quantity}`,
     fields: [
@@ -424,7 +424,7 @@ const configs = {
       ['quantity', 'Quantity', 'number'],
       ['serialFrom', 'Serial from'],
       ['serialTo', 'Serial to'],
-      ['issuedToType', 'Issue to', 'select', option(['VENDOR', 'FE', 'BRANCH'])],
+      ['issuedToType', 'Issue to', 'select', option(['VENDOR', 'FE'])],
       ['vendorId', 'Vendor', 'lookup', 'vendors'],
       ['issuedToName', 'Field executive / recipient'],
       ['transactionDate', 'Date', 'date'],
@@ -474,7 +474,7 @@ const configs = {
     fields: [['title', 'Consignor / document'], ['metadata.operation', 'Operation', 'select', option(['GENERATE', 'UPDATE_VEHICLE', 'EXTEND', 'CANCEL', 'CHECK_STATUS'])], ['documentNumber', 'E-Way bill / GST document number'], ['operationDate', 'Document date', 'date'], ['dueDate', 'Valid until', 'date'], ['customerId', 'Customer', 'lookup', 'customers'], ['shipmentIds', 'Linked LRs', 'shipments', ['BOOKED', 'IN_TRANSIT', 'RECEIVED']], ['reference', 'Invoice reference'], ['vehicleNumber', 'Part B vehicle number'], ['amount', 'Taxable value', 'number'], ['taxAmount', 'GST amount', 'number'], ['metadata.validityAlertHours', 'Alert before expiry (hours)', 'number'], ['remarks', 'Remarks', 'textarea']],
   }),
   accounting: registerConfig({
-    title: 'Accounting Register', singular: 'accounting', description: 'Record branch expenses, income, advances and adjustments.', amount: 'amount',
+    title: 'Accounting Register', singular: 'accounting', description: 'Record expenses, income, advances and adjustments.', amount: 'amount',
     fields: [['title', 'Ledger / transaction'], ['operationDate', 'Transaction date', 'date'], ['reference', 'Voucher / bank reference'], ['customerId', 'Customer', 'lookup', 'customers'], ['vendorId', 'Vendor', 'lookup', 'vendors'], ['amount', 'Amount', 'number'], ['taxAmount', 'Tax amount', 'number'], ['description', 'Narration', 'textarea'], ['remarks', 'Remarks', 'textarea']],
   }),
   hr: registerConfig({
@@ -490,7 +490,7 @@ const configs = {
     fields: [['title', 'Notification subject'], ['operationDate', 'Schedule date', 'date'], ['dueDate', 'Expiry date', 'date'], ['userId', 'Assigned employee', 'lookup', 'users'], ['customerId', 'Related customer', 'lookup', 'customers'], ['reference', 'LR / task reference'], ['description', 'Message', 'textarea'], ['remarks', 'Internal notes', 'textarea']],
   }),
   'system-settings': registerConfig({
-    title: 'Operational Settings', singular: 'system-settings', description: 'Maintain branch-level operational rules and controlled values.',
+    title: 'Operational Settings', singular: 'system-settings', description: 'Maintain operational rules and controlled values.',
     fields: [['title', 'Setting name'], ['reference', 'Setting key'], ['operationDate', 'Effective date', 'date'], ['description', 'Setting value / rule', 'textarea'], ['remarks', 'Change reason', 'textarea']],
   }),
 };
@@ -613,16 +613,15 @@ function prepare(resource, values) {
   return payload;
 }
 
-function ShipmentPicker({ value = [], onChange, statuses, customerId, resource, branchId }) {
+function ShipmentPicker({ value = [], onChange, statuses, customerId, resource }) {
   const [search, setSearch] = useState('');
   const term = useDebounce(search);
   const query = useQuery({
-    queryKey: ['shipments', 'tms-picker', resource, term, customerId, branchId],
+    queryKey: ['shipments', 'tms-picker', resource, term, customerId],
     queryFn: () => get(resource === 'segregations' ? '/segregations/inventory' : '/shipments', {
       search: term,
       limit: 100,
       ...(customerId && { customerId }),
-      ...(resource === 'segregations' && branchId && { branchId }),
     }),
   });
   const rows = (query.data?.data || []).filter((row) => statuses.includes(row.currentStatus));
@@ -695,7 +694,7 @@ function DynamicFields({ resource, fields, values, setValues }) {
         />
       );
     if (type === 'shipments')
-      return <ShipmentPicker key={name} value={value || []} onChange={change} statuses={meta} customerId={['invoices', 'money-receipts'].includes(resource) ? values.customerId : undefined} resource={resource} branchId={values.branchId} />;
+      return <ShipmentPicker key={name} value={value || []} onChange={change} statuses={meta} customerId={['invoices', 'money-receipts'].includes(resource) ? values.customerId : undefined} resource={resource} />;
     if (type === 'select')
       return (
         <div className="field" key={name}>
@@ -738,7 +737,6 @@ function DynamicFields({ resource, fields, values, setValues }) {
 }
 
 function RecordEditor({ resource, config, record, onClose }) {
-  const { user } = useAuth();
   const [values, setValues] = useState(() =>
     record
       ? {
@@ -776,15 +774,6 @@ function RecordEditor({ resource, config, record, onClose }) {
     >
       <form onSubmit={save}>
         <div className="form-grid">
-          {['ADMIN', 'MANAGER'].includes(user.role) && resource !== 'vendors' && (
-            <Lookup
-              resource="branches"
-              branchOptions
-              label="Operating branch"
-              value={values.branchId || ''}
-              onChange={(value) => setValues((current) => ({ ...current, branchId: value }))}
-            />
-          )}
           <DynamicFields resource={resource} fields={config.fields} values={values} setValues={setValues} />
         </div>
         {error && (

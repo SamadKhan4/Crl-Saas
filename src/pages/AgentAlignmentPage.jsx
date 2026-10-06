@@ -7,6 +7,7 @@ import { pickupRequestsApi, vendorsApi } from '../api/services';
 import { errorMessage } from '../api/client';
 import { useAuth } from '../features/auth/AuthContext';
 import { idOf } from '../lib/workflow';
+import CreditPickupRequestModal from '../components/tms/CreditPickupRequestModal';
 import {
   DataTable,
   ErrorState,
@@ -24,7 +25,6 @@ const emptyAssignment = {
   vehicleType: '',
   driverName: '',
   driverMobile: '',
-  remarks: '',
 };
 
 export default function AgentAlignmentPage() {
@@ -33,9 +33,18 @@ export default function AgentAlignmentPage() {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState(null);
   const [assignment, setAssignment] = useState(emptyAssignment);
+  const [showAssignAgent, setShowAssignAgent] = useState(false);
+
   const requests = useQuery({
     queryKey: ['pickup-requests', 'agent-alignment'],
-    queryFn: () => pickupRequestsApi.list({ status: 'PENDING', limit: 100 }),
+    queryFn: async () => {
+      const first = await pickupRequestsApi.list({ status: 'PENDING', limit: 100, page: 1 });
+      const data = [...first.data];
+      for (let page = 2; page <= (first.pagination?.pages || 1); page++) {
+        data.push(...(await pickupRequestsApi.list({ status: 'PENDING', limit: 100, page })).data);
+      }
+      return { ...first, data };
+    },
   });
   const vendors = useQuery({
     queryKey: ['vendors', 'pickup-agents'],
@@ -59,6 +68,7 @@ export default function AgentAlignmentPage() {
       setSelected(null);
       setAssignment(emptyAssignment);
       queryClient.invalidateQueries({ queryKey: ['pickup-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['pickup-run-sheets', 'options'] });
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -104,7 +114,6 @@ export default function AgentAlignmentPage() {
             vehicleType: existing.vehicleType || '',
             driverName: existing.driverName || '',
             driverMobile: existing.driverMobile || '',
-            remarks: existing.remarks || '',
           }
         : emptyAssignment,
     );
@@ -124,7 +133,12 @@ export default function AgentAlignmentPage() {
       <PageHeader
         title="Agent Alignment"
         description="Assign a vendor or market vehicle and driver against each pending PUR."
-      />
+      >
+        <button className="btn" disabled={requests.isPending || requests.isError || vendors.isPending || vendors.isError} onClick={() => {
+          setShowAssignAgent(true);
+        }}><UserRoundCheck size={16} /> Assign Agent</button>
+        <small className="muted">For credit customer agent assignment.</small>
+      </PageHeader>
       <div className="stats-grid agent-summary">
         <StatCard label="Pending PUR" value={counts.pending} icon={Truck} />
         <StatCard label="Agent assigned" value={counts.assigned} icon={UserRoundCheck} />
@@ -155,9 +169,9 @@ export default function AgentAlignmentPage() {
               { key: 'pickupRequestNumber', label: 'PUR number' },
               { key: 'shipper', label: 'Shipper', render: (row) => row.shipper?.companyName },
               {
-                key: 'route',
-                label: 'Route',
-                render: (row) => `${row.shipper?.city || '—'} → ${row.recipient?.city || '—'}`,
+                key: 'destination',
+                label: 'Destination',
+                render: (row) => row.agentAssignment?.route || `${row.shipper?.city || '—'} → ${row.recipient?.city || '—'}`,
               },
               { key: 'serviceType', label: 'Service' },
               {
@@ -200,6 +214,13 @@ export default function AgentAlignmentPage() {
           />
         )}
       </section>
+      {showAssignAgent && (
+        <CreditPickupRequestModal onClose={() => setShowAssignAgent(false)} onCreated={(request) => {
+          setShowAssignAgent(false);
+          queryClient.invalidateQueries({ queryKey: ['pickup-requests'] });
+          openAssignment(request);
+        }} />
+      )}
       {selected && (
         <Modal
           title={`Agent alignment · ${selected.pickupRequestNumber}`}
@@ -285,15 +306,7 @@ export default function AgentAlignmentPage() {
                   onChange={(event) => setField('driverMobile', event.target.value)}
                 />
               </label>
-              <label className="full-span">
-                Remarks
-                <textarea
-                  rows="3"
-                  maxLength="500"
-                  value={assignment.remarks}
-                  onChange={(event) => setField('remarks', event.target.value)}
-                />
-              </label>
+
             </div>
             <div className="modal-footer">
               <button type="button" className="btn secondary" onClick={() => setSelected(null)}>

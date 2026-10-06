@@ -22,7 +22,7 @@ export default function PrsActions({ prs }) {
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
-  if (['DISPATCHED', 'CANCELLED'].includes(prs.status)) return null;
+  if (prs.status === 'CANCELLED') return null;
   if (prs.approvalStatus === 'PENDING' && ['ADMIN', 'MANAGER'].includes(user.role)) return (
     <div>
       <input aria-label={`Approval remarks ${prs.prsNumber}`} placeholder="Approval remarks" maxLength={500} value={remarks} onChange={(event) => setRemarks(event.target.value)} />
@@ -30,5 +30,6 @@ export default function PrsActions({ prs }) {
       <button type="button" className="text-btn" disabled={action.isPending || remarks.trim().length < 2} onClick={() => action.mutate('REJECTED')}>Reject rate</button>
     </div>
   );
+  if (prs.status === 'DISPATCHED') return null;
   return <button type="button" className="text-btn" disabled={action.isPending || !prs.pickupRequestIds?.length || ['PENDING', 'REJECTED'].includes(prs.approvalStatus)} onClick={() => action.mutate()}>Dispatch PRS</button>;
 }

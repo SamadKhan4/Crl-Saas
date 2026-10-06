@@ -1,3 +1,8 @@
+const restoredSession = vi.hoisted(() => ({ user: null }));
+vi.mock('../api/client', async (original) => ({
+  ...await original(),
+  refreshSession: async () => ({ user: restoredSession.user, accessToken: 'test-only-token' }),
+}));
 import ActivityPage from '../pages/ActivityPage';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -52,8 +57,8 @@ function mount(element, { user = null, path = '/', route = '*', extra = null } =
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   if (user) {
-    sessionStorage.setItem('crl -session', 'true');
-    vi.spyOn(logistic, 'post').mockResolvedValue(result({ user, accessToken: 'test-only-token' }));
+    localStorage.setItem('crl-session-active', 'true');
+    restoredSession.user = user;
   }
   return render(
     <QueryClientProvider client={client}>
@@ -110,9 +115,10 @@ describe('Form validation', () => {
     packageCount: 1,
     weightKg: 5,
   };
-  it('requires distinct branches, positive weight and whole package counts', () => {
+  it('allows internal office references while requiring positive weight and whole package counts', () => {
     expect(shipmentSchema.safeParse(valid).success).toBe(true);
-    for (const patch of [{ destinationBranchId: origin }, { weightKg: 0 }, { packageCount: 1.5 }])
+    expect(shipmentSchema.safeParse({ ...valid, destinationBranchId: origin }).success).toBe(true);
+    for (const patch of [{ weightKg: 0 }, { packageCount: 1.5 }])
       expect(shipmentSchema.safeParse({ ...valid, ...patch }).success).toBe(false);
   });
   it('accepts the reserved retail customer key', () => {
@@ -178,7 +184,7 @@ describe('Authentication and routing', () => {
     expect(login).toHaveBeenCalledWith('/auth/login', {
       email: 'admin@example.test',
       password: 'long-password',
-    });
+    }, { __skipAuthRefresh: true });
   });
   it('redirects unauthenticated direct access to login', async () => {
     mount(<ProtectedRoute role="ADMIN" />, {
@@ -217,9 +223,9 @@ describe('Operational pages', () => {
     vi.spyOn(api, 'get').mockResolvedValue(result([]));
     mount(<CreateLRPage />, { user: admin });
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Generate LR' })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: 'Create LR' })).toBeInTheDocument(),
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Generate LR' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Create LR' }));
     expect(await screen.findAllByText(/Invalid input|Select a valid|Too small/)).not.toHaveLength(
       0,
     );
@@ -337,7 +343,7 @@ describe('Manager workspace', () => {
       'href',
       '/manager/employees',
     );
-    expect(screen.getByRole('link', { name: 'Reports' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Reports & MIS' })).toHaveAttribute(
       'href',
       '/manager/reports',
     );

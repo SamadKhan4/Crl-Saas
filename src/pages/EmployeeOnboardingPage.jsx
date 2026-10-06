@@ -72,7 +72,7 @@ function DocumentUploader({ record, onClose }) {
 
 function OnboardingEditor({ onClose, onCreated }) {
   const [serverError, setServerError] = useState('');
-  const { register, control, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(employeeOnboardingSchema),
     defaultValues: { name: '', email: '', mobile: '', alternateMobile: '', dateOfBirth: '', joiningDate: today(), designation: '', department: '', branchId: '', address: '', city: '', state: '', pincode: '', emergencyContactName: '', emergencyContactMobile: '', panNumber: '', aadhaarLast4: '' },
   });
@@ -97,7 +97,6 @@ function OnboardingEditor({ onClose, onCreated }) {
     <form onSubmit={handleSubmit(save)}>
       <div className="form-grid">
         {fields.map(([name, caption, type]) => <FormField key={name} label={caption} type={type || 'text'} {...register(name)} error={errors[name]?.message} />)}
-        <Controller name="branchId" control={control} render={({ field }) => <Lookup resource="branches" branchOptions label="Joining branch" {...field} />} />
       </div>
       <p className="form-note">Login ID and password are not created here. The manager will verify documents and create login access.</p>
       {serverError && <p className="field-error" role="alert">{serverError}</p>}
@@ -146,7 +145,6 @@ export default function EmployeeOnboardingPage() {
   const columns = [
     { key: 'onboardingNumber', label: 'Onboarding', render: (row) => <strong>{row.onboardingNumber}</strong> },
     { key: 'name', label: 'Employee', sort: 'name', render: (row) => <div><strong>{row.name}</strong><small className="tms-table-subtitle">{row.email} · {row.mobile}</small></div> },
-    { key: 'branchId', label: 'Branch', render: (row) => row.branchId?.name || '—' },
     { key: 'designation', label: 'Role', render: (row) => `${row.designation} · ${row.department}` },
     { key: 'documents', label: 'Documents', render: (row) => `${row.documents?.length || 0} uploaded` },
     { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },

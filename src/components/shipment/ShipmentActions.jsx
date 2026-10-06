@@ -149,7 +149,7 @@ function ActionModal({ action, shipment, onClose }) {
         <strong>{shipment.lrNumber}</strong>
         <StatusBadge status={shipment.currentStatus} />
         <p>
-          {shipment.originBranchId?.name} → {shipment.destinationBranchId?.name}
+          {shipment.lrDetails?.from || shipment.originBranchId?.city || shipment.originBranchId?.name} → {shipment.lrDetails?.to || shipment.destinationBranchId?.city || shipment.destinationBranchId?.name}
         </p>
       </div>
       {action === 'upload' ? (
@@ -233,7 +233,7 @@ function ActionModal({ action, shipment, onClose }) {
               )}
               <p>
                 Confirm this action for <b>{shipment.lrNumber}</b>.{' '}
-                {action === 'receive' && `Receiving branch: ${shipment.destinationBranchId?.name}.`}{' '}
+                {action === 'receive' && `Receiving location: ${shipment.lrDetails?.to || shipment.destinationBranchId?.city || shipment.destinationBranchId?.name}.`}{' '}
                 {action === 'close' && 'This is the final step of the shipment workflow.'}
               </p>
             </>

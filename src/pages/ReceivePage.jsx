@@ -55,7 +55,7 @@ export default function ReceivePage() {
         ) : !query.data.data.length ? (
           <EmptyState
             title="No shipment found"
-            description="Check the LR number and your branch access."
+            description="Check the LR number and try again."
           />
         ) : (
           query.data.data.map((s) => (
@@ -69,11 +69,11 @@ export default function ReceivePage() {
                 </div>
                 <div>
                   <small>Origin</small>
-                  <strong>{s.originBranchId?.name}</strong>
+                  <strong>{s.lrDetails?.from || s.originBranchId?.city || s.originBranchId?.name}</strong>
                 </div>
                 <div>
-                  <small>Expected destination / receiving branch</small>
-                  <strong>{s.destinationBranchId?.name}</strong>
+                  <small>Expected destination</small>
+                  <strong>{s.lrDetails?.to || s.destinationBranchId?.city || s.destinationBranchId?.name}</strong>
                 </div>
               </div>
               <ShipmentActions shipment={s} only={['receive']} />

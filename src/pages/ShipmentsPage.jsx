@@ -48,18 +48,6 @@ export default function ShipmentsPage() {
                 value={filters.customerId}
                 onChange={(v) => update('customerId', v)}
               />
-              <Lookup
-                resource="branches"
-                label="Origin branch"
-                value={filters.originBranchId}
-                onChange={(v) => update('originBranchId', v)}
-              />
-              <Lookup
-                resource="branches"
-                label="Destination branch"
-                value={filters.destinationBranchId}
-                onChange={(v) => update('destinationBranchId', v)}
-              />
               {['dateFrom', 'dateTo'].map((k) => (
                 <label key={k}>
                   {label(k === 'dateFrom' ? 'FROM' : 'TO')}
