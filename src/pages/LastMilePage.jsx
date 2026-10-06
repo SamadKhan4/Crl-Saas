@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import DeliveryRouteField from '../components/tms/DeliveryRouteField';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { ClipboardCheck, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { errorMessage } from '../api/client';
@@ -34,27 +34,28 @@ function Arrivals() {
 }
 
 function Tallies({ mode = 'unloading' }) {
-  const cache = useQueryClient(); const [selected, setSelected] = useState(null); const [barcode, setBarcode] = useState('');
+  const cache = useQueryClient(); const [selectedRecord, setSelected] = useState(null); const [barcode, setBarcode] = useState('');
   const [exceptions, setExceptions] = useState({});
   const query = useQuery({ queryKey: ['unloading-tallies', mode], queryFn: () => lastMileApi.tallies.list({ limit: 100 }) });
+  const selected = rows(query).find((row) => idOf(row) === idOf(selectedRecord)) || selectedRecord;
   const refresh = () => { cache.invalidateQueries({ queryKey: ['unloading-tallies'] }); cache.invalidateQueries({ queryKey: ['last-mile-arrivals'] }); cache.invalidateQueries({ queryKey: ['last-mile-drs-inventory'] }); };
   const action = useMutation({
     mutationFn: ({ type, tally, payload }) => type === 'scan' ? lastMileApi.scanTally(idOf(tally), payload) : type === 'complete' ? lastMileApi.completeTally(idOf(tally), payload) : type === 'qc' ? lastMileApi.updateQc(idOf(tally), payload.shipmentId, payload.body) : lastMileApi.inward(idOf(tally), payload),
     onSuccess: (_data, variables) => { toast.success({ scan: 'Package unloaded', complete: 'Unloading completed; QC is pending', qc: 'QC / DEPS saved', inward: 'Destination inward completed' }[variables.type]); setBarcode(''); refresh(); },
     onError: (error) => toast.error(errorMessage(error)),
   });
-  const statusAllowed = (row) => mode === 'unloading' ? row.status === 'UNLOADING' : mode === 'qc' ? ['QC_PENDING', 'READY_FOR_INWARD'].includes(row.status) : row.status === 'READY_FOR_INWARD';
+  const statusAllowed = (row) => mode === 'unloading' ? ['UNLOADING', 'QC_PENDING', 'READY_FOR_INWARD'].includes(row.status) : row.status === 'READY_FOR_INWARD';
   const visible = rows(query).filter(statusAllowed);
-  const title = mode === 'unloading' ? 'Unloading Tally' : mode === 'qc' ? 'QC / DEPS' : 'Destination Inward';
-  return <><PageHeader title={title} description={mode === 'unloading' ? 'Scan every package; shortages, damage and excess require a DEPS code.' : mode === 'qc' ? 'Pass or hold each LR and record storage location plus configurable DEPS details.' : 'Only QC-passed LRs can enter delivery inventory.'} />
+  const title = mode === 'unloading' ? 'Unloading Tally / QC / DEPS' : 'Destination Inward';
+  return <><PageHeader title={title} description={mode === 'unloading' ? 'Scan packages, complete unloading, then process QC / DEPS for each LR here.' : 'Only QC-passed LRs can enter delivery inventory.'} />
     <section className="panel">{query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={visible} empty={`No ${title.toLowerCase()} records`} columns={[
       { key: 'number', label: 'Tally', render: (row) => row.tallyNumber }, { key: 'trip', label: 'Trip', render: (row) => row.tripId?.tripNumber || '—' },
       { key: 'count', label: 'LRs / Scanned', render: (row) => `${row.totalLrs} / ${row.scannedPackages}-${row.totalPackages}` },
       { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
-      { key: 'action', label: 'Action', render: (row) => mode === 'inward' ? <button className="btn" disabled={action.isPending} onClick={() => action.mutate({ type: 'inward', tally: row })}>Confirm Inward</button> : <button className="btn secondary" onClick={() => setSelected(row)}>{mode === 'qc' ? 'Open QC' : 'Open Tally'}</button> },
+      { key: 'action', label: 'Action', render: (row) => mode === 'inward' ? <button className="btn" disabled={action.isPending} onClick={() => action.mutate({ type: 'inward', tally: row })}>Confirm Inward</button> : <button className="btn secondary" onClick={() => { setSelected(row); setBarcode(''); setExceptions({}); }}>{row.status === 'UNLOADING' ? 'Open Tally' : 'Open QC / DEPS'}</button> },
     ]} />}</section>
-    {selected && <Modal title={`${selected.tallyNumber} - ${mode === 'qc' ? 'QC / DEPS' : 'Unloading'}`} onClose={() => setSelected(null)}>
-      {mode === 'unloading' ? <>
+    {selected && <Modal title={`${selected.tallyNumber} - ${selected.status === 'UNLOADING' ? 'Unloading' : 'QC / DEPS'}`} onClose={() => setSelected(null)}>
+      {selected.status === 'UNLOADING' ? <>
         <form onSubmit={(event) => { event.preventDefault(); action.mutate({ type: 'scan', tally: selected, payload: barcode }); }}><div className="form-grid"><label className="full-span">Package Barcode<input autoFocus value={barcode} onChange={(event) => setBarcode(event.target.value.toUpperCase())} required /></label></div><div className="modal-footer"><button className="btn" disabled={action.isPending}>{busyLabel(action.isPending, 'Scan Package')}</button></div></form>
         <div className="tms-pod-list">{selected.items?.map((item) => { const shipmentId = idOf(item.shipmentId); const shortage = Math.max(0, item.expectedPackages - item.receivedPackages); return <article key={shipmentId}><span><b>{lrLabel(item.shipmentId)}</b><small>{item.receivedPackages}/{item.expectedPackages} received{shortage ? `; short ${shortage}` : ''}</small></span><div className="tms-epod-fields"><input type="number" min="0" placeholder="Damaged" onChange={(event) => setExceptions((current) => ({ ...current, [shipmentId]: { ...current[shipmentId], damagedPackages: event.target.value } }))} /><input type="number" min="0" placeholder="Excess" onChange={(event) => setExceptions((current) => ({ ...current, [shipmentId]: { ...current[shipmentId], excessPackages: event.target.value } }))} /><input placeholder="DEPS code for exception" onChange={(event) => setExceptions((current) => ({ ...current, [shipmentId]: { ...current[shipmentId], depsCode: event.target.value } }))} /><input placeholder="Exception remarks" onChange={(event) => setExceptions((current) => ({ ...current, [shipmentId]: { ...current[shipmentId], depsRemarks: event.target.value } }))} /></div></article>; })}</div>
         <button className="btn" disabled={action.isPending} onClick={() => action.mutate({ type: 'complete', tally: selected, payload: selected.items.map((item) => ({ shipmentId: idOf(item.shipmentId), excessPackages: exceptions[idOf(item.shipmentId)]?.excessPackages || 0, damagedPackages: exceptions[idOf(item.shipmentId)]?.damagedPackages || 0, depsCode: exceptions[idOf(item.shipmentId)]?.depsCode || undefined, depsRemarks: exceptions[idOf(item.shipmentId)]?.depsRemarks || undefined })) })}>Complete Unloading</button>
@@ -100,7 +101,7 @@ export default function LastMilePage() {
   const path = useLocation().pathname.split('/').at(-1);
   if (path === 'last-mile-arrivals') return <Arrivals />;
   if (path === 'unloading-tallies') return <Tallies />;
-  if (path === 'qc-deps') return <Tallies mode="qc" />;
+  if (path === 'qc-deps') return <Navigate to="../unloading-tallies" replace />;
   if (path === 'last-mile-inward') return <Tallies mode="inward" />;
   return <DrsPreparation active={path === 'active-deliveries'} />;
 }

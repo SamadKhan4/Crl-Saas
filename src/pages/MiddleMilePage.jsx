@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import TripVehicleFields from '../components/tms/TripVehicleFields';
 import TransportPdfDownload from '../components/tms/TransportPdfDownload';
-import { masterOptionsApi, middleMileApi, vendorOptionsApi } from '../api/services';
+import { masterOptionsApi, middleMileApi, vendorOptionsApi, manifestsApi } from '../api/services';
 import { errorMessage } from '../api/client';
 import { useAuth } from '../features/auth/AuthContext';
 import { date, idOf } from '../lib/workflow';
@@ -125,29 +125,59 @@ function TallyWorkspace() {
   </>;
 }
 
+function ManifestDocument({ manifestId, onClose }) {
+  const query = useQuery({ queryKey: ['middle-mile-manifests', 'detail', manifestId], queryFn: () => manifestsApi.detail(manifestId) });
+  const manifest = query.data?.data;
+  return <Modal title={manifest?.manifestNumber || 'View Manifest'} onClose={onClose}>
+    {query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : (
+      <div className="transport-document-shell"><div className="transport-print-document prs-document tally-print-document">
+        <header className="tally-brand"><img src="/crl-logo.png" alt="CRL" /><div><h1>CHAPLE ROADLINES PVT. LTD.</h1><span>Middle Mile Operations</span></div><strong>MANIFEST</strong></header>
+        <section className="tally-heading"><div><small>Manifest number</small><h2>{manifest.manifestNumber}</h2></div><div><small>Destination city</small><b>{manifest.destination || '-'}</b><span>{manifest.origin || '-'} to {manifest.destination || '-'}</span></div></section>
+        <section className="tally-info-grid">{[
+          ['Loading tally', manifest.loadingTallyId?.tallyNumber || '-'], ['Sorting number', manifest.segregationId?.segregationNumber || '-'], ['Date', date(manifest.createdAt)],
+          ['Status', (manifest.workflowStatus || manifest.status || '-').replaceAll('_', ' ')], ['Vendor', manifest.vendorId?.name || '-'], ['Route', manifest.routeId?.name || 'Assigned during trip creation'],
+        ].map(([label, value]) => <div key={label}><small>{label}</small><b>{value}</b></div>)}</section>
+        <table className="tally-lr-table"><colgroup><col style={{ width: '6%' }} /><col style={{ width: '21%' }} /><col style={{ width: '23%' }} /><col style={{ width: '26%' }} /><col style={{ width: '11%' }} /><col style={{ width: '13%' }} /></colgroup>
+          <thead><tr><th>Sr.</th><th>LR number</th><th>Destination</th><th>Receiver</th><th className="numeric">Packages</th><th className="numeric">Weight (kg)</th></tr></thead>
+          <tbody>{(manifest.shipmentIds || []).map((lr, index) => <tr key={idOf(lr) || index}><td>{index + 1}</td><td className="tally-lr-number">{lr.lrNumber || '-'}</td><td>{lr.lrDetails?.to || manifest.destination || '-'}</td><td>{lr.receiverName || '-'}</td><td className="numeric">{lr.packageCount ?? 0}</td><td className="numeric">{Number(lr.weightKg || 0).toLocaleString('en-IN')}</td></tr>)}
+            {!manifest.shipmentIds?.length && <tr><td colSpan={6}>No LRs in this manifest.</td></tr>}</tbody>
+          <tfoot><tr><td colSpan={4}>Total: {manifest.totalLrs ?? manifest.shipmentIds?.length ?? 0} LRs</td><td className="numeric">{manifest.totalPackages ?? 0}</td><td className="numeric">{Number(manifest.totalWeightKg || 0).toLocaleString('en-IN')}</td></tr></tfoot>
+        </table>
+      </div></div>
+    )}
+  </Modal>;
+}
+
 function ManifestWorkspace() {
   const [tallyId, setTallyId] = useState('');
   const [verified, setVerified] = useState([]);
+  const [eWayUpdates, setEWayUpdates] = useState({});
   const [page, setPage] = useState(1);
+  const [viewId, setViewId] = useState(null);
   const refresh = useRefresh();
   const tallies = useQuery({ queryKey: ['loading-tallies', 'available'], queryFn: () => allRows(middleMileApi.tallies.list, { status: 'TALLY_COMPLETED' }) });
   const detail = useQuery({ queryKey: ['loading-tallies', 'detail', tallyId], queryFn: () => middleMileApi.tallies.detail(tallyId), enabled: Boolean(tallyId) });
   const register = useQuery({ queryKey: ['middle-mile-manifests', page], queryFn: () => middleMileApi.manifests.list({ page, limit: 20 }) });
   const lrs = (detail.data?.data?.items || []).map((item) => item.shipmentId);
-  const create = useMutation({ mutationFn: () => middleMileApi.manifests.create({ loadingTallyId: tallyId, verifiedShipmentIds: verified }), onSuccess: (result) => { toast.success(`Manifest ${result.data.manifestNumber} created`); setTallyId(''); setVerified([]); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
+  const create = useMutation({ mutationFn: () => middleMileApi.manifests.create({ loadingTallyId: tallyId, verifiedShipmentIds: verified, eWayUpdates: lrs.filter((lr) => Number(lr.lrDetails?.declaredValue || 0) > 50000).map((lr) => ({ shipmentId: idOf(lr), eWayBillNo: (eWayUpdates[idOf(lr)] ?? lr.lrDetails?.eWayBillNo ?? '').trim() })) }), onSuccess: (result) => { toast.success(`Manifest ${result.data.manifestNumber} created`); setTallyId(''); setVerified([]); setEWayUpdates({}); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
   return <>
     <PageHeader title="Manifest Creation" description="Select a loading tally and verify every loaded LR before submitting." />
     <section className="panel form-section">
-      {tallies.isError ? <ErrorState error={errorMessage(tallies.error)} retry={tallies.refetch} /> : <label>Loading tally<select value={tallyId} onChange={(event) => { setTallyId(event.target.value); setVerified([]); }}><option value="">Select loading tally</option>{rows(tallies).map((row) => <option key={idOf(row)} value={idOf(row)}>{row.tallyNumber} - {row.totalLrs} LRs</option>)}</select></label>}
+      {tallies.isError ? <ErrorState error={errorMessage(tallies.error)} retry={tallies.refetch} /> : <label>Loading tally<select value={tallyId} onChange={(event) => { setTallyId(event.target.value); setVerified([]); setEWayUpdates({}); }}><option value="">Select loading tally</option>{rows(tallies).map((row) => <option key={idOf(row)} value={idOf(row)}>{row.tallyNumber} - {row.totalLrs} LRs</option>)}</select></label>}
       {tallyId && (detail.isPending ? <Loadingcrleleton /> : detail.isError ? <ErrorState error={errorMessage(detail.error)} retry={detail.refetch} /> : <DataTable rows={lrs} columns={[
         { key: 'verify', label: 'Loaded / verified', render: (lr) => <input type="checkbox" aria-label={`Verify ${lr.lrNumber}`} checked={verified.includes(idOf(lr))} onChange={(event) => setVerified((current) => event.target.checked ? [...current, idOf(lr)] : current.filter((value) => value !== idOf(lr)))} /> }, ...lrColumns,
+        { key: 'declaredValue', label: 'Goods value (INR)', render: (lr) => lr.lrDetails?.declaredValue == null ? 'Not entered' : Number(lr.lrDetails.declaredValue).toLocaleString('en-IN') },
+        { key: 'eWayUpdate', label: 'E-way update', render: (lr) => Number(lr.lrDetails?.declaredValue || 0) > 50000 ? <label>Yes - update E-way number<input aria-label={`E-way number for ${lr.lrNumber}`} maxLength={120} value={eWayUpdates[idOf(lr)] ?? lr.lrDetails?.eWayBillNo ?? ''} onChange={(event) => setEWayUpdates((current) => ({ ...current, [idOf(lr)]: event.target.value }))} placeholder="Enter E-way bill number" /></label> : lr.lrDetails?.declaredValue == null ? 'Value not entered' : 'No' },
       ]} />)}
-      <div className="form-actions"><span>{verified.length} / {lrs.length} LRs verified</span><button className="btn" disabled={!lrs.length || verified.length !== lrs.length || detail.isFetching || create.isPending} onClick={() => create.mutate()}>{create.isPending ? 'Creating...' : 'Create Manifest'}</button></div>
+      <div className="form-actions"><span>{verified.length} / {lrs.length} LRs verified</span><button className="btn" disabled={lrs.some((lr) => Number(lr.lrDetails?.declaredValue || 0) > 50000 && !(eWayUpdates[idOf(lr)] ?? lr.lrDetails?.eWayBillNo ?? '').trim()) || !lrs.length || verified.length !== lrs.length || detail.isFetching || create.isPending} onClick={() => create.mutate()}>{create.isPending ? 'Creating...' : 'Create Manifest'}</button></div>
     </section>
     <section className="panel">{register.isError ? <ErrorState error={errorMessage(register.error)} retry={register.refetch} /> : <DataTable rows={rows(register)} pagination={register.data?.pagination} onPage={setPage} columns={[
       { key: 'manifestNumber', label: 'Manifest number' }, { key: 'destination', label: 'Destination' }, { key: 'totalLrs', label: 'LRs' }, { key: 'totalPackages', label: 'Packages' },
+      { key: 'totalWeightKg', label: 'Weight (kg)', render: (row) => Number(row.totalWeightKg || 0).toLocaleString('en-IN') },
+      { key: 'actions', label: 'Actions', render: (row) => <button className="text-btn" onClick={() => setViewId(idOf(row))}>View Manifest</button> },
       { key: 'workflowStatus', label: 'Status', render: (row) => <StatusBadge status={row.workflowStatus} /> },
     ]} />}</section>
+    {viewId && <ManifestDocument manifestId={viewId} onClose={() => setViewId(null)} />}
   </>;
 }
 

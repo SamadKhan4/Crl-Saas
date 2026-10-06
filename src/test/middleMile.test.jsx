@@ -7,13 +7,14 @@ import MiddleMilePage from '../pages/MiddleMilePage';
 import { middleMileApi } from '../api/services';
 vi.mock('../features/auth/AuthContext', () => ({ useAuth: () => ({ user: { role: 'ADMIN' } }) }));
 vi.mock('../api/services', () => ({
+  manifestsApi: { detail: vi.fn(async () => ({ data: { manifestNumber: 'MNF001', destination: 'Mumbai', totalLrs: 1, totalPackages: 2, totalWeightKg: 20, loadingTallyId: { tallyNumber: 'LT001' }, shipmentIds: [{ _id: 'lr', lrNumber: 'LR001', receiverName: 'Receiver Company', packageCount: 2, weightKg: 20 }] } })) },
   masterOptionsApi: { list: async () => ({ data: [{ _id: 'route', name: 'Nagpur Mumbai', origin: 'Nagpur', destination: 'Mumbai' }] }) },
   vendorOptionsApi: { list: async () => ({ data: [] }) },
   middleMileApi: {
     sort: vi.fn(async () => ({ data: { _id: 'sorting', segregationNumber: 'SEG001' } })),
     sortings: async () => ({ data: [{ _id: 'sorting', segregationNumber: 'SEG001', destination: 'Mumbai', routeId: { _id: 'route', name: 'Nagpur Mumbai' }, shipmentIds: [{ _id: 'lr', lrNumber: 'LR001', weightKg: 20 }] }] }),
     sortingInventory: vi.fn(async () => ({ data: [{ _id: 'lr', lrNumber: 'LR001', lrDetails: { to: 'Mumbai', consigneePincode: '400001' }, packageCount: 2, weightKg: 20 }] })),
-    tallies: { list: async () => ({ data: [{ _id: 'tally', tallyNumber: 'LT001', totalLrs: 1 }] }), create: vi.fn(async () => ({ data: { _id: 'tally', tallyNumber: 'LT002' } })), detail: async () => ({ data: { tallyNumber: 'LT001', loadingBay: 'Bay 2', vehicleType: 'Truck', vehicleCapacityKg: 1000, totalLrs: 1, items: [{ shipmentId: { _id: 'lr', lrNumber: 'LR001' }, expectedPackages: 2, weightKg: 20 }] } }) },
+    tallies: { list: async () => ({ data: [{ _id: 'tally', tallyNumber: 'LT001', totalLrs: 1 }] }), create: vi.fn(async () => ({ data: { _id: 'tally', tallyNumber: 'LT002' } })), detail: vi.fn(async () => ({ data: { tallyNumber: 'LT001', loadingBay: 'Bay 2', vehicleType: 'Truck', vehicleCapacityKg: 1000, totalLrs: 1, items: [{ shipmentId: { _id: 'lr', lrNumber: 'LR001' }, expectedPackages: 2, weightKg: 20 }] } })) },
     manifests: { list: async () => ({ data: [{ _id: 'manifest', manifestNumber: 'MNF001', destination: 'Mumbai', workflowStatus: 'LOCKED', totalLrs: 1, totalWeightKg: 20 }] }), create: vi.fn(async () => ({ data: { manifestNumber: 'MNF001' } })) },
     trips: { create: vi.fn(async () => ({ data: { tripNumber: 'TRIP002' } })), list: async () => ({ data: [{ _id: 'trip', tripNumber: 'TRIP001', status: 'PLANNED', sealNumber: 'SEAL001', shipmentIds: [], manifestIds: [] }] }) },
   },
@@ -41,7 +42,7 @@ describe('Middle Mile document flow', () => {
     expect(screen.getByRole('button', { name: 'Create Manifest' })).toBeDisabled();
     await userEvent.click(checkbox);
     await userEvent.click(screen.getByRole('button', { name: 'Create Manifest' }));
-    await waitFor(() => expect(middleMileApi.manifests.create).toHaveBeenCalledWith({ loadingTallyId: 'tally', verifiedShipmentIds: ['lr'] }));
+    await waitFor(() => expect(middleMileApi.manifests.create).toHaveBeenCalledWith({ loadingTallyId: 'tally', verifiedShipmentIds: ['lr'], eWayUpdates: [] }));
   });
   it('offers print for a newly created planned trip', async () => {
     show('trips');
@@ -88,4 +89,34 @@ it('assigns the selected route when creating a trip from a city manifest', async
   fireEvent.change(departure, { target: { value: '2026-10-06T10:00' } });
   await userEvent.click(screen.getAllByRole('button', { name: 'Create Trip' }).at(-1));
   await waitFor(() => expect(middleMileApi.trips.create).toHaveBeenCalledWith(expect.objectContaining({ routeId: 'route', destination: 'Mumbai', manifestIds: ['manifest'] }), expect.anything()));
+});
+
+it('opens the manifest view with its LRs, destination, tally and totals', async () => {
+  show('manifests');
+  await userEvent.click(await screen.findByRole('button', { name: 'View Manifest' }));
+  expect(await screen.findByText('MANIFEST')).toBeInTheDocument();
+  expect(screen.getByText('LR001')).toBeInTheDocument();
+  expect(screen.getByText('Receiver Company')).toBeInTheDocument();
+  expect(screen.getByText('Total: 1 LRs')).toBeInTheDocument();
+  expect(screen.getByText('LT001')).toBeInTheDocument();
+});
+
+it('allows E-way updates only above 50000 and persists the high-value number', async () => {
+  middleMileApi.tallies.detail.mockResolvedValueOnce({ data: { items: [
+    { shipmentId: { _id: 'high', lrNumber: 'LR-HIGH', lrDetails: { declaredValue: 50001 } } },
+    { shipmentId: { _id: 'low', lrNumber: 'LR-LOW', lrDetails: { declaredValue: 49999 } } },
+    { shipmentId: { _id: 'equal', lrNumber: 'LR-EQUAL', lrDetails: { declaredValue: 50000 } } },
+  ] } });
+  show('manifests');
+  await screen.findByRole('option', { name: /LT001/ });
+  await userEvent.selectOptions(screen.getByLabelText('Loading tally'), 'tally');
+  const input = await screen.findByLabelText('E-way number for LR-HIGH');
+  expect(screen.queryByLabelText('E-way number for LR-LOW')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('E-way number for LR-EQUAL')).not.toBeInTheDocument();
+  expect(screen.getAllByText('No')).toHaveLength(2);
+  for (const lr of ['LR-HIGH', 'LR-LOW', 'LR-EQUAL']) await userEvent.click(screen.getByLabelText(`Verify ${lr}`));
+  expect(screen.getByRole('button', { name: 'Create Manifest' })).toBeDisabled();
+  await userEvent.type(input, '271234567890');
+  await userEvent.click(screen.getByRole('button', { name: 'Create Manifest' }));
+  await waitFor(() => expect(middleMileApi.manifests.create).toHaveBeenCalledWith({ loadingTallyId: 'tally', verifiedShipmentIds: ['high', 'low', 'equal'], eWayUpdates: [{ shipmentId: 'high', eWayBillNo: '271234567890' }] }));
 });

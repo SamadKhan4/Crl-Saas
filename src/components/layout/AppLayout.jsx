@@ -146,8 +146,7 @@ export default function AppLayout() {
         : operationStage === 'LM'
           ? [
               ['last-mile-arrivals', 'Arrival & Unloading', PackageCheck],
-              ['unloading-tallies', 'Unloading Tally', ClipboardList],
-              ['qc-deps', 'QC / DEPS', FileCheck2],
+              ['unloading-tallies', 'Unloading / QC / DEPS', ClipboardList],
               ['last-mile-inward', 'Destination Inward', Warehouse],
               ['drs', 'DRS Preparation', MapPinned],
               ['active-deliveries', 'Delivery Attempts', Truck],
