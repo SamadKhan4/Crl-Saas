@@ -3738,3 +3738,11 @@ dialog:has(.tally-print-document), dialog:has(.trip-print-document) { width: min
   .tally-lr-table tr, .tally-signatures, .tally-brand, .tally-info-grid { break-inside: avoid; }
   .tally-document-actions, dialog:has(.tally-print-document) > .modal-heading, dialog:has(.trip-print-document) > .modal-heading { display: none; }
 }
+
+.prs-commission-table th:nth-child(n) { width: auto; }
+.prs-commission-table th, .prs-commission-table td { padding: 9px 7px; }
+.prs-commission-table .numeric { text-align: right; font-variant-numeric: tabular-nums; }
+.prs-commission-table tbody tr:nth-child(even) { background: #f7faf8; }
+.prs-commission-table tfoot { font-weight: 700; background: #e7f0ed; color: #173f33; }
+.prs-commission-note { margin: 8px 0 0; font-size: 9px; color: #64736e; }
+@media print { .prs-commission-table tr { break-inside: avoid; } }
