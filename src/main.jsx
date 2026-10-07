@@ -7,6 +7,7 @@ import App from './App';
 import './styles.css';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import ConnectionNotice from './components/common/ConnectionNotice';
+import GlobalLoader from './components/common/GlobalLoader';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -26,6 +27,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <BrowserRouter>
         <AuthProvider>
           <ConnectionNotice />
+          <GlobalLoader />
           <App />
           <Toaster richColors position="top-right" />
         </AuthProvider>

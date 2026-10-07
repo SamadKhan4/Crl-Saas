@@ -1,0 +1,28 @@
+.global-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: grid;
+  place-items: center;
+  background: rgb(255 255 255 / 88%);
+  cursor: wait;
+  pointer-events: auto;
+  touch-action: none;
+}
+.global-loading-content {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  color: #243247;
+  text-align: center;
+}
+.global-loading-gif {
+  width: min(320px, 75vw);
+  max-height: 60vh;
+  object-fit: contain;
+}
+.global-loading-content p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}

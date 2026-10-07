@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { startRequest, finishRequest } from './requestActivity';
 
 const configuredApiUrl = import.meta.env?.VITE_API_BASE_URL;
 const API_BASE_URL = (
@@ -28,6 +29,7 @@ export const logistic = api;
 api.interceptors.request.use((config) => {
   config.__sessionVersion = sessionVersion;
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
+  startRequest();
   return config;
 });
 
@@ -78,6 +80,18 @@ api.interceptors.response.use(
       if (request.__sessionVersion === sessionVersion) setSession(null);
       return Promise.reject(error);
     }
+  },
+);
+
+// Keep the original request busy through auth refresh and retry.
+api.interceptors.response.use(
+  (response) => {
+    finishRequest();
+    return response;
+  },
+  (error) => {
+    finishRequest();
+    return Promise.reject(error);
   },
 );
 

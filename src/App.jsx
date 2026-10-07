@@ -2,7 +2,8 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import { ProtectedRoute, HomeRoute } from './routes/Guards';
 import AppLayout from './components/layout/AppLayout';
-import { Loadingcrleleton, EmptyState } from './components/common/UI';
+import { EmptyState } from './components/common/UI';
+import { LoadingOverlay } from './components/common/GlobalLoader';
 import { RouteErrorBoundary } from './components/common/ErrorBoundary';
 const Login = lazy(() => import('./pages/LoginPage'));
 const Dashboard = lazy(() => import('./pages/DashboardPage'));
@@ -47,7 +48,7 @@ const LastMile = lazy(() => import('./pages/LastMilePage'));
 export default function App() {
   return (
     <RouteErrorBoundary>
-      <Suspense fallback={<Loadingcrleleton />}>
+      <Suspense fallback={<LoadingOverlay />}>
         <Routes>
           <Route path="/" element={<HomeRoute />} />
           <Route path="/login" element={<Login />} />

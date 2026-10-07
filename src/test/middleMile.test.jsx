@@ -58,11 +58,15 @@ it('creates tally from saved sorting with loading details, then displays the sel
   await userEvent.click(screen.getByRole('button', { name: 'Create Loading Tally' }));
   await userEvent.selectOptions(await screen.findByLabelText('Destination city'), 'Mumbai');
   expect(await screen.findByText('LR001')).toBeInTheDocument();
+  await userEvent.click(screen.getByLabelText('Include LR001 in tally'));
+  expect(screen.getByRole('button', { name: 'Create Tally' })).toBeDisabled();
+  await userEvent.click(screen.getByRole('button', { name: 'Select all' }));
+  expect(screen.getByLabelText('Include LR001 in tally')).toBeChecked();
   await userEvent.type(screen.getByLabelText('Loading bay'), 'Bay 2');
   await userEvent.type(screen.getByLabelText('Vehicle type'), 'Truck');
   await userEvent.type(screen.getByLabelText('Capacity (kg)'), '1000');
   await userEvent.click(screen.getByRole('button', { name: 'Create Tally' }));
-  await waitFor(() => expect(middleMileApi.tallies.create).toHaveBeenCalledWith({ segregationId: 'sorting', loadingBay: 'Bay 2', vehicleType: 'Truck', vehicleCapacityKg: 1000 }, expect.anything()));
+  await waitFor(() => expect(middleMileApi.tallies.create).toHaveBeenCalledWith({ segregationId: 'sorting', shipmentIds: ['lr'], loadingBay: 'Bay 2', vehicleType: 'Truck', vehicleCapacityKg: 1000 }, expect.anything()));
   expect(await screen.findByText('LOADING TALLY')).toBeInTheDocument();
   expect(screen.getByText('LR001')).toBeInTheDocument();
   const print = vi.spyOn(window, 'print').mockImplementation(() => {});

@@ -89,6 +89,7 @@ function TallyWorkspace() {
   const [open, setOpen] = useState(false);
   const [destination, setDestination] = useState('');
   const [batchId, setBatchId] = useState('');
+  const [excludedLrs, setExcludedLrs] = useState([]);
   const [viewId, setViewId] = useState(null);
   const [error, setError] = useState('');
   const refresh = useRefresh();
@@ -97,9 +98,10 @@ function TallyWorkspace() {
   const availableCities = [...new Set(rows(batches).map((row) => row.destination).filter(Boolean))].sort();
   const cityBatches = rows(batches).filter((row) => row.destination === destination);
   const selectedBatch = cityBatches.find((row) => idOf(row) === batchId) || (cityBatches.length === 1 ? cityBatches[0] : null);
+  const selectedLrs = (selectedBatch?.shipmentIds || []).filter((lr) => !excludedLrs.includes(idOf(lr)));
   const create = useMutation({ mutationFn: middleMileApi.tallies.create, onSuccess: (result) => { toast.success(`Loading tally ${result.data.tallyNumber} created`); setOpen(false); setViewId(idOf(result.data)); refresh(); }, onError: (reason) => { setError(errorMessage(reason)); batches.refetch(); } });
   return <>
-    <PageHeader title="Loading Tally" description="Create a loading tally from previously sorted LRs, then view or print it."><button className="btn" onClick={() => { setDestination(''); setBatchId(''); setError(''); setOpen(true); }}>Create Loading Tally</button></PageHeader>
+    <PageHeader title="Loading Tally" description="Create a loading tally from previously sorted LRs, then view or print it."><button className="btn" onClick={() => { setDestination(''); setBatchId(''); setExcludedLrs([]); setError(''); setOpen(true); }}>Create Loading Tally</button></PageHeader>
     <section className="panel">{register.isPending ? <Loadingcrleleton /> : register.isError ? <ErrorState error={errorMessage(register.error)} retry={register.refetch} /> : <DataTable rows={rows(register)} pagination={register.data?.pagination} onPage={setPage} columns={[
       { key: 'tallyNumber', label: 'Loading tally number' }, { key: 'destination', label: 'Destination city' }, { key: 'loadingBay', label: 'Loading bay' }, { key: 'vehicleType', label: 'Vehicle type' }, { key: 'vehicleCapacityKg', label: 'Capacity (kg)' },
       { key: 'totalLrs', label: 'LRs' }, { key: 'totalWeightKg', label: 'Weight (kg)' }, { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
@@ -107,19 +109,21 @@ function TallyWorkspace() {
     ]} />}</section>
     {open && <Modal title="Create Loading Tally" onClose={() => setOpen(false)}>{batches.isPending ? <Loadingcrleleton /> : batches.isError ? <ErrorState error={errorMessage(batches.error)} retry={batches.refetch} /> : <form onSubmit={(event) => {
       event.preventDefault(); const form = new FormData(event.currentTarget);
-      create.mutate({ segregationId: idOf(selectedBatch), loadingBay: form.get('loadingBay'), vehicleType: form.get('vehicleType'), vehicleCapacityKg: Number(form.get('vehicleCapacityKg')) });
+      create.mutate({ segregationId: idOf(selectedBatch), shipmentIds: selectedLrs.map(idOf), loadingBay: form.get('loadingBay'), vehicleType: form.get('vehicleType'), vehicleCapacityKg: Number(form.get('vehicleCapacityKg')) });
     }}>
       {!rows(batches).length && <p>Save city-wise sorting first. No sorted LRs are awaiting loading.</p>}
       <div className="form-grid">
-        <label>Destination city<select required value={destination} onChange={(event) => { setDestination(event.target.value); setBatchId(''); }}><option value="">Select destination city</option>{availableCities.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
-        {cityBatches.length > 1 && <label>Sorted LR batch<select required value={batchId} onChange={(event) => setBatchId(event.target.value)}><option value="">Select sorting batch</option>{cityBatches.map((row) => <option key={idOf(row)} value={idOf(row)}>{row.segregationNumber} - {row.shipmentIds.length} LRs / PIN: {row.destinationPincode || 'All'}</option>)}</select></label>}
+        <label>Destination city<select required value={destination} onChange={(event) => { setDestination(event.target.value); setBatchId(''); setExcludedLrs([]); }}><option value="">Select destination city</option>{availableCities.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
+        {cityBatches.length > 1 && <label>Sorted LR batch<select required value={batchId} onChange={(event) => { setBatchId(event.target.value); setExcludedLrs([]); }}><option value="">Select sorting batch</option>{cityBatches.map((row) => <option key={idOf(row)} value={idOf(row)}>{row.segregationNumber} - {row.shipmentIds.length} LRs / PIN: {row.destinationPincode || 'All'}</option>)}</select></label>}
         <label>Loading bay<input name="loadingBay" required maxLength={80} list="loading-bays" placeholder="Select or enter bay" /><datalist id="loading-bays">{['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4'].map((bay) => <option key={bay} value={bay} />)}</datalist></label>
         <label>Vehicle type<input name="vehicleType" required maxLength={80} list="loading-vehicle-types" placeholder="Select or enter vehicle type" /><datalist id="loading-vehicle-types">{['Pickup', 'Tata Ace', 'LCV', 'Truck', 'Container', 'Trailer'].map((type) => <option key={type} value={type} />)}</datalist></label>
         <label>Capacity (kg)<input name="vehicleCapacityKg" type="number" required min="0.01" max="1000000" step="any" /></label>
       </div>
-      {selectedBatch && <><h3>LRs selected during sorting</h3><DataTable rows={selectedBatch.shipmentIds || []} columns={lrColumns} /><p>Total weight: {(selectedBatch.shipmentIds || []).reduce((sum, lr) => sum + Number(lr.weightKg || 0), 0)} kg</p></>}
+      {selectedBatch && <><h3>Select LRs for this tally</h3><div className="actions"><button type="button" className="text-btn" onClick={() => setExcludedLrs([])}>Select all</button><button type="button" className="text-btn" onClick={() => setExcludedLrs((selectedBatch.shipmentIds || []).map(idOf))}>Unselect all</button></div><DataTable rows={selectedBatch.shipmentIds || []} columns={[
+        { key: 'select', label: 'Select LR', render: (lr) => <input type="checkbox" aria-label={`Include ${lr.lrNumber} in tally`} checked={!excludedLrs.includes(idOf(lr))} onChange={(event) => setExcludedLrs((current) => event.target.checked ? current.filter((value) => value !== idOf(lr)) : [...current, idOf(lr)])} /> }, ...lrColumns,
+      ]} /><p>{selectedLrs.length} LRs selected / Total weight: {selectedLrs.reduce((sum, lr) => sum + Number(lr.weightKg || 0), 0)} kg</p><small>Unselected LRs remain available for a later loading tally.</small></>}
       {error && <p role="alert" className="field-error">{error}</p>}
-      <div className="modal-footer"><button className="btn" disabled={!selectedBatch || create.isPending || batches.isFetching}>{create.isPending ? 'Creating...' : 'Create Tally'}</button></div>
+      <div className="modal-footer"><button className="btn" disabled={!selectedBatch || !selectedLrs.length || create.isPending || batches.isFetching}>{create.isPending ? 'Creating...' : 'Create Tally'}</button></div>
     </form>}</Modal>}
     {viewId && <TallyDocument tallyId={viewId} onClose={() => setViewId(null)} />}
   </>;
