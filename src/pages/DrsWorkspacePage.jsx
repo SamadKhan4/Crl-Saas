@@ -45,7 +45,7 @@ export default function DrsWorkspacePage() {
       if (type === 'close') return lastMileApi.closeDrs(id);
       if (type === 'attempt') return lastMileApi.attempt(id, idOf(shipment), {
         outcome,
-        failureReason: outcome === 'DELIVERED' ? undefined : failures[idOf(shipment)] || 'Customer unavailable',
+        failureReason: outcome === 'DELIVERED' ? undefined : failures[idOf(shipment)]?.trim(),
         nextAction: outcome === 'REATTEMPT' ? 'Return to destination hub for reattempt' : undefined,
       });
       const file = files[idOf(shipment)];
@@ -54,10 +54,11 @@ export default function DrsWorkspacePage() {
       const body = new FormData();
       body.append('pod', file);
       const proof = proofs[idOf(shipment)] || {};
-      body.append('receiverName', proof.receiverName || shipment.receiverName || '');
+      if (!proof.receiverName?.trim()) throw new Error('Enter the actual receiver name before uploading POD');
+      body.append('receiverName', proof.receiverName.trim());
       body.append('receiverMobile', proof.receiverMobile || shipment.receiverMobile || '');
       body.append('otpReference', proof.otpReference || '');
-      body.append('signatureName', proof.signatureName || proof.receiverName || shipment.receiverName || '');
+      body.append('signatureName', proof.signatureName || proof.receiverName);
       body.append('remarks', proof.remarks || '');
       body.append('deliveredAt', new Date().toISOString());
       return api.post(`/last-mile/drs/${id}/pod/${idOf(shipment)}`, body);
@@ -159,9 +160,10 @@ export default function DrsWorkspacePage() {
                   </div>
                   {!attempted ? (
                     <div className="tms-epod-fields">
-                      <input placeholder="Failure reason (if unsuccessful)" value={failures[idOf(shipment)] || ''} onChange={(event) => setFailures((current) => ({ ...current, [idOf(shipment)]: event.target.value }))} />
+                      <input aria-label={`Undelivered reason for ${shipment.lrNumber}`} placeholder="Reason if undelivered" value={failures[idOf(shipment)] || ''} onChange={(event) => setFailures((current) => ({ ...current, [idOf(shipment)]: event.target.value }))} />
                       <button className="btn secondary" disabled={action.isPending || drs.workflowStatus !== 'DISPATCHED'} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'DELIVERED' })}>Delivered</button>
-                      <button className="btn secondary" disabled={action.isPending || drs.workflowStatus !== 'DISPATCHED'} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'REATTEMPT' })}>Failed / Reattempt</button>
+                      <button className="btn secondary" disabled={action.isPending || drs.workflowStatus !== 'DISPATCHED' || !failures[idOf(shipment)]?.trim()} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'UNDELIVERED' })}>Undelivered</button>
+                      <button className="btn secondary" disabled={action.isPending || drs.workflowStatus !== 'DISPATCHED' || !failures[idOf(shipment)]?.trim()} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'REATTEMPT' })}>Reattempt</button>
                     </div>
                   ) : done ? (
                     <StatusBadge status="POD_UPLOADED" />
@@ -171,7 +173,7 @@ export default function DrsWorkspacePage() {
                     <div className="tms-epod-fields">
                       <input
                         aria-label={`Receiver name for ${shipment.lrNumber}`}
-                        placeholder="Receiver name"
+                        placeholder="Actual receiver name *"
                         value={proofs[idOf(shipment)]?.receiverName || ''}
                         onChange={(event) => setProofs((current) => ({ ...current, [idOf(shipment)]: { ...current[idOf(shipment)], receiverName: event.target.value } }))}
                       />
@@ -199,7 +201,7 @@ export default function DrsWorkspacePage() {
                       />
                       <button
                         className="btn secondary"
-                        disabled={action.isPending || drs.status !== 'OPEN'}
+                        disabled={action.isPending || drs.status !== 'OPEN' || !proofs[idOf(shipment)]?.receiverName?.trim() || !files[idOf(shipment)]}
                         onClick={() => action.mutate({ type: 'pod', shipment })}
                       >
                         Upload POD

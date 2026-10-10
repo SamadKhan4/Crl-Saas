@@ -145,10 +145,10 @@ export default function AppLayout() {
           ]
         : operationStage === 'LM'
           ? [
-              ['last-mile-arrivals', 'Arrival & Unloading', PackageCheck],
-              ['unloading-tallies', 'Unloading / QC / DEPS', ClipboardList],
+              ['last-mile-arrivals', 'Trip Arrival', PackageCheck],
+              ['unloading-tallies', 'Trip Closure', ClipboardList],
               ['last-mile-inward', 'Destination Inward', Warehouse],
-              ['drs', 'DRS Preparation', MapPinned],
+              ['drs', 'Create DRS', MapPinned],
               ['active-deliveries', 'Delivery Attempts', Truck],
               ...(admin || manager ? [['drs-closure', 'DRS Closure', FileCheck2]] : []),
               ['documents', 'POD & Documents', Files],

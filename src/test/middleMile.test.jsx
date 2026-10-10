@@ -9,12 +9,12 @@ vi.mock('../features/auth/AuthContext', () => ({ useAuth: () => ({ user: { role:
 vi.mock('../api/services', () => ({
   manifestsApi: { detail: vi.fn(async () => ({ data: { manifestNumber: 'MNF001', destination: 'Mumbai', totalLrs: 1, totalPackages: 2, totalWeightKg: 20, loadingTallyId: { tallyNumber: 'LT001' }, shipmentIds: [{ _id: 'lr', lrNumber: 'LR001', receiverName: 'Receiver Company', packageCount: 2, weightKg: 20 }] } })) },
   masterOptionsApi: { list: async () => ({ data: [{ _id: 'route', name: 'Nagpur Mumbai', origin: 'Nagpur', destination: 'Mumbai' }] }) },
-  vendorOptionsApi: { list: async () => ({ data: [] }) },
+  vendorOptionsApi: { list: async () => ({ data: [{ _id: 'vendor', vendorCode: 'V001', name: 'Delivery Vendor' }] }) },
   middleMileApi: {
     sort: vi.fn(async () => ({ data: { _id: 'sorting', segregationNumber: 'SEG001' } })),
     sortings: async () => ({ data: [{ _id: 'sorting', segregationNumber: 'SEG001', destination: 'Mumbai', routeId: { _id: 'route', name: 'Nagpur Mumbai' }, shipmentIds: [{ _id: 'lr', lrNumber: 'LR001', weightKg: 20 }] }] }),
     sortingInventory: vi.fn(async () => ({ data: [{ _id: 'lr', lrNumber: 'LR001', lrDetails: { to: 'Mumbai', consigneePincode: '400001' }, packageCount: 2, weightKg: 20 }] })),
-    tallies: { list: async () => ({ data: [{ _id: 'tally', tallyNumber: 'LT001', totalLrs: 1 }] }), create: vi.fn(async () => ({ data: { _id: 'tally', tallyNumber: 'LT002' } })), detail: vi.fn(async () => ({ data: { tallyNumber: 'LT001', loadingBay: 'Bay 2', vehicleType: 'Truck', vehicleCapacityKg: 1000, totalLrs: 1, items: [{ shipmentId: { _id: 'lr', lrNumber: 'LR001' }, expectedPackages: 2, weightKg: 20 }] } })) },
+    tallies: { list: async () => ({ data: [{ _id: 'tally', tallyNumber: 'LT001', totalLrs: 1 }] }), create: vi.fn(async () => ({ data: { _id: 'tally', tallyNumber: 'LT002' } })), detail: vi.fn(async () => ({ data: { tallyNumber: 'LT001', loadingBay: 'Bay 2', vehicleType: 'Truck', vehicleCapacityKg: 1000, totalLrs: 1, sourceVendor: { _id: 'vendor', vendorCode: 'V001', name: 'Delivery Vendor' }, items: [{ shipmentId: { _id: 'lr', lrNumber: 'LR001' }, expectedPackages: 2, weightKg: 20 }] } })) },
     manifests: { list: async () => ({ data: [{ _id: 'manifest', manifestNumber: 'MNF001', destination: 'Mumbai', workflowStatus: 'LOCKED', totalLrs: 1, totalWeightKg: 20 }] }), create: vi.fn(async () => ({ data: { manifestNumber: 'MNF001' } })) },
     trips: { create: vi.fn(async () => ({ data: { tripNumber: 'TRIP002' } })), list: async () => ({ data: [{ _id: 'trip', tripNumber: 'TRIP001', status: 'PLANNED', sealNumber: 'SEAL001', shipmentIds: [], manifestIds: [] }] }) },
   },
@@ -38,6 +38,7 @@ describe('Middle Mile document flow', () => {
     show('manifests');
     await screen.findByRole('option', { name: /LT001/ });
     await userEvent.selectOptions(screen.getByLabelText('Loading tally'), 'tally');
+    expect(await screen.findByLabelText('Vendor from PRS')).toHaveValue('V001 · Delivery Vendor');
     const checkbox = await screen.findByLabelText('Verify LR001');
     expect(screen.getByRole('button', { name: 'Create Manifest' })).toBeDisabled();
     await userEvent.click(checkbox);

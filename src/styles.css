@@ -3746,3 +3746,326 @@ dialog:has(.tally-print-document), dialog:has(.trip-print-document) { width: min
 .prs-commission-table tfoot { font-weight: 700; background: #e7f0ed; color: #173f33; }
 .prs-commission-note { margin: 8px 0 0; font-size: 9px; color: #64736e; }
 @media print { .prs-commission-table tr { break-inside: avoid; } }
+
+/* Last Mile trip review workspace */
+dialog:has(.last-mile-workspace) {
+  width: min(1120px, calc(100% - 32px));
+  max-width: 1120px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 18px;
+}
+dialog:has(.last-mile-workspace) > .modal-heading {
+  margin: 0;
+  padding: 20px 26px;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+dialog:has(.last-mile-workspace) > .modal-heading h2 {
+  color: #183b32;
+  font-size: 18px;
+}
+.last-mile-workspace {
+  display: flex;
+  min-height: 360px;
+  max-height: calc(90vh - 70px);
+  flex-direction: column;
+  background: #f5f8f7;
+}
+.last-mile-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  border-bottom: 1px solid var(--border);
+  background: var(--border);
+}
+.last-mile-summary > div {
+  display: flex;
+  min-height: 76px;
+  padding: 17px 26px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  background: #fff;
+}
+.last-mile-summary > div > span:first-child {
+  color: #7a8990;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .55px;
+  text-transform: uppercase;
+}
+.last-mile-summary strong {
+  color: #203a34;
+  font-size: 14px;
+}
+.last-mile-modal-body {
+  min-height: 0;
+  padding: 22px 26px;
+  overflow-y: auto;
+}
+.last-mile-manifests,
+.last-mile-qc-list {
+  border: 0;
+}
+.last-mile-manifests details {
+  margin-bottom: 14px;
+  overflow: hidden;
+  border: 1px solid #dce6e2;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(25, 58, 49, .04);
+}
+.last-mile-manifests details:last-child {
+  margin-bottom: 0;
+}
+.last-mile-manifests summary {
+  display: flex;
+  min-height: 62px;
+  padding: 14px 18px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  cursor: pointer;
+  list-style: none;
+}
+.last-mile-manifests summary::-webkit-details-marker {
+  display: none;
+}
+.last-mile-manifests summary > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.last-mile-manifests summary b {
+  color: #163f34;
+  font-size: 13px;
+}
+.last-mile-manifests summary small {
+  color: #8b9893;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.last-mile-manifests summary > strong {
+  color: #60736c;
+  font-size: 11px;
+  font-weight: 600;
+}
+.last-mile-manifests details[open] > summary {
+  border-bottom: 1px solid #e5ece9;
+  background: #f7faf9;
+}
+.last-mile-manifests article {
+  align-items: flex-end;
+  padding: 18px;
+  border-bottom: 1px solid #e9efed;
+  background: #fff;
+}
+.last-mile-manifests article:last-child {
+  border-bottom: 0;
+}
+.last-mile-manifests article.is-verified {
+  background: #f4faf6;
+}
+.last-mile-lr-meta {
+  display: flex;
+  min-width: 145px;
+  flex-direction: column;
+  gap: 5px;
+}
+.last-mile-lr-meta b {
+  color: #1d3d34;
+  font-size: 12px;
+}
+.last-mile-manifests .tms-epod-fields {
+  grid-template-columns: 130px 130px minmax(220px, 1fr) auto;
+  width: 100%;
+  max-width: 760px;
+  align-items: end;
+  gap: 10px !important;
+}
+.last-mile-manifests .tms-epod-fields > label:not(.last-mile-verified) {
+  display: flex;
+  color: #62736d;
+  font-size: 10px;
+  font-weight: 700;
+  flex-direction: column;
+  gap: 6px;
+}
+.last-mile-manifests .tms-epod-fields input:not([type='checkbox']) {
+  height: 40px;
+  background: #fff;
+}
+.last-mile-verified {
+  display: flex;
+  min-height: 40px;
+  padding: 0 13px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #d7e3df;
+  border-radius: 8px;
+  background: #f7faf9;
+  color: #365b50;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.last-mile-verified input {
+  width: auto;
+}
+.last-mile-qc-list article {
+  margin-bottom: 12px;
+  border: 1px solid #dce6e2;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(25, 58, 49, .04);
+}
+.last-mile-modal-footer {
+  display: flex;
+  padding: 16px 26px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-top: 1px solid var(--border);
+  background: #fff;
+}
+.last-mile-modal-footer p {
+  margin: 0;
+  color: #6f7f79;
+  font-size: 11px;
+}
+.last-mile-modal-footer .btn {
+  min-width: 125px;
+}
+
+@media (max-width: 760px) {
+  dialog:has(.last-mile-workspace) {
+    width: calc(100% - 20px);
+    max-height: 94vh;
+  }
+  dialog:has(.last-mile-workspace) > .modal-heading {
+    padding: 16px 18px;
+  }
+  .last-mile-workspace {
+    max-height: calc(94vh - 62px);
+  }
+  .last-mile-summary {
+    grid-template-columns: 1fr;
+  }
+  .last-mile-summary > div {
+    min-height: auto;
+    padding: 12px 18px;
+  }
+  .last-mile-modal-body {
+    padding: 16px;
+  }
+  .last-mile-manifests summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .last-mile-manifests article {
+    align-items: stretch;
+  }
+  .last-mile-manifests .tms-epod-fields {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
+  .last-mile-modal-footer {
+    padding: 14px 16px;
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .last-mile-modal-footer .btn {
+    width: 100%;
+  }
+}
+
+/* Manifest-driven DRS creation */
+dialog:has(.drs-manifest-create) {
+  width: min(1180px, calc(100% - 32px));
+  max-width: 1180px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 16px;
+}
+dialog:has(.drs-manifest-create) > .modal-heading {
+  margin: 0;
+  padding: 20px 26px;
+  border-bottom: 1px solid var(--border);
+}
+.drs-manifest-create {
+  max-height: calc(90vh - 70px);
+  overflow-y: auto;
+  background: #f5f8f7;
+}
+.drs-manifest-picker {
+  padding: 20px 26px;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+.drs-manifest-picker > label {
+  display: flex;
+  max-width: 620px;
+  color: #486158;
+  font-size: 11px;
+  font-weight: 700;
+  flex-direction: column;
+  gap: 7px;
+}
+.drs-manifest-picker p {
+  margin: 10px 0 0;
+  color: #718079;
+  font-size: 11px;
+}
+.drs-manifest-content {
+  padding: 24px 26px 0;
+}
+.drs-manifest-preview {
+  overflow-x: auto;
+  padding: 18px;
+  border: 1px solid #dce5e1;
+  border-radius: 12px;
+  background: #e7ecea;
+}
+.drs-manifest-preview .transport-print-document {
+  min-height: 0;
+}
+.drs-manifest-fields {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #dce5e1;
+  border-radius: 12px;
+  background: #fff;
+}
+.drs-manifest-create > .modal-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding: 16px 26px;
+  border-top: 1px solid var(--border);
+  background: #fff;
+}
+
+@media (max-width: 760px) {
+  dialog:has(.drs-manifest-create) {
+    width: calc(100% - 20px);
+    max-height: 94vh;
+  }
+  dialog:has(.drs-manifest-create) > .modal-heading,
+  .drs-manifest-picker {
+    padding: 16px 18px;
+  }
+  .drs-manifest-content {
+    padding: 16px 16px 0;
+  }
+  .drs-manifest-preview {
+    padding: 10px;
+  }
+  .drs-manifest-create > .modal-footer {
+    padding: 14px 16px;
+  }
+}

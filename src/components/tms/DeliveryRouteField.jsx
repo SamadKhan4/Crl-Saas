@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { masterOptionsApi } from '../../api/services';
 
-export default function DeliveryRouteField() {
+export default function DeliveryRouteField({ initialValue = '' }) {
   const [manual, setManual] = useState(false);
-  const [route, setRoute] = useState('');
+  const [route, setRoute] = useState(initialValue);
+  useEffect(() => { setRoute(initialValue); }, [initialValue]);
   const query = useQuery({ queryKey: ['master-options', 'ROUTE'], queryFn: () => masterOptionsApi.list('ROUTE') });
   return <div className="field">
     <label htmlFor="delivery-route">Route</label>

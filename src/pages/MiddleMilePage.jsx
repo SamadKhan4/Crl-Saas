@@ -19,7 +19,7 @@ async function allRows(list, params = {}) {
 }
 function useRefresh() {
   const cache = useQueryClient();
-  return () => ['loading-tallies', 'middle-mile-manifests', 'middle-mile-trips', 'middle-mile-sorting-inventory', 'middle-mile-sortings', 'last-mile-arrivals'].forEach((key) => cache.invalidateQueries({ queryKey: [key] }));
+  return () => ['loading-tallies', 'middle-mile-manifests', 'middle-mile-trips', 'middle-mile-sorting-inventory', 'middle-mile-sortings', 'last-mile-arrivals', 'last-mile-pending-arrivals'].forEach((key) => cache.invalidateQueries({ queryKey: [key] }));
 }
 const lrColumns = [
   { key: 'lrNumber', label: 'LR number' }, { key: 'destination', label: 'Destination', render: (lr) => lr.lrDetails?.to || lr.destinationBranchId?.city || '-' }, { key: 'receiverName', label: 'Receiver' },
@@ -167,7 +167,7 @@ function ManifestWorkspace() {
   return <>
     <PageHeader title="Manifest Creation" description="Select a loading tally and verify every loaded LR before submitting." />
     <section className="panel form-section">
-      {tallies.isError ? <ErrorState error={errorMessage(tallies.error)} retry={tallies.refetch} /> : <label>Loading tally<select value={tallyId} onChange={(event) => { setTallyId(event.target.value); setVerified([]); setEWayUpdates({}); }}><option value="">Select loading tally</option>{rows(tallies).map((row) => <option key={idOf(row)} value={idOf(row)}>{row.tallyNumber} - {row.totalLrs} LRs</option>)}</select></label>}
+      {tallies.isError ? <ErrorState error={errorMessage(tallies.error)} retry={tallies.refetch} /> : <div className="form-grid"><label>Loading tally<select value={tallyId} onChange={(event) => { setTallyId(event.target.value); setVerified([]); setEWayUpdates({}); }}><option value="">Select loading tally</option>{rows(tallies).map((row) => <option key={idOf(row)} value={idOf(row)}>{row.tallyNumber} - {row.totalLrs} LRs</option>)}</select></label><label>Vendor from PRS<input aria-label="Vendor from PRS" value={detail.data?.data?.sourceVendor ? `${detail.data.data.sourceVendor.vendorCode} · ${detail.data.data.sourceVendor.name}` : detail.isPending ? 'Loading…' : 'Not available in source PRS'} readOnly /></label></div>}
       {tallyId && (detail.isPending ? <Loadingcrleleton /> : detail.isError ? <ErrorState error={errorMessage(detail.error)} retry={detail.refetch} /> : <DataTable rows={lrs} columns={[
         { key: 'verify', label: 'Loaded / verified', render: (lr) => <input type="checkbox" aria-label={`Verify ${lr.lrNumber}`} checked={verified.includes(idOf(lr))} onChange={(event) => setVerified((current) => event.target.checked ? [...current, idOf(lr)] : current.filter((value) => value !== idOf(lr)))} /> }, ...lrColumns,
         { key: 'declaredValue', label: 'Goods value (INR)', render: (lr) => lr.lrDetails?.declaredValue == null ? 'Not entered' : Number(lr.lrDetails.declaredValue).toLocaleString('en-IN') },
@@ -176,7 +176,7 @@ function ManifestWorkspace() {
       <div className="form-actions"><span>{verified.length} / {lrs.length} LRs verified</span><button className="btn" disabled={lrs.some((lr) => Number(lr.lrDetails?.declaredValue || 0) > 50000 && !(eWayUpdates[idOf(lr)] ?? lr.lrDetails?.eWayBillNo ?? '').trim()) || !lrs.length || verified.length !== lrs.length || detail.isFetching || create.isPending} onClick={() => create.mutate()}>{create.isPending ? 'Creating...' : 'Create Manifest'}</button></div>
     </section>
     <section className="panel">{register.isError ? <ErrorState error={errorMessage(register.error)} retry={register.refetch} /> : <DataTable rows={rows(register)} pagination={register.data?.pagination} onPage={setPage} columns={[
-      { key: 'manifestNumber', label: 'Manifest number' }, { key: 'destination', label: 'Destination' }, { key: 'totalLrs', label: 'LRs' }, { key: 'totalPackages', label: 'Packages' },
+      { key: 'manifestNumber', label: 'Manifest number' }, { key: 'destination', label: 'Destination' }, { key: 'vendor', label: 'Vendor', render: (row) => row.vendorId?.name || row.tripId?.vendorId?.name || 'Market vehicle' }, { key: 'totalLrs', label: 'LRs' }, { key: 'totalPackages', label: 'Packages' },
       { key: 'totalWeightKg', label: 'Weight (kg)', render: (row) => Number(row.totalWeightKg || 0).toLocaleString('en-IN') },
       { key: 'actions', label: 'Actions', render: (row) => <button className="text-btn" onClick={() => setViewId(idOf(row))}>View Manifest</button> },
       { key: 'workflowStatus', label: 'Status', render: (row) => <StatusBadge status={row.workflowStatus} /> },
@@ -223,13 +223,13 @@ function TripWorkspace() {
   const available = rows(manifests).filter((row) => row.workflowStatus === 'LOCKED' && !row.tripId);
   const destinations = [...new Set(available.map((row) => row.destination))];
   const create = useMutation({ mutationFn: middleMileApi.trips.create, onSuccess: (result) => { toast.success(`Trip ${result.data.tripNumber} created. Print is available in the register.`); setOpen(false); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
-  const action = useMutation({ mutationFn: ({ type, row }) => type === 'dispatch' ? middleMileApi.dispatchTrip(idOf(row)) : middleMileApi.arriveTrip(idOf(row)), onSuccess: () => { toast.success('Trip updated'); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
+  const action = useMutation({ mutationFn: (row) => middleMileApi.dispatchTrip(idOf(row)), onSuccess: () => { toast.success('Trip dispatched'); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
   return <>
     <PageHeader title="Middle Mile Trip Creation" description="Select MV/VV, destination city, trip route and manifest, then enter the seal number."><button className="btn" onClick={() => { setDestination(''); setOpen(true); }}>Create Trip</button></PageHeader>
     <section className="panel">{query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={rows(query)} pagination={query.data?.pagination} onPage={setPage} columns={[
       { key: 'tripNumber', label: 'Trip' }, { key: 'destination', label: 'Destination' }, { key: 'vehicleNumber', label: 'Vehicle' }, { key: 'sealNumber', label: 'Seal number' },
       { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
-      { key: 'actions', label: 'Actions', render: (row) => <div className="actions"><button className="text-btn" onClick={() => setPrintTrip(row)}>Print Trip</button>{['ADMIN', 'MANAGER'].includes(user.role) && row.status === 'PLANNED' && <button className="text-btn" disabled={action.isPending} onClick={() => action.mutate({ type: 'dispatch', row })}>Dispatch</button>}{row.status === 'DISPATCHED' && <button className="text-btn" disabled={action.isPending} onClick={() => action.mutate({ type: 'arrive', row })}>Mark Arrived</button>}</div> },
+      { key: 'actions', label: 'Actions', render: (row) => <div className="actions"><button className="text-btn" onClick={() => setPrintTrip(row)}>Print Trip</button>{['ADMIN', 'MANAGER'].includes(user.role) && row.status === 'PLANNED' && <button className="text-btn" disabled={action.isPending} onClick={() => action.mutate(row)}>Dispatch</button>}</div> },
     ]} />}</section>
     {open && <Modal title="Create Middle Mile Trip" onClose={() => setOpen(false)}>{manifests.isError || vendors.isError ? <ErrorState error={errorMessage(manifests.error || vendors.error)} retry={() => { manifests.refetch(); vendors.refetch(); }} /> : <form onSubmit={(event) => {
       event.preventDefault(); const form = new FormData(event.currentTarget);

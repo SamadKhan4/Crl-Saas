@@ -41,6 +41,7 @@ export function DeliveryManifestSheet({ record, kind = 'drs' }) {
           <b>Manifest Date :</b><span>{printableDate(record.deliveryDate || record.createdAt)}</span>
           <b>Origin :</b><span>{record.origin || record.shipmentIds?.[0]?.lrDetails?.from || branch.city || '—'}</span>
           <b>Vehicle# :</b><span>{vehicle}</span>
+          {kind === 'drs' && record.vendorId?.vendorCode && <><b>Vendor code :</b><span>{record.vendorId.vendorCode} · {record.vendorId.name}</span></>}
         </div>
         <Barcode value={number} />
       </div>

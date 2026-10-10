@@ -55,6 +55,7 @@ export const lastMileApi = {
   updateQc: (id, shipmentId, body) => api.patch(`/last-mile/unloading-tallies/${id}/qc/${shipmentId}`, body).then((r) => checkEnvelope(r.data)),
   inward: (id, remarks) => post(`/last-mile/unloading-tallies/${id}/inward`, { remarks: remarks || undefined }),
   inventory: (params) => get('/last-mile/drs-inventory', params),
+  drsManifests: (params) => get('/last-mile/drs-manifests', params),
   drs: resourceApi('last-mile/drs'),
   finalizeDrs: (id) => post(`/last-mile/drs/${id}/finalize`, {}),
   dispatchDrs: (id) => post(`/last-mile/drs/${id}/dispatch`, {}),
