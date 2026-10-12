@@ -84,3 +84,17 @@ it('creates a DRS from an eligible manifest and fetches its delivery information
   await userEvent.click(createButtons.at(-1));
   await waitFor(() => expect(lastMileApi.drs.create).toHaveBeenCalledWith(expect.objectContaining({ manifestId: 'manifest', shipmentIds: ['lr'], vehicleNumber: 'MH31AB1234', driverName: 'Manifest Driver', route: 'Mumbai Local' })));
 });
+
+
+it('opens the POD closure checklist directly for new runs and existing drafts', async () => {
+  lastMileApi.drs.list.mockResolvedValueOnce({ data: [
+    { _id: 'new-run', drsNumber: 'DRS002', status: 'OPEN', workflowStatus: 'DISPATCHED', shipmentIds: [] },
+    { _id: 'old-draft', drsNumber: 'DRS001', status: 'OPEN', workflowStatus: 'DRAFT', shipmentIds: [] },
+  ] });
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={['/admin/drs-preparation']}><LastMilePage /></MemoryRouter></QueryClientProvider>);
+  const links = await screen.findAllByRole('link', { name: 'POD Closure Checklist' });
+  expect(links).toHaveLength(2);
+  expect(links[0]).toHaveAttribute('href', '/admin/drs/new-run');
+  expect(screen.queryByRole('button', { name: 'Finalize' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Dispatch', exact: true })).not.toBeInTheDocument();
+});

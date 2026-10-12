@@ -1,5 +1,5 @@
 import { useDispatch, useSelector } from 'react-redux';
-import { toggleSidebar, expandSidebar } from '../../store';
+import { toggleSidebar, expandSidebar, selectOperationStage } from '../../store';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import {
@@ -35,6 +35,8 @@ import { errorMessage } from '../../api/client';
 import { RouteErrorBoundary } from '../common/ErrorBoundary';
 import { Suspense } from 'react';
 import { Loadingcrleleton } from '../common/UI';
+import NotificationBell from './NotificationBell';
+import { misReports } from '../../lib/misReports';
 export function Brand() {
   return (
     <Link className="brand" to="/" aria-label={import.meta.env.VITE_APP_NAME || 'CRL Transport'}>
@@ -53,12 +55,13 @@ export function Brand() {
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const collapsed = useSelector((state) => state.workspace.sidebarCollapsed);
-  const operationStage = useSelector((state) => state.workspace.operationStage);
+  const storedOperationStage = useSelector((state) => state.workspace.operationStage);
+  const allowedStages = user.role === 'EMPLOYEE' && Array.isArray(user.operationStages) ? user.operationStages : ['FM', 'MM', 'LM'];
+  const operationStage = allowedStages.includes(storedOperationStage) ? storedOperationStage : user.role === 'EMPLOYEE' ? allowedStages[0] : storedOperationStage;
   const dispatch = useDispatch();
   const [mobile, setMobile] = useState(false),
     [busy, setBusy] = useState(false),
-    [hubMenuOpen, setHubMenuOpen] = useState(false),
-    [mastersMenuOpen, setMastersMenuOpen] = useState(false);
+    [openMenus, setOpenMenus] = useState({});
   const location = useLocation();
   const sidebarRef = useRef(null);
   useEffect(() => {
@@ -93,6 +96,10 @@ export default function AppLayout() {
       previous?.focus();
     };
   }, [mobile]);
+  const page = location.pathname.split('/')[2];
+  const stageForPage = { 'pickup-requests': 'FM', 'agent-alignment': 'FM', 'pickup-run-sheets': 'FM', segregations: 'MM', 'loading-tallies': 'MM', manifests: 'MM', trips: 'MM', 'last-mile-arrivals': 'LM', 'unloading-tallies': 'LM', drs: 'LM', 'drs-closure': 'LM', documents: 'LM', 'active-deliveries': 'LM' };
+  const requiredStage = page === 'shipments' && location.pathname.endsWith('/create') ? 'FM' : stageForPage[page];
+  const pageAllowed = user.role !== 'EMPLOYEE' || (!requiredStage ? page !== 'shipments' || allowedStages.length > 0 : allowedStages.includes(requiredStage));
   const base = `/${user.role.toLowerCase()}`;
   const admin = user.role === 'ADMIN';
   const manager = user.role === 'MANAGER';
@@ -105,22 +112,14 @@ export default function AppLayout() {
   const masterItems = admin || manager
     ? [
         ['customers', 'Customer Master', Users],
-        ['company', 'Company Master', Building2],
-        ['locations', 'Location Master', MapPinned],
         ['routes', 'Route Master', Route],
-        ['items', 'Item / Goods Master', Package],
-        ['fleet', 'Vehicle / Fleet', Truck],
-        ['drivers', 'Driver Master', Users],
-        ...(admin
-          ? [
-              ['vendors', 'Vendor Master', Truck],
-              ['managers', 'Managers', Users],
-              ['hr-users', 'HR Users', Users],
-              ['permissions', 'User Permissions', Settings],
-              ['employees', 'Employees', Users],
-            ]
-          : [['employees', 'Employees', Users]]),
-        ...(manager ? [['onboarding', 'Onboarding Approval', PackageCheck]] : []),
+        ['locations', 'Location Master', MapPinned],
+        ['fleet', 'Vehicle Master', Truck],
+        ['vendors', 'Vendor Master', Truck],
+        ...(admin ? [['managers', 'Manager Master', Users]] : []),
+        ['employees', 'Employee Master', Users],
+        ['hr-users', 'HR Master', Users],
+        ['permissions', 'User Permission', Settings],
       ]
     : [];
   const operationItems =
@@ -147,23 +146,12 @@ export default function AppLayout() {
           ? [
               ['last-mile-arrivals', 'Trip Arrival', PackageCheck],
               ['unloading-tallies', 'Trip Closure', ClipboardList],
-              ['last-mile-inward', 'Destination Inward', Warehouse],
               ['drs', 'Create DRS', MapPinned],
-              ['active-deliveries', 'Delivery Attempts', Truck],
               ...(admin || manager ? [['drs-closure', 'DRS Closure', FileCheck2]] : []),
               ['documents', 'POD & Documents', Files],
+              ['active-deliveries', 'Delivery Attempts', Truck],
             ]
           : [];
-  const hubMenuActive = hubItems.some(([path]) => location.pathname === `${base}/${path}`);
-  const mastersMenuActive = masterItems.some(
-    ([path]) => location.pathname === `${base}/${path}`,
-  );
-  useEffect(() => {
-    if (hubMenuActive) setHubMenuOpen(true);
-  }, [hubMenuActive]);
-  useEffect(() => {
-    if (mastersMenuActive) setMastersMenuOpen(true);
-  }, [mastersMenuActive]);
   const navGroups = (vendor ? [{ label: 'Vendor Workspace', items: [['portal', 'Vendor Portal', Truck], ['settings', 'Account Settings', Settings]] }] : hr ? [
     {
       label: 'Human Resources',
@@ -177,7 +165,7 @@ export default function AppLayout() {
     { label: 'Overview', items: admin || manager ? [['dashboard', 'Dashboard', LayoutDashboard]] : [] },
     {
       label: 'Operations',
-      items: operationItems,
+      items: operationItems.length ? [['operations', 'Operations', Truck, false, operationItems]] : [],
     },
     {
       label: 'Masters',
@@ -189,43 +177,51 @@ export default function AppLayout() {
       label: 'Commercial',
       items:
         admin || manager
-          ? [
-              ['money-receipts', 'Money Receipts', ReceiptIndianRupee],
+          ? [['commercial', 'Commercial', ReceiptIndianRupee, false, [
               ['invoices', 'Client Billing', FileText],
-              ['receivables', 'Receivables', HandCoins],
               ['vendor-settlements', 'Vendor Settlement', ReceiptIndianRupee],
-              ['eway-gst', 'E-Way Bill / GST', FileText],
+              ['eway-gst', 'E-Way Bill', FileText],
               ['accounting', 'Accounting', ReceiptIndianRupee],
               ['quotations', 'Quotations', FileText],
-              ['stationery', 'Stationery', Warehouse],
               ['rate-engine', 'Rate Engine', HandCoins],
-              ['profitability', 'Profitability', ChartNoAxesCombined],
-            ]
+            ]]]
           : [],
     },
     {
-      label: 'Control',
-      items:
-        admin || manager
-          ? [
-              ['reports', 'Reports & MIS', ChartNoAxesCombined],
-              ['claims', 'Claims / Damage', Package],
-              ['notifications', 'Notifications', History],
-              ['system-settings', 'Operational Settings', Settings],
-              [admin ? 'audit' : 'activity', 'Team Activity', History],
-              ['settings', 'Settings', Settings],
-            ]
-          : [],
+      label: 'MIS & Reports',
+      items: admin || manager ? [['mis-reports', 'MIS & Reports', ChartNoAxesCombined, false,
+        misReports.map(([key, name]) => [`reports/${key}`, name, FileText]),
+      ]] : [],
+    },
+    {
+      label: 'Controls',
+      items: admin || manager ? [['controls', 'Controls', Settings, false, [
+        ['system-settings', 'Operational Settings', Settings],
+        [admin ? 'audit' : 'activity', 'Team Activity', History],
+        ['settings', 'Settings', Settings],
+        ['claims', 'Claims / Damage', Package],
+      ]]] : [],
     },
   ]).filter((group) => group.items.length);
-  const items = navGroups.flatMap((group) =>
-    group.items.flatMap((item) => item[4] || [item]),
-  );
+  const flattenItems = (entries) => entries.flatMap((item) => item[4] ? flattenItems(item[4]) : [item]);
+  const items = navGroups.flatMap((group) => flattenItems(group.items));
+  const activeMenuPaths = [];
+  const visitMenus = (entries) => entries.forEach(([path, , , , children]) => {
+    if (!children) return;
+    if (flattenItems(children).some(([childPath]) => (childPath.includes('?') ? `${location.pathname}${location.search}` === `${base}/${childPath}` : location.pathname === `${base}/${childPath}` || location.pathname.startsWith(`${base}/${childPath}/`)))) activeMenuPaths.push(path);
+    visitMenus(children);
+  });
+  navGroups.forEach((group) => visitMenus(group.items));
+  const activeMenuKey = activeMenuPaths.join(',');
+  useEffect(() => {
+    const activeMenus = Object.fromEntries(activeMenuKey.split(',').filter(Boolean).map((path) => [path, true]));
+    setOpenMenus((current) => ({ ...current, ...activeMenus }));
+  }, [activeMenuKey]);
   useEffect(() => {
     sidebarRef.current?.querySelector('nav a.active')?.scrollIntoView?.({ block: 'nearest' });
   }, [location.pathname]);
   const title =
-    items.find((x) => location.pathname === `${base}/${x[0]}`)?.[1] || 'Shipment workspace';
+    items.find((x) => `${location.pathname}${location.search}` === `${base}/${x[0]}` || location.pathname === `${base}/${x[0]}`)?.[1] || 'Shipment workspace';
   async function signOut() {
     setBusy(true);
     try {
@@ -235,6 +231,48 @@ export default function AppLayout() {
     } finally {
       setBusy(false);
     }
+  }
+  function renderNavItem([path, name, Icon, disabled, children]) {
+                    if (children) {
+                      const menuActive = flattenItems(children).some(([childPath]) => (childPath.includes('?') ? `${location.pathname}${location.search}` === `${base}/${childPath}` : location.pathname === `${base}/${childPath}` || location.pathname.startsWith(`${base}/${childPath}/`)));
+                      const menuOpen = Boolean(openMenus[path]);
+                      return (
+                        <div className={`nav-dropdown ${menuActive ? 'is-active' : ''}`} key={path}>
+                          <button
+                            type="button"
+                            className="nav-dropdown-toggle"
+                            aria-expanded={menuOpen}
+                            onClick={() => {
+                              if (collapsed) dispatch(expandSidebar());
+                              setOpenMenus((current) => ({ ...current, [path]: !current[path] }));
+                            }}
+                          >
+                            <Icon size={19} />
+                            <span>{name}</span>
+                            <ChevronDown className={menuOpen ? 'is-open' : ''} size={16} />
+                          </button>
+                          {menuOpen && (
+                            <div className="nav-submenu">
+                              {children.map(renderNavItem)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                    return disabled ? (
+                      <button key={path} type="button" className="nav-disabled" disabled title={`${name} · Coming soon`}>
+                        <Icon size={19} />
+                        <span>{name}</span>
+                        <small>Soon</small>
+                      </button>
+                    ) : (
+                      <NavLink key={path} to={`${base}/${path}`} className={path.includes('?') ? (`${location.pathname}${location.search}` === `${base}/${path}` ? 'active' : '') : undefined} end={path === 'shipments'} title={name} onClick={() => setMobile(false)}>
+                        <Icon size={19} />
+                        <span>{name}</span>
+                        {path === 'shipments/create' && <small>+</small>}
+                      </NavLink>
+                    );
+
   }
   return (
     <div className={`app-shell ${collapsed ? 'collapsed' : ''}`}>
@@ -267,7 +305,8 @@ export default function AppLayout() {
             </span>
           </div>
           <nav aria-label="Main navigation">
-            {navGroups.map((group) => (
+            {user.role === 'EMPLOYEE' && allowedStages.length > 0 && <label className="employee-stage-selector">Operations<select aria-label="Operation stage" value={operationStage || ''} onChange={(event) => dispatch(selectOperationStage(event.target.value))}>{allowedStages.map((stage) => <option key={stage} value={stage}>{({ FM: 'First Mile', MM: 'Middle Mile', LM: 'Last Mile' })[stage]}</option>)}</select></label>}
+          {navGroups.map((group) => (
               <section
                 className="nav-group"
                 key={group.label}
@@ -277,59 +316,7 @@ export default function AppLayout() {
                   {group.label}
                 </small>
                 <div className="nav-group-links">
-                  {group.items.map(([path, name, Icon, disabled, children]) => {
-                    if (children) {
-                      const isMastersMenu = path === 'masters';
-                      const menuActive = isMastersMenu ? mastersMenuActive : hubMenuActive;
-                      const menuOpen = isMastersMenu ? mastersMenuOpen : hubMenuOpen;
-                      return (
-                        <div className={`nav-dropdown ${menuActive ? 'is-active' : ''}`} key={path}>
-                          <button
-                            type="button"
-                            className="nav-dropdown-toggle"
-                            aria-expanded={menuOpen}
-                            onClick={() => {
-                              if (collapsed) dispatch(expandSidebar());
-                              if (isMastersMenu) setMastersMenuOpen((open) => !open);
-                              else setHubMenuOpen((open) => !open);
-                            }}
-                          >
-                            <Icon size={19} />
-                            <span>{name}</span>
-                            <ChevronDown className={menuOpen ? 'is-open' : ''} size={16} />
-                          </button>
-                          {menuOpen && (
-                            <div className="nav-submenu">
-                              {children.map(([childPath, childName, ChildIcon]) => (
-                                <NavLink
-                                  key={childPath}
-                                  to={`${base}/${childPath}`}
-                                  title={childName}
-                                  onClick={() => setMobile(false)}
-                                >
-                                  <ChildIcon size={17} />
-                                  <span>{childName}</span>
-                                </NavLink>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    }
-                    return disabled ? (
-                      <button key={path} type="button" className="nav-disabled" disabled title={`${name} · Coming soon`}>
-                        <Icon size={19} />
-                        <span>{name}</span>
-                        <small>Soon</small>
-                      </button>
-                    ) : (
-                      <NavLink key={path} to={`${base}/${path}`} end={path === 'shipments'} title={name} onClick={() => setMobile(false)}>
-                        <Icon size={19} />
-                        <span>{name}</span>
-                        {path === 'shipments/create' && <small>+</small>}
-                      </NavLink>
-                    );
-                  })}
+                  {group.items.map(renderNavItem)}
                 </div>
               </section>
             ))}
@@ -369,6 +356,7 @@ export default function AppLayout() {
             </span>
           </div>
           <div className="actions">
+            {(admin || manager) && <NotificationBell key={user.id || user._id} user={user} />}
             <span className="header-date">
               {new Date().toLocaleDateString('en-IN', {
                 day: 'numeric',
@@ -395,7 +383,7 @@ export default function AppLayout() {
         <main id="main-content">
           <RouteErrorBoundary>
             <Suspense fallback={<Loadingcrleleton />}>
-              <Outlet />
+              <>{pageAllowed ? <Outlet /> : <section className="panel"><h2>Operation access required</h2><p>This operation has not been assigned to your employee account.</p></section>}</>
             </Suspense>
           </RouteErrorBoundary>
         </main>

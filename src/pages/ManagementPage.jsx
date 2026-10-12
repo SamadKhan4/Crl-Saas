@@ -89,6 +89,7 @@ const configs = {
 configs.managers = { ...configs.users, title: 'Managers', singular: 'manager' };
 configs['hr-users'] = { ...configs.users, title: 'HR Users', singular: 'HR user' };
 configs['vendor-users'] = { ...configs.users, title: 'Vendor Users', singular: 'vendor user', fields: [...configs.users.fields.slice(0, 4), ['vendorId', 'Vendor', 'vendorLookup'], configs.users.fields.at(-1)] };
+configs.users.fields = [...configs.users.fields, ['employeeType', 'Employee type', 'employeeType']];
 export default function ManagementPage() {
   const location = useLocation();
   const pathname = location.pathname.replace(/\/+$/, '');
@@ -153,6 +154,7 @@ function Management({ resource }) {
                 { key: 'city', label: 'City' },
               ]),
         ]),
+    ...(resource === 'users' ? [{ key: 'employeeType', label: 'Employee Type', render: (row) => ({ FIELD_EXECUTIVE: 'Field Executive', HUB_EMPLOYEE: 'Hub Employee', OTHER_EMPLOYEE: 'Other Employee' })[row.employeeType] || 'Other Employee' }, { key: 'branch', label: 'Assigned Branch', render: (row) => row.branchId?.name || '--' }] : []),
     { key: 'status', label: 'Status', render: (r) => <StatusBadge status={r.status} /> },
     { key: 'createdAt', label: 'Created', render: (r) => date(r.createdAt) },
     {
@@ -309,7 +311,7 @@ function Editor({ resource, config, record, onClose }) {
               ? record[key] || []
               : key === 'billing'
                 ? record[key] || { creditLimit: 0, creditDays: 0, gstRate: 0, tdsRate: 0 }
-                : record[key] ?? (key === 'customerType' ? 'TO_PAY_PAID' : ''),
+                : record[key] ?? (key === 'customerType' ? 'TO_PAY_PAID' : key === 'employeeType' ? 'OTHER_EMPLOYEE' : ''),
       ]),
   );
   const {
@@ -367,6 +369,8 @@ function Editor({ resource, config, record, onClose }) {
                   control={control}
                   render={({ field }) => <Lookup resource="branches" label="Branch" {...field} />}
                 />
+              ) : type === 'employeeType' ? (
+                <div className="field"><label htmlFor={key}>{caption}</label><select id={key} {...register(key)}><option value="FIELD_EXECUTIVE">Field Executive</option><option value="HUB_EMPLOYEE">Hub Employee</option><option value="OTHER_EMPLOYEE">Other Employee</option></select>{errors[key] && <small className="field-error">{errors[key].message}</small>}</div>
               ) : type === 'vendorLookup' ? (
                 <Controller name={key} control={control} render={({ field }) => <Lookup resource="vendors" label="Vendor" {...field} />} />
               ) : type === 'customerType' ? (

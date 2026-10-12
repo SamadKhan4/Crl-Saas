@@ -736,7 +736,7 @@ function DynamicFields({ resource, fields, values, setValues }) {
   });
 }
 
-function RecordEditor({ resource, config, record, onClose }) {
+function RecordEditor({ resource, config, record, initialValues, onClose }) {
   const [values, setValues] = useState(() =>
     record
       ? {
@@ -745,7 +745,7 @@ function RecordEditor({ resource, config, record, onClose }) {
           servicesCsv: record.services?.join(', ') || '',
           document: record.documents?.[0] || {},
         }
-      : structuredClone(config.defaults || {}),
+      : { ...structuredClone(config.defaults || {}), ...initialValues },
   );
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -846,11 +846,12 @@ function StatusEditor({ resource, config, record, onClose }) {
 }
 
 export default function TmsModulePage() {
-  const resource = useLocation().pathname.replace(/\/+$/, '').split('/').at(-1);
+  const location = useLocation();
+  const resource = location.pathname.replace(/\/+$/, '').split('/').at(-1);
   const config = configs[resource];
   const { user } = useAuth();
   const { query, filters, update, clear, sort } = useList(resource, config.service);
-  const [editor, setEditor] = useState(null),
+  const [editor, setEditor] = useState(() => resource === 'invoices' && location.state?.billingDraft ? location.state.billingDraft : null),
     [action, setAction] = useState(null);
   const base = `/${user.role.toLowerCase()}`;
   const columns = useMemo(
@@ -964,6 +965,7 @@ export default function TmsModulePage() {
           resource={resource}
           config={config}
           record={idOf(editor) ? editor : null}
+          initialValues={resource === 'invoices' ? editor : undefined}
           onClose={() => setEditor(null)}
         />
       )}

@@ -1,5 +1,5 @@
 import { useAuth } from '../features/auth/AuthContext';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Download } from 'lucide-react';
@@ -12,19 +12,24 @@ import ShipmentTable from '../components/shipment/ShipmentTable';
 import { statuses, label } from '../lib/workflow';
 import { dateRangeParams } from '../lib/filters';
 import PrsRegisterReport from './PrsRegisterReport';
+import { misReports } from '../lib/misReports';
 export default function ReportsPage() {
   const [params, setParams] = useSearchParams();
-  const report = params.get('report') === 'prs' ? 'prs' : 'shipments';
+  const requested = params.get('report');
+  const selectedMis = misReports.find(([key]) => key === requested);
+  const report = requested === 'prs' ? 'prs' : 'shipments';
+  if (selectedMis) return <Navigate to={`./${selectedMis[0]}`} replace />;
   return (
     <>
       <section className="panel form-section">
         <label htmlFor="reportType">Report
           <select id="reportType" value={report} onChange={(event) => setParams((current) => {
             const next = new URLSearchParams(current);
-            if (event.target.value === 'prs') next.set('report', 'prs');
+            if (event.target.value !== 'shipments') next.set('report', event.target.value);
             else next.delete('report');
             return next;
           })}>
+            {misReports.map(([key, name]) => <option key={key} value={key}>{name}</option>)}
             <option value="shipments">Shipment reports</option>
             <option value="prs">PRS register</option>
           </select>

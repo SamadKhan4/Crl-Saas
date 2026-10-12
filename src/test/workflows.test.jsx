@@ -339,16 +339,27 @@ describe('Manager workspace', () => {
     mount(<AppLayout />, { user: manager, path: '/manager/dashboard' });
     expect(await screen.findByText('Manager workspace')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Masters' }));
-    expect(screen.getByRole('link', { name: 'Employees' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Employee Master' })).toHaveAttribute(
       'href',
       '/manager/employees',
     );
-    expect(screen.getByRole('link', { name: 'Reports & MIS' })).toHaveAttribute(
-      'href',
-      '/manager/reports',
-    );
-    expect(screen.queryByRole('link', { name: 'Managers' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'MIS & Reports' }));
+    expect(screen.getByRole('link', { name: 'Godown Stock' })).toHaveAttribute('href', '/manager/reports/godown-stock');
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
+    expect(screen.getByRole('link', { name: 'Operational Settings' })).toHaveAttribute('href', '/manager/system-settings');
+    expect(screen.getByRole('link', { name: 'HR Master' })).toHaveAttribute('href', '/manager/hr-users');
+    expect(screen.getByRole('link', { name: 'User Permission' })).toHaveAttribute('href', '/manager/permissions');
+    expect(screen.getByRole('link', { name: 'Vendor Master' })).toHaveAttribute('href', '/manager/vendors');
+    expect(screen.queryByRole('link', { name: 'Manager Master' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Branches' })).not.toBeInTheDocument();
+    const commercial = screen.getByRole('button', { name: 'Commercial' });
+    expect(commercial).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(commercial);
+    expect(screen.getByRole('link', { name: 'Client Billing' })).toHaveAttribute('href', '/manager/invoices');
+    await userEvent.click(commercial);
+    expect(screen.queryByRole('link', { name: 'Client Billing' })).not.toBeInTheDocument();
+
+
   });
   it('redirects manager away from admin routes', async () => {
     mount(<ProtectedRoute role="ADMIN" />, {

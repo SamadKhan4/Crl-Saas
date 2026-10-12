@@ -25,7 +25,7 @@ export default function DrsClosurePage() {
     <>
       <PageHeader
         title="DRS Closure"
-        description="Upload pending PODs, verify Part B vehicle details and close completed delivery runs."
+        description="Complete the POD closure checklist, upload pending PODs and close the DRS. Part B updates are optional."
       />
       {query.isPending ? (
         <Loadingcrleleton />
@@ -52,7 +52,7 @@ export default function DrsClosurePage() {
                 <div className="actions">
                   <StatusBadge status={attemptsComplete && uploaded === delivered ? 'READY_TO_CLOSE' : 'POD_PENDING'} />
                   <Link className="btn secondary" to={`${base}/drs/${idOf(drs)}`} state={{ from: 'closure' }}>
-                    Open closure
+                    POD Closure Checklist
                   </Link>
                 </div>
               </article>

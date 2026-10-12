@@ -82,6 +82,7 @@ export const userSchema = z.object({
   branchId: z.string().optional(),
   password: password(12),
   vendorId: objectId.optional(),
+  employeeType: z.enum(["FIELD_EXECUTIVE", "HUB_EMPLOYEE", "OTHER_EMPLOYEE"]).optional(),
   permissions: z.array(z.object({ module: z.string(), actions: z.array(z.string()) })).optional(),
 });
 const salaryAmount = z.coerce.number().finite().min(0).max(100000000);

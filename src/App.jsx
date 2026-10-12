@@ -14,6 +14,15 @@ const Management = lazy(() => import('./pages/ManagementPage'));
 const CustomerDetail = lazy(() => import('./pages/CustomerDetailPage'));
 const Documents = lazy(() => import('./pages/DocumentsPage'));
 const Reports = lazy(() => import('./pages/ReportsPage'));
+const GodownStockReportPage = lazy(() => import('./pages/GodownStockReportPage'));
+const HubInTransitsReportPage = lazy(() => import('./pages/HubInTransitsReportPage'));
+const DrsDetailsReportPage = lazy(() => import('./pages/DrsDetailsReportPage'));
+const InvoiceDetailsReportPage = lazy(() => import('./pages/InvoiceDetailsReportPage'));
+const BranchOutstandingReportPage = lazy(() => import('./pages/BranchOutstandingReportPage'));
+const CustomerBusinessReportPage = lazy(() => import('./pages/CustomerBusinessReportPage'));
+const BranchLoaReportPage = lazy(() => import('./pages/BranchLoaReportPage'));
+const StockAgeingReportPage = lazy(() => import('./pages/StockAgeingReportPage'));
+const UnbilledDetailsReportPage = lazy(() => import('./pages/UnbilledDetailsReportPage'));
 const Activity = lazy(() => import('./pages/ActivityPage'));
 const Settings = lazy(() => import('./pages/SettingsPage'));
 const Receive = lazy(() => import('./pages/ReceivePage'));
@@ -115,6 +124,15 @@ export default function App() {
                     <Route path="employees" element={<Management />} />
                     <Route path="onboarding" element={<EmployeeOnboarding />} />
                     <Route path="reports" element={<Reports />} />
+                    <Route path="reports/godown-stock" element={<GodownStockReportPage />} />
+                    <Route path="reports/hub-in-transits" element={<HubInTransitsReportPage />} />
+                    <Route path="reports/drs-details" element={<DrsDetailsReportPage />} />
+                    <Route path="reports/invoice-details" element={<InvoiceDetailsReportPage />} />
+                    <Route path="reports/branch-outstanding" element={<BranchOutstandingReportPage />} />
+                    <Route path="reports/customer-business" element={<CustomerBusinessReportPage />} />
+                    <Route path="reports/branch-loa" element={<BranchLoaReportPage />} />
+                    <Route path="reports/stock-ageing" element={<StockAgeingReportPage />} />
+                    <Route path="reports/unbilled-details" element={<UnbilledDetailsReportPage />} />
                     <Route path="settings" element={<Settings />} />
                     <Route path="money-receipts" element={<TmsModule />} />
                     <Route
@@ -138,6 +156,15 @@ export default function App() {
                     <Route path="permissions" element={<Permissions />} />
                     <Route path="employees" element={<Management />} />
                     <Route path="reports" element={<Reports />} />
+                    <Route path="reports/godown-stock" element={<GodownStockReportPage />} />
+                    <Route path="reports/hub-in-transits" element={<HubInTransitsReportPage />} />
+                    <Route path="reports/drs-details" element={<DrsDetailsReportPage />} />
+                    <Route path="reports/invoice-details" element={<InvoiceDetailsReportPage />} />
+                    <Route path="reports/branch-outstanding" element={<BranchOutstandingReportPage />} />
+                    <Route path="reports/customer-business" element={<CustomerBusinessReportPage />} />
+                    <Route path="reports/branch-loa" element={<BranchLoaReportPage />} />
+                    <Route path="reports/stock-ageing" element={<StockAgeingReportPage />} />
+                    <Route path="reports/unbilled-details" element={<UnbilledDetailsReportPage />} />
                     <Route path="audit" element={<Activity />} />
                     <Route path="settings" element={<Settings />} />
                     <Route path="vendors" element={<TmsModule />} />
@@ -155,8 +182,21 @@ export default function App() {
                   </>
                 ) : role === 'MANAGER' ? (
                   <>
+                    <Route path="hr-users" element={<Management />} />
+                    <Route path="vendor-users" element={<Management />} />
+                    <Route path="permissions" element={<Permissions />} />
+                    <Route path="package-barcodes" element={<BarcodeOperations />} />
                     <Route path="vendors" element={<TmsModule />} />
                     <Route path="reports" element={<Reports />} />
+                    <Route path="reports/godown-stock" element={<GodownStockReportPage />} />
+                    <Route path="reports/hub-in-transits" element={<HubInTransitsReportPage />} />
+                    <Route path="reports/drs-details" element={<DrsDetailsReportPage />} />
+                    <Route path="reports/invoice-details" element={<InvoiceDetailsReportPage />} />
+                    <Route path="reports/branch-outstanding" element={<BranchOutstandingReportPage />} />
+                    <Route path="reports/customer-business" element={<CustomerBusinessReportPage />} />
+                    <Route path="reports/branch-loa" element={<BranchLoaReportPage />} />
+                    <Route path="reports/stock-ageing" element={<StockAgeingReportPage />} />
+                    <Route path="reports/unbilled-details" element={<UnbilledDetailsReportPage />} />
                     <Route path="receive" element={<Receive />} />
                     <Route path="activity" element={<Activity />} />
                   </>

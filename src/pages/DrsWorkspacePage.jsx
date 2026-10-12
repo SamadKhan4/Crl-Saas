@@ -34,13 +34,14 @@ export default function DrsWorkspacePage() {
   const refresh = () => {
     cache.invalidateQueries({ queryKey: ['drs', id] });
     cache.invalidateQueries({ queryKey: ['drs'] });
+    cache.invalidateQueries({ queryKey: ['last-mile-drs'] });
   };
   const action = useMutation({
     mutationFn: async ({ type, shipment, outcome }) => {
       if (type === 'vehicle')
         return api.patch(`/drs/${id}/vehicle`, {
-          vehicleNumber: vehicle,
-          ...(eWayBillNo && { partB: [{ eWayBillNo, vehicleNumber: vehicle }] }),
+          vehicleNumber: vehicle || query.data.data.vehicleNumber,
+          ...(eWayBillNo && { partB: [{ eWayBillNo, vehicleNumber: vehicle || query.data.data.vehicleNumber }] }),
         });
       if (type === 'close') return lastMileApi.closeDrs(id);
       if (type === 'attempt') return lastMileApi.attempt(id, idOf(shipment), {
@@ -100,38 +101,6 @@ export default function DrsWorkspacePage() {
       <div className="transport-document-shell" ref={printRef}>
         <DeliveryManifestSheet record={drs} />
       </div>
-      <section className="panel form-section">
-        <div className="section-title">
-          <span>
-            <Truck size={16} />
-          </span>
-          <div>
-            <h2>Vehicle & E-way bill Part B</h2>
-            <p>Vehicle number can be corrected manually while this DRS is open.</p>
-          </div>
-        </div>
-        <div className="form-grid">
-          <FormField
-            label="Vehicle number"
-            value={vehicle || drs.vehicleNumber}
-            onChange={(event) => setVehicle(event.target.value.toUpperCase())}
-            disabled={drs.status !== 'OPEN'}
-          />
-          <FormField
-            label="E-way bill number"
-            value={eWayBillNo}
-            onChange={(event) => setEWayBillNo(event.target.value)}
-            disabled={drs.status !== 'OPEN'}
-          />
-        </div>
-        <button
-          className="btn"
-          disabled={drs.status !== 'OPEN' || action.isPending}
-          onClick={() => action.mutate({ type: 'vehicle' })}
-        >
-          Update vehicle / Part B
-        </button>
-      </section>
       <section className="panel">
         <div className="panel-heading">
           <div>
@@ -161,9 +130,9 @@ export default function DrsWorkspacePage() {
                   {!attempted ? (
                     <div className="tms-epod-fields">
                       <input aria-label={`Undelivered reason for ${shipment.lrNumber}`} placeholder="Reason if undelivered" value={failures[idOf(shipment)] || ''} onChange={(event) => setFailures((current) => ({ ...current, [idOf(shipment)]: event.target.value }))} />
-                      <button className="btn secondary" disabled={action.isPending || drs.workflowStatus !== 'DISPATCHED'} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'DELIVERED' })}>Delivered</button>
-                      <button className="btn secondary" disabled={action.isPending || drs.workflowStatus !== 'DISPATCHED' || !failures[idOf(shipment)]?.trim()} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'UNDELIVERED' })}>Undelivered</button>
-                      <button className="btn secondary" disabled={action.isPending || drs.workflowStatus !== 'DISPATCHED' || !failures[idOf(shipment)]?.trim()} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'REATTEMPT' })}>Reattempt</button>
+                      <button className="btn secondary" disabled={action.isPending || drs.status !== 'OPEN'} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'DELIVERED' })}>Delivered</button>
+                      <button className="btn secondary" disabled={action.isPending || drs.status !== 'OPEN' || !failures[idOf(shipment)]?.trim()} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'UNDELIVERED' })}>Undelivered</button>
+                      <button className="btn secondary" disabled={action.isPending || drs.status !== 'OPEN' || !failures[idOf(shipment)]?.trim()} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'REATTEMPT' })}>Reattempt</button>
                     </div>
                   ) : done ? (
                     <StatusBadge status="POD_UPLOADED" />
@@ -230,6 +199,38 @@ export default function DrsWorkspacePage() {
             {error}
           </p>
         )}
+      </section>
+      <section className="panel form-section">
+        <div className="section-title">
+          <span>
+            <Truck size={16} />
+          </span>
+          <div>
+            <h2>Vehicle & E-way bill Part B (optional)</h2>
+            <p>Update these details if needed while this DRS is open. Part B is optional for POD upload and closure.</p>
+          </div>
+        </div>
+        <div className="form-grid">
+          <FormField
+            label="Vehicle number"
+            value={vehicle || drs.vehicleNumber}
+            onChange={(event) => setVehicle(event.target.value.toUpperCase())}
+            disabled={drs.status !== 'OPEN'}
+          />
+          <FormField
+            label="E-way bill number"
+            value={eWayBillNo}
+            onChange={(event) => setEWayBillNo(event.target.value)}
+            disabled={drs.status !== 'OPEN'}
+          />
+        </div>
+        <button
+          className="btn"
+          disabled={drs.status !== 'OPEN' || action.isPending}
+          onClick={() => action.mutate({ type: 'vehicle' })}
+        >
+          Update vehicle / Part B
+        </button>
       </section>
     </>
   );

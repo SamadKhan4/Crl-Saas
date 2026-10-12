@@ -4069,3 +4069,69 @@ dialog:has(.drs-manifest-create) > .modal-heading {
     padding: 14px 16px;
   }
 }
+
+
+.notification-bell { position: relative; }
+.notification-toggle { position: relative; }
+.notification-dot { position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 0 2px #fff; }
+.notification-panel { position: absolute; right: 0; top: calc(100% + 12px); width: min(380px, calc(100vw - 32px)); max-height: 420px; overflow-y: auto; background: #fff; color: #182536; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 12px 36px #0f172a26; z-index: 100; }
+.notification-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; border-bottom: 1px solid #e2e8f0; }
+.notification-panel > p, .notification-panel > div:not(.notification-panel-heading) { padding: 16px; }
+.notification-panel ul { list-style: none; margin: 0; padding: 0; }
+.notification-panel li { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; }
+.notification-panel li strong { font-size: 13px; }
+.notification-panel li p { margin: 6px 0; font-size: 12px; overflow-wrap: anywhere; }
+.notification-panel time { font-size: 11px; color: #64748b; }
+
+.mis-report-table { overflow-x: auto; }
+.mis-report-table table { min-width: 1000px; }
+@media print { .mis-report-filters, .topbar, .sidebar, .page-header button { display: none !important; } .mis-report-table { overflow: visible; } .mis-report-table table { min-width: 0; font-size: 9px; } }
+
+
+/* Keep report actions readable while wide reports scroll horizontally. */
+.mis-report-table table { width: max-content; min-width: 100%; table-layout: auto; }
+.mis-report-table th, .mis-report-table td { min-width: 120px; overflow-wrap: normal; word-break: normal; }
+.mis-report-table th:first-child, .mis-report-table td:first-child { min-width: 72px; }
+.mis-report-table th:last-child, .mis-report-table td:last-child {
+  position: sticky;
+  right: 0;
+  width: 224px;
+  min-width: 224px;
+  max-width: 224px;
+  border-left: 1px solid #edf0f3;
+  box-shadow: -6px 0 12px -10px #0f172a40;
+}
+.mis-report-table th:last-child { z-index: 2; background: #f8fafb; }
+.mis-report-table td:last-child { z-index: 1; background: #fff; }
+.mis-report-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.mis-report-actions .text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  min-height: 32px;
+  border: 1px solid #dce9e3;
+  border-radius: 7px;
+  background: #f4faf7;
+  color: var(--green);
+  font-size: 12px;
+  line-height: 1.35;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.mis-report-actions .text-btn:hover { background: #e7f3ec; border-color: #aacdbb; }
+.mis-report-actions .text-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.mis-report-actions > span { font-size: 11px; line-height: 1.5; color: #64748b; }
+@media print {
+  .mis-report-table table { width: 100%; min-width: 0; }
+  .mis-report-table th, .mis-report-table td { min-width: 0; }
+  .mis-report-table th:last-child, .mis-report-table td:last-child { display: none; position: static; }
+}
+
+.operation-permission-options { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0; }
+.operation-permission-options label { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border, #dce5eb); border-radius: 10px; padding: 16px; flex: 1 1 160px; cursor: pointer; }
+.operation-permission-options label:has(input:checked) { border-color: #16856e; background: #effaf6; }
+.operation-permission-options input { width: 18px; height: 18px; accent-color: #16856e; }
+.operation-permission-options small { margin-left: auto; color: #64748b; }
+.employee-stage-selector { display: grid; gap: 8px; color: #b9c8dc; margin: 8px 12px 18px; font-size: 12px; }
+.employee-stage-selector select { padding: 10px; border-radius: 8px; background: #182b42; color: #fff; border: 1px solid #35465b; }

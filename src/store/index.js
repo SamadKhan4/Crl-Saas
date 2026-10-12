@@ -8,7 +8,7 @@ const sessionSlice = createSlice({
       const user = action.payload;
       state.user = user
         ? Object.fromEntries(
-            ['id', '_id', 'name', 'email', 'role', 'status', 'branchId', 'employeeCode']
+            ['id', '_id', 'name', 'email', 'role', 'status', 'branchId', 'employeeCode', 'employeeType', 'operationStages']
               .filter((key) => user[key] !== undefined)
               .map((key) => [key, user[key]]),
           )
