@@ -27,6 +27,14 @@ const emptyAssignment = {
   driverMobile: '',
 };
 
+const normalizeVehicleNumber = (value) => String(value || '').replace(/[^a-z0-9]/gi, '').toUpperCase();
+const savedVehicles = (vendor, sourceType) => {
+  const rows = sourceType === 'MARKET'
+    ? [...(vendor?.marketVehicles || []), ...(vendor?.vehicles || [])]
+    : vendor?.vehicles || [];
+  return rows.filter((vehicle, index) => vehicle.status !== 'INACTIVE' && rows.findIndex((row) => row.status !== 'INACTIVE' && normalizeVehicleNumber(row.vehicleNumber) === normalizeVehicleNumber(vehicle.vehicleNumber)) === index);
+};
+
 export default function AgentAlignmentPage() {
   const { user } = useAuth();
   const base = `/${user.role.toLowerCase()}`;
@@ -48,13 +56,20 @@ export default function AgentAlignmentPage() {
   });
   const vendors = useQuery({
     queryKey: ['vendors', 'pickup-agents'],
-    queryFn: () => vendorsApi.list({ status: 'ACTIVE', limit: 100 }),
+    queryFn: async () => {
+      const first = await vendorsApi.list({ status: 'ACTIVE', limit: 100, page: 1 });
+      const data = [...first.data];
+      for (let page = 2; page <= (first.pagination?.pages || 1); page++) {
+        data.push(...(await vendorsApi.list({ status: 'ACTIVE', limit: 100, page })).data);
+      }
+      return { ...first, data };
+    },
   });
   const vendorRows = vendors.data?.data || [];
   const selectedVendor = vendorRows.find(
     (vendor) => String(vendor.id || vendor._id) === assignment.vendorId,
   );
-  const vehicles = (selectedVendor?.vehicles || []).filter((vehicle) => vehicle.status !== 'INACTIVE');
+  const vehicles = savedVehicles(selectedVendor, assignment.sourceType);
   const requestRows = requests.data?.data || [];
   const counts = {
     pending: requestRows.length,
@@ -75,7 +90,7 @@ export default function AgentAlignmentPage() {
   const setField = (name, value) => setAssignment((current) => ({ ...current, [name]: value }));
   const chooseVendor = (vendorId) => {
     const vendor = vendorRows.find((row) => String(row.id || row._id) === vendorId);
-    const vehicle = vendor?.vehicles?.find((item) => item.status !== 'INACTIVE');
+    const vehicle = savedVehicles(vendor, assignment.sourceType)[0];
     setAssignment((current) => ({
       ...current,
       vendorId,
@@ -90,13 +105,13 @@ export default function AgentAlignmentPage() {
     setAssignment({ ...emptyAssignment, sourceType });
   };
   const chooseVehicle = (vehicleNumber) => {
-    const vehicle = vehicles.find((item) => item.vehicleNumber === vehicleNumber);
+    const vehicle = vehicles.find((item) => normalizeVehicleNumber(item.vehicleNumber) === normalizeVehicleNumber(vehicleNumber));
     setAssignment((current) => ({
       ...current,
-      vehicleNumber,
-      vehicleType: vehicle?.vehicleType || current.vehicleType,
-      driverName: vehicle?.driverName || current.driverName,
-      driverMobile: vehicle?.driverMobile || current.driverMobile,
+      vehicleNumber: vehicle?.vehicleNumber || vehicleNumber,
+      vehicleType: vehicle?.vehicleType || '',
+      driverName: vehicle?.driverName || '',
+      driverMobile: vehicle?.driverMobile || '',
     }));
   };
   const openAssignment = (request) => {
@@ -239,18 +254,18 @@ export default function AgentAlignmentPage() {
                   onChange={(event) => chooseSource(event.target.value)}
                 >
                   <option value="VENDOR">Vendor vehicle</option>
-                  <option value="MARKET">Market vehicle (manual)</option>
+                  <option value="MARKET">Market vehicle</option>
                 </select>
               </label>
-              {assignment.sourceType === 'VENDOR' && (
+              {(
                 <label className="full-span">
-                  Vendor / pickup agent *
+                  {assignment.sourceType === 'MARKET' ? 'Market agent (optional)' : 'Vendor / pickup agent *'}
                   <select
-                    required
+                    required={assignment.sourceType === 'VENDOR'}
                     value={assignment.vendorId}
                     onChange={(event) => chooseVendor(event.target.value)}
                   >
-                    <option value="">Select vendor</option>
+                    <option value="">{assignment.sourceType === 'MARKET' ? 'Enter market details manually' : 'Select vendor'}</option>
                     {vendorRows.map((vendor) => (
                       <option key={vendor.id || vendor._id} value={vendor.id || vendor._id}>
                         {vendor.vendorCode} · {vendor.name}
@@ -267,11 +282,18 @@ export default function AgentAlignmentPage() {
                   onChange={(event) => setField('agentName', event.target.value)}
                 />
               </label>
+              {vehicles.length > 0 && <label className="full-span">
+                Saved vehicle
+                <select value={vehicles.find((vehicle) => normalizeVehicleNumber(vehicle.vehicleNumber) === normalizeVehicleNumber(assignment.vehicleNumber))?.vehicleNumber || ''} onChange={(event) => chooseVehicle(event.target.value)}>
+                  <option value="">Enter a different vehicle manually</option>
+                  {vehicles.map((vehicle) => <option key={vehicle.vehicleNumber} value={vehicle.vehicleNumber}>{vehicle.vehicleNumber}{vehicle.vehicleType ? ` ? ${vehicle.vehicleType}` : ''}</option>)}
+                </select>
+              </label>}
               <label>
                 Vehicle number *
                 <input
                   required
-                  list={assignment.sourceType === 'VENDOR' ? 'vendor-vehicles' : undefined}
+                  list="vendor-vehicles"
                   value={assignment.vehicleNumber}
                   onChange={(event) => chooseVehicle(event.target.value.toUpperCase())}
                 />

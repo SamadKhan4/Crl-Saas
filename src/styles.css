@@ -4135,3 +4135,29 @@ dialog:has(.drs-manifest-create) > .modal-heading {
 .operation-permission-options small { margin-left: auto; color: #64748b; }
 .employee-stage-selector { display: grid; gap: 8px; color: #b9c8dc; margin: 8px 12px 18px; font-size: 12px; }
 .employee-stage-selector select { padding: 10px; border-radius: 8px; background: #182b42; color: #fff; border: 1px solid #35465b; }
+
+/* Vendor editor: full-width vehicle groups within the two-column form. */
+dialog:has(.vendor-editor) { max-width: 880px; }
+.vendor-vehicles-workspace { grid-column: 1 / -1; display: grid; gap: 20px; min-width: 0; margin-top: 8px; }
+.vendor-vehicle-section { min-width: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #fff; }
+.vendor-vehicle-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; background: #f6f9f8; border-bottom: 1px solid var(--border); }
+.vendor-vehicle-heading h3 { margin: 0; font-size: 15px; }
+.vendor-vehicle-heading p, .vendor-vehicle-empty { color: #68788b; font-size: 12px; line-height: 1.5; }
+.vendor-vehicle-heading p { margin: 5px 0 0; }
+.vendor-vehicle-heading .btn { flex-shrink: 0; }
+.vendor-vehicle-empty { padding: 20px; margin: 0; }
+.vendor-vehicle-card { min-width: 0; margin: 20px; padding: 18px; border: 1px solid var(--border); border-radius: 10px; gap: 16px 20px; }
+.vendor-vehicle-card legend { padding: 0 8px; font-size: 12px; font-weight: 700; color: #176b5a; }
+.vendor-vehicle-card label { min-width: 0; }
+.vendor-vehicle-remove { grid-column: 1 / -1; justify-self: end; color: #b34343; }
+.vendor-editor .vendor-market-toggle { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border: 1px solid var(--border); border-radius: 10px; background: #f6f9f8; cursor: pointer; }
+.vendor-editor .vendor-market-toggle input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; accent-color: #176b5a; }
+.vendor-market-toggle span { display: grid; gap: 5px; }
+.vendor-market-toggle strong { font-size: 13px; font-weight: 600; }
+.vendor-market-toggle small { color: #68788b; font-size: 12px; line-height: 1.5; }
+.vendor-editor > .modal-footer { border-top: 1px solid var(--border); padding-top: 20px; }
+@media (max-width: 600px) {
+  .vendor-vehicle-heading { align-items: flex-start; flex-direction: column; padding: 16px; }
+  .vendor-vehicle-card { grid-template-columns: minmax(0, 1fr); margin: 16px; padding: 14px; }
+  .vendor-editor .vendor-market-toggle { padding: 16px; }
+}

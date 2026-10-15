@@ -584,7 +584,9 @@ function prepare(resource, values) {
       services: String(payload.servicesCsv || '').split(',').map((value) => value.trim().toUpperCase()).filter(Boolean),
       documents: payload.document?.type ? [{ ...payload.document, verified: false }] : [],
       commercial: payload.commercial,
-      vehicles: payload.vehicle?.vehicleNumber ? [{ ...payload.vehicle, status: 'ACTIVE' }] : [],
+      vehicles: payload.vehicles || [],
+      hasMarketVehicles: Boolean(payload.hasMarketVehicles),
+      marketVehicles: payload.hasMarketVehicles ? payload.marketVehicles || [] : [],
     };
   }
   if (resource === 'drs')
@@ -736,12 +738,33 @@ function DynamicFields({ resource, fields, values, setValues }) {
   });
 }
 
+function VendorVehicles({ values, setValues }) {
+  const update = (key, index, name, value) => setValues((current) => ({ ...current, [key]: (current[key] || []).map((row, i) => i === index ? { ...row, [name]: value } : row) }));
+  const renderVehicles = (key, title) => <section className="vendor-vehicle-section">
+    <div className="vendor-vehicle-heading"><div><h3>{title}</h3><p>Add vehicle and driver details for this vendor.</p></div><button type="button" className="btn secondary" disabled={(values[key] || []).length >= 100} onClick={() => setValues((current) => ({ ...current, [key]: [...(current[key] || []), { vehicleNumber: '', status: 'ACTIVE' }] }))}>Add {key === 'marketVehicles' ? 'market vehicle' : 'vehicle'}</button></div>
+    {!(values[key] || []).length && <p className="vendor-vehicle-empty">No vehicles added yet. Use the button above to add one.</p>}
+    {(values[key] || []).map((vehicle, index) => <fieldset key={index} className="vendor-vehicle-card form-grid">
+      <legend>{key === 'marketVehicles' ? 'Market vehicle' : 'Vehicle'} {index + 1}</legend>
+      {[['vehicleNumber', 'Vehicle number', 'text'], ['vehicleType', 'Vehicle type', 'text'], ['capacityKg', 'Capacity (kg)', 'number'], ['driverName', 'Driver name', 'text'], ['driverMobile', 'Driver mobile', 'tel']].map(([name, caption, type]) => <label key={name}>{caption}{name === 'vehicleNumber' ? ' *' : ''}<input type={type} required={name === 'vehicleNumber'} min={type === 'number' ? 0 : undefined} value={vehicle[name] ?? ''} onChange={(event) => update(key, index, name, name === 'vehicleNumber' ? event.target.value.toUpperCase() : event.target.value)} /></label>)}
+      <label>Status<select value={vehicle.status || 'ACTIVE'} onChange={(event) => update(key, index, 'status', event.target.value)}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>
+      <button type="button" className="text-btn vendor-vehicle-remove" onClick={() => setValues((current) => ({ ...current, [key]: current[key].filter((_, i) => i !== index) }))}>Remove vehicle {index + 1}</button>
+    </fieldset>)}
+  </section>;
+  return <div className="vendor-vehicles-workspace">
+    {renderVehicles('vehicles', 'Vendor vehicles')}
+    <label className="vendor-market-toggle"><input type="checkbox" checked={Boolean(values.hasMarketVehicles)} onChange={(event) => setValues((current) => ({ ...current, hasMarketVehicles: event.target.checked }))} /><span><strong>Does this vendor have market vehicles?</strong><small>Enable to maintain a separate list of market vehicles.</small></span></label>
+    {values.hasMarketVehicles && renderVehicles('marketVehicles', 'Market vehicles')}
+  </div>;
+}
+
 function RecordEditor({ resource, config, record, initialValues, onClose }) {
   const [values, setValues] = useState(() =>
     record
       ? {
           ...record,
-          vehicle: record.vehicles?.[0] || {},
+          vehicles: record.vehicles || [],
+          marketVehicles: record.marketVehicles || [],
+          hasMarketVehicles: record.hasMarketVehicles || Boolean(record.marketVehicles?.length),
           servicesCsv: record.services?.join(', ') || '',
           document: record.documents?.[0] || {},
         }
@@ -772,9 +795,10 @@ function RecordEditor({ resource, config, record, initialValues, onClose }) {
       title={`${record ? 'Edit' : 'Add'} ${config.singular}`}
       onClose={() => !busy && onClose()}
     >
-      <form onSubmit={save}>
+      <form className={resource === 'vendors' ? 'vendor-editor' : undefined} onSubmit={save}>
         <div className="form-grid">
-          <DynamicFields resource={resource} fields={config.fields} values={values} setValues={setValues} />
+          <DynamicFields resource={resource} fields={resource === 'vendors' ? config.fields.filter(([name]) => !name.startsWith('vehicle.')) : config.fields} values={values} setValues={setValues} />
+          {resource === 'vendors' && <VendorVehicles values={values} setValues={setValues} />}
         </div>
         {error && (
           <p className="field-error" role="alert">
