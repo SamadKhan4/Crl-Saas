@@ -8,7 +8,7 @@ import { ErrorState, Loadingcrleleton, PageHeader, StatusBadge } from '../compon
 import TransportPdfDownload from '../components/tms/TransportPdfDownload';
 
 const money = (value) => Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const label = (value) => String(value || '').replaceAll(/([A-Z])/g, ' $1').replaceAll('_', ' ').trim();
+const label = (value) => ({ leave: 'Unpaid leave / absence', proration: 'Before joining / remaining month days' }[value] || String(value || '').replaceAll(/([A-Z])/g, ' $1').replaceAll('_', ' ').trim());
 const rows = (parts) => Object.entries(parts || {}).filter(([key]) => key !== '_id').map(([key, value]) => [label(key), value]);
 
 function PayslipSheet({ payslip }) {
@@ -21,7 +21,7 @@ function PayslipSheet({ payslip }) {
       <div><span>Paid Days</span><b>{payslip.paidDays}</b></div>
       <div><span>Payslip Number</span><b>{payslip.payslipNumber}</b></div><div><span>Status</span><b>{payslip.status}</b></div>
     </section>
-    {payslip.attendanceSummary && <p>Working days: {payslip.attendanceSummary.workingDays} ? Unpaid / absent: {payslip.attendanceSummary.unpaidDays} ? Paid leave: {payslip.attendanceSummary.paidLeaveDays}. Sundays and mapped holidays excluded.</p>}
+    {payslip.attendanceSummary && <p>Salary days in month: {payslip.attendanceSummary.calendarDays || payslip.attendanceSummary.workingDays} ? Unpaid / absent: {payslip.attendanceSummary.unpaidDays} ? Paid leave: {payslip.attendanceSummary.paidLeaveDays}. Sundays and mapped holidays are paid days.</p>}
     <div className="payslip-tables">
       <table><thead><tr><th>Earnings</th><th>Amount (₹)</th></tr></thead><tbody>{rows(payslip.earnings).map(([name, value]) => <tr key={name}><td>{name}</td><td>{money(value)}</td></tr>)}<tr className="payslip-total"><th>Gross Earnings</th><th>{money(payslip.grossEarnings)}</th></tr></tbody></table>
       <table><thead><tr><th>Deductions</th><th>Amount (₹)</th></tr></thead><tbody>{rows(payslip.deductions).map(([name, value]) => <tr key={name}><td>{name}</td><td>{money(value)}</td></tr>)}<tr className="payslip-total"><th>Total Deductions</th><th>{money(payslip.totalDeductions)}</th></tr></tbody></table>

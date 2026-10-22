@@ -16,13 +16,13 @@ export default function AttendancePage() {
   const summary = query.data?.data;
   const offset = summary?.calendar?.length ? new Date(`${summary.calendar[0].date}T00:00:00`).getDay() : 0;
   return <>
-    <PageHeader title="Employee Attendance" description="Every onboarded employee is included, with or without a login. Working days are present by default; mark only absences or leave." />
+    <PageHeader title="Employee Attendance" description="Every onboarded employee is included, with or without a login. Attendance is present automatically up to today; mark only absences or leave." />
     <section className="panel form-section"><div className="form-grid">
       <Lookup resource="users" employeeOnly label="Employee" value={employee} onChange={setEmployee} />
       <label>Attendance month<input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>
     </div></section>
     {employee && (query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : summary && <section className="panel form-section">
-      <p>{summary.workingDays} working days | {summary.unpaidDays} unpaid / absent days | {summary.paidLeaveDays} paid leave days</p>
+      <p>{summary.calendarDays || summary.workingDays} calendar days (including Sundays and holidays) | {summary.paidDays} paid days through today | {summary.unpaidDays} unpaid / absent days | {summary.paidLeaveDays} paid leave days</p>
       <p className="hr-attendance-legend"><span className="hr-status-present">P - Present (automatic)</span><span className="hr-status-absent">A - Absent</span><span>PL - Paid leave | UL - Unpaid leave | HD - Half day</span></p>
       <p>Select a day to change attendance. Sundays and holidays have no deduction.</p>
       <div className="hr-holiday-calendar hr-attendance-calendar" aria-label="Attendance calendar">
@@ -30,12 +30,12 @@ export default function AttendancePage() {
         {Array.from({ length: offset }, (_, index) => <span key={`blank-${index}`} />)}
         {summary.calendar.map((day) => {
           const off = day.sunday || Boolean(day.holiday);
-          const status = day.status || (!off && day.eligible ? 'PRESENT' : '');
+          const status = day.future ? '' : day.status || (day.eligible ? 'PRESENT' : '');
           const absent = ['ABSENT', 'UNPAID_LEAVE'].includes(status);
-          const code = !day.eligible ? '-' : off ? (day.holiday ? 'H' : 'S') : ({ PRESENT: 'P', ABSENT: 'A', UNPAID_LEAVE: 'UL', PAID_LEAVE: 'PL', HALF_DAY: 'HD' }[status] || 'P');
-          return <div key={day.date} className={`hr-attendance-day ${!day.eligible || off ? 'hr-attendance-off' : absent ? 'hr-status-absent' : 'hr-status-present'}`}>
+          const code = !day.eligible || day.future ? '-' : ({ PRESENT: 'P', ABSENT: 'A', UNPAID_LEAVE: 'UL', PAID_LEAVE: 'PL', HALF_DAY: 'HD' }[status] || '-');
+          return <div key={day.date} className={`hr-attendance-day ${!day.eligible || day.future ? 'hr-attendance-off' : absent ? 'hr-status-absent' : 'hr-status-present'}`}>
             <span>{Number(day.date.slice(-2))}</span><strong aria-label={`${day.date} ${status || code}`}>{code}</strong>
-            {!day.eligible ? <small>Before joining</small> : off ? <small>{day.holiday || 'Sunday'} - no deduction</small> : <select aria-label={`Attendance ${day.date}`} value={status} disabled={save.isPending} onChange={(event) => save.mutate({ employeeId: employee, date: day.date, status: event.target.value })}>
+            {day.future ? <small>Upcoming</small> : !day.eligible ? <small>Before joining</small> : off ? <small>{day.holiday || 'Sunday'} - paid day</small> : <select aria-label={`Attendance ${day.date}`} value={status} disabled={save.isPending} onChange={(event) => save.mutate({ employeeId: employee, date: day.date, status: event.target.value })}>
               {statuses.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}
             </select>}
           </div>;

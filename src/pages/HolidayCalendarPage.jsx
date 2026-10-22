@@ -18,7 +18,7 @@ export default function HolidayCalendarPage() {
   const count = new Date(year, number, 0).getDate();
   const offset = new Date(`${month}-01T00:00:00`).getDay();
   return <>
-    <PageHeader title="Holiday Calendar" description="Map company holidays. Sundays and these dates are excluded from working days and leave deductions." />
+    <PageHeader title="Holiday Calendar" description="Map company holidays. Sundays and these dates are paid days, included in the monthly salary-day count with no leave deduction." />
     <section className="panel form-section"><label>Calendar month<input type="month" value={month} onChange={(event) => { setMonth(event.target.value); setDate(''); }} /></label>
       {query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : month && <div className="hr-holiday-calendar">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <b key={day}>{day}</b>)}

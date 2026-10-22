@@ -11,7 +11,7 @@ vi.mock('../components/forms/Lookup', () => ({ default: ({ label, value, onChang
 vi.mock('../api/services', () => ({
   payslipsApi: { list: vi.fn(async () => ({ data: [] })), create: vi.fn(), status: vi.fn() },
   hrAttendanceApi: {
-    summary: vi.fn(async () => ({ data: { workingDays: 26, paidDays: 25, unpaidDays: 1, paidLeaveDays: 1, missingDays: 0, calendar: [{ date: '2026-10-01', eligible: true, status: 'PRESENT' }, { date: '2026-10-04', eligible: true, sunday: true, status: '' }] } })),
+    summary: vi.fn(async () => ({ data: { calendarDays: 31, workingDays: 31, eligibleDays: 31, paidDays: 30, unpaidDays: 1, paidLeaveDays: 1, missingDays: 0, calendar: [{ date: '2026-10-01', eligible: true, status: 'PRESENT' }, { date: '2026-10-04', eligible: true, sunday: true, status: '' }] } })),
     save: vi.fn(async () => ({ data: {} })), holidays: vi.fn(async () => ({ data: [] })), saveHoliday: vi.fn(async () => ({ data: {} })), deleteHoliday: vi.fn(),
   },
 }));
@@ -22,9 +22,9 @@ describe('HR attendance and holiday flows', () => {
     await userEvent.selectOptions(screen.getByLabelText('Employee'), '507f1f77bcf86cd799439011');
     await userEvent.selectOptions(await screen.findByLabelText('Attendance 2026-10-01'), 'UNPAID_LEAVE');
     await waitFor(() => expect(hrAttendanceApi.save).toHaveBeenCalledWith({ employeeId: '507f1f77bcf86cd799439011', date: '2026-10-01', status: 'UNPAID_LEAVE' }, expect.anything()));
-    expect(screen.getByText('Sunday - no deduction')).toBeInTheDocument();
+    expect(screen.getByText('Sunday - paid day')).toBeInTheDocument();
     expect(screen.getByLabelText('Attendance calendar')).toBeInTheDocument();
-    expect(screen.getByText('P')).toBeInTheDocument();
+    expect(screen.getAllByText('P')).toHaveLength(2);
   });
   it('maps a holiday from the calendar form', async () => {
     show(<HolidayCalendarPage />);
@@ -37,17 +37,17 @@ describe('HR attendance and holiday flows', () => {
     show(<PayslipsPage />);
     await userEvent.click(screen.getByRole('button', { name: 'Create payslip' }));
     await userEvent.selectOptions(screen.getByLabelText('Employee'), '507f1f77bcf86cd799439011');
-    await screen.findByText(/26 working days/);
+    await screen.findByText(/31 calendar days/);
     await userEvent.clear(screen.getByLabelText('Basic salary'));
-    await userEvent.type(screen.getByLabelText('Basic salary'), '26000');
-    expect(screen.getByLabelText('Paid working days (automatic)')).toHaveValue(25);
-    expect(screen.getByText(/Leave \/ joining deduction:/).textContent).toMatch(/1,000.*1,000.*25,000/);
+    await userEvent.type(screen.getByLabelText('Basic salary'), '31000');
+    expect(screen.getByLabelText('Paid calendar days (automatic)')).toHaveValue(30);
+    expect(screen.getByText(/Leave deduction:/).textContent).toMatch(/1,000.*1,000.*30,000/);
   });
 });
 
 
 it('shows automatic present in green and manual absence in red', async () => {
-  hrAttendanceApi.summary.mockResolvedValueOnce({ data: { workingDays: 26, paidDays: 25, unpaidDays: 1, paidLeaveDays: 0, calendar: [
+  hrAttendanceApi.summary.mockResolvedValueOnce({ data: { calendarDays: 31, workingDays: 31, eligibleDays: 31, paidDays: 30, unpaidDays: 1, paidLeaveDays: 0, calendar: [
     { date: '2026-10-01', eligible: true, status: 'PRESENT' },
     { date: '2026-10-02', eligible: true, status: 'ABSENT' },
   ] } });
@@ -55,4 +55,17 @@ it('shows automatic present in green and manual absence in red', async () => {
   await userEvent.selectOptions(screen.getByLabelText('Employee'), '507f1f77bcf86cd799439011');
   expect((await screen.findByText('A')).closest('.hr-attendance-day')).toHaveClass('hr-status-absent');
   expect(screen.getByText('P').closest('.hr-attendance-day')).toHaveClass('hr-status-present');
+});
+
+
+it('keeps future days gray and unmarked instead of defaulting to present', async () => {
+  hrAttendanceApi.summary.mockResolvedValueOnce({ data: { calendarDays: 31, paidDays: 22, unpaidDays: 0, paidLeaveDays: 0, calendar: [
+    { date: '2026-10-22', eligible: true, status: 'PRESENT' },
+    { date: '2026-10-23', eligible: false, future: true, status: '' },
+  ] } });
+  show(<AttendancePage />);
+  await userEvent.selectOptions(screen.getByLabelText('Employee'), '507f1f77bcf86cd799439011');
+  expect((await screen.findByText('Upcoming')).closest('.hr-attendance-day')).toHaveClass('hr-attendance-off');
+  expect(screen.queryByLabelText('Attendance 2026-10-23')).not.toBeInTheDocument();
+  expect(screen.getAllByText('P')).toHaveLength(1);
 });

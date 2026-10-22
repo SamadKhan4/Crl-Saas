@@ -38,8 +38,11 @@ function PayslipEditor({ onClose }) {
   const attendance = useQuery({ queryKey: ['attendance', employeeId, salaryMonth], queryFn: () => hrAttendanceApi.summary(employeeId, salaryMonth), enabled: Boolean(employeeId && salaryMonth) });
   const summary = attendance.data?.data;
   const gross = Object.values(earnings || {}).reduce((sum, value) => sum + Number(value || 0), 0);
-  const leave = summary?.workingDays ? Math.round(gross * (summary.workingDays - summary.paidDays) / summary.workingDays * 100) / 100 : 0;
-  const totalDeductions = leave + Object.values(deductions || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+  const monthDays = summary?.calendarDays || summary?.workingDays || 0;
+  const perDay = monthDays ? gross / monthDays : 0;
+  const leave = Math.round(perDay * (summary?.unpaidDays || 0) * 100) / 100;
+  const proration = Math.round(perDay * (monthDays - (summary?.eligibleDays ?? monthDays)) * 100) / 100;
+  const totalDeductions = leave + proration + Object.values(deductions || {}).reduce((sum, value) => sum + Number(value || 0), 0);
   useEffect(() => { if (summary) setValue('paidDays', summary.paidDays); }, [summary, setValue]);
   async function save(values) {
     setServerError('');
@@ -67,11 +70,11 @@ function PayslipEditor({ onClose }) {
           <FormField label="Salary month" type="month" {...register('salaryMonth')} error={errors.salaryMonth?.message} />
           <FormField label="Designation" {...register('designation')} error={errors.designation?.message} />
           <FormField label="Department" {...register('department')} error={errors.department?.message} />
-          <FormField label="Paid working days (automatic)" readOnly type="number" min="0" max="31" step="0.5" {...register('paidDays')} error={errors.paidDays?.message} />
+          <FormField label="Paid calendar days (automatic)" readOnly type="number" min="0" max="31" step="0.5" {...register('paidDays')} error={errors.paidDays?.message} />
           <FormField label="Payment date" type="date" {...register('paymentDate')} error={errors.paymentDate?.message} />
         </div>
         {attendance.isError && <p role="alert" className="field-error">{errorMessage(attendance.error)}</p>}
-        {summary && <div className="panel form-section"><p>{summary.workingDays} working days ? {summary.unpaidDays} unpaid / absent ? {summary.paidLeaveDays} paid leave ? {summary.missingDays} unmarked</p><p>Attendance defaults to present. Sundays and mapped holidays excluded. Deduction uses monthly gross ? working days.</p><p>Leave / joining deduction: {money(leave)} ? Total deductions: {money(totalDeductions)} ? Net pay: {money(gross - totalDeductions)}</p>{summary.missingDays > 0 && <p role="alert">Complete the unmarked attendance before creating this payslip.</p>}</div>}
+        {summary && <div className="panel form-section"><p>{monthDays} calendar days (including Sundays and holidays) | {summary.eligibleDays ?? monthDays} days through {summary.asOf || 'today'} | {summary.unpaidDays} unpaid / absent | {summary.paidLeaveDays} paid leave</p><p>Monthly salary / {monthDays} = {money(perDay)} per day. Future dates are not marked present or counted as earned pay.</p><p>Leave deduction: {money(leave)} | Before joining / remaining days adjustment: {money(proration)} | Total deductions: {money(totalDeductions)} | Net pay: {money(gross - totalDeductions)}</p></div>}
         <h3 className="form-subheading">Earnings</h3>
         <div className="form-grid">
           {salaryField('earnings', 'basic', 'Basic salary')}
