@@ -36,6 +36,8 @@ const DrsWorkspace = lazy(() => import('./pages/DrsWorkspacePage'));
 const DrsClosure = lazy(() => import('./pages/DrsClosurePage'));
 const TmsPrint = lazy(() => import('./pages/TmsPrintPage'));
 const Receivables = lazy(() => import('./pages/ReceivablesPage'));
+const Attendance = lazy(() => import('./pages/AttendancePage'));
+const HolidayCalendar = lazy(() => import('./pages/HolidayCalendarPage'));
 const Payslips = lazy(() => import('./pages/PayslipsPage'));
 const PayslipDetail = lazy(() => import('./pages/PayslipDetailPage'));
 const EmployeeOnboarding = lazy(() => import('./pages/EmployeeOnboardingPage'));
@@ -208,6 +210,8 @@ export default function App() {
             <Route path="/hr" element={<AppLayout />}>
               <Route index element={<HomeRoute />} />
               <Route path="employees" element={<EmployeeOnboarding />} />
+              <Route path="attendance" element={<Attendance />} />
+              <Route path="holidays" element={<HolidayCalendar />} />
               <Route path="payslips" element={<Payslips />} />
               <Route path="payslips/:id" element={<PayslipDetail />} />
               <Route path="settings" element={<Settings />} />

@@ -4161,3 +4161,20 @@ dialog:has(.vendor-editor) { max-width: 880px; }
   .vendor-vehicle-card { grid-template-columns: minmax(0, 1fr); margin: 16px; padding: 14px; }
   .vendor-editor .vendor-market-toggle { padding: 16px; }
 }
+
+.hr-holiday-calendar { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; margin:24px 0; }
+.hr-holiday-calendar > b { text-align:center; padding:8px; }
+.hr-holiday-calendar > button { min-height:85px; border:1px solid #dbe5e9; border-radius:8px; background:white; color:#16334a; text-align:left; padding:10px; cursor:pointer; }
+.hr-holiday-calendar > button.hr-holiday-day { background:#e9f3ef; }
+.hr-holiday-calendar > button[aria-pressed="true"] { outline:2px solid #4a8c7d; }
+.hr-holiday-calendar small { display:block; margin-top:8px; overflow-wrap:anywhere; }
+@media(max-width:600px) { .hr-holiday-calendar { gap:3px; } .hr-holiday-calendar > button { min-height:65px; padding:4px; font-size:11px; } }
+
+.hr-attendance-legend { display:flex; flex-wrap:wrap; gap:16px; }
+.hr-status-present { background:#e7f6ec; color:#166534; }
+.hr-status-absent { background:#fde8e8; color:#b91c1c; }
+.hr-attendance-day { min-height:125px; padding:10px; border:1px solid #dbe5e9; border-radius:8px; min-width:0; }
+.hr-attendance-day > strong { display:block; text-align:center; font-size:26px; margin:8px 0; }
+.hr-attendance-day select { width:100%; min-width:0; padding:5px; font-size:11px; background:rgba(255,255,255,.7); color:inherit; }
+.hr-attendance-off { background:#f1f5f9; color:#64748b; }
+@media(max-width:600px) { .hr-attendance-day { min-height:105px; padding:4px; } .hr-attendance-day select { font-size:9px; padding:2px; } }

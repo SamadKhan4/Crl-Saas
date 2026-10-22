@@ -132,3 +132,11 @@ export const publicApi = {
       .then((r) => checkEnvelope(r.data)),
   quotation: (body) => logistic.post('/public/quotations', body).then((r) => checkEnvelope(r.data)),
 };
+
+export const hrAttendanceApi = {
+  summary: (employeeId, month) => get('/attendance', { employeeId, month }),
+  save: (body) => api.put('/attendance', body).then((r) => checkEnvelope(r.data)),
+  holidays: (month) => get('/holidays', { month }),
+  saveHoliday: (body) => api.put('/holidays', body).then((r) => checkEnvelope(r.data)),
+  deleteHoliday: (date) => api.delete(`/holidays/${date}`).then((r) => checkEnvelope(r.data)),
+};

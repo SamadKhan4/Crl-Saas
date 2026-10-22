@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { payslipsApi } from '../api/services';
+import { payslipsApi, hrAttendanceApi } from '../api/services';
 import { errorMessage, formErrors } from '../api/client';
 import { payslipSchema } from '../schemas';
 import { useList } from '../hooks/useList';
@@ -24,13 +24,23 @@ const currentMonth = new Date().toLocaleDateString('en-CA').slice(0, 7);
 function PayslipEditor({ onClose }) {
   const cache = useQueryClient();
   const [serverError, setServerError] = useState('');
-  const { register, control, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm({
+  const { register, control, handleSubmit, setError, watch, setValue, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(payslipSchema),
     defaultValues: {
       employeeId: '', salaryMonth: currentMonth, designation: '', department: '', paidDays: 30,
       earnings: emptyParts, deductions: emptyDeductions, paymentDate: '', paymentReference: '', notes: '',
     },
   });
+  const employeeId = watch('employeeId');
+  const salaryMonth = watch('salaryMonth');
+  const earnings = watch('earnings');
+  const deductions = watch('deductions');
+  const attendance = useQuery({ queryKey: ['attendance', employeeId, salaryMonth], queryFn: () => hrAttendanceApi.summary(employeeId, salaryMonth), enabled: Boolean(employeeId && salaryMonth) });
+  const summary = attendance.data?.data;
+  const gross = Object.values(earnings || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+  const leave = summary?.workingDays ? Math.round(gross * (summary.workingDays - summary.paidDays) / summary.workingDays * 100) / 100 : 0;
+  const totalDeductions = leave + Object.values(deductions || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+  useEffect(() => { if (summary) setValue('paidDays', summary.paidDays); }, [summary, setValue]);
   async function save(values) {
     setServerError('');
     try {
@@ -52,14 +62,16 @@ function PayslipEditor({ onClose }) {
       <form onSubmit={handleSubmit(save)}>
         <div className="form-grid">
           <Controller name="employeeId" control={control} render={({ field }) => (
-            <Lookup resource="users" label="Employee" {...field} />
+            <Lookup resource="users" employeeOnly label="Employee" {...field} />
           )} />
           <FormField label="Salary month" type="month" {...register('salaryMonth')} error={errors.salaryMonth?.message} />
           <FormField label="Designation" {...register('designation')} error={errors.designation?.message} />
           <FormField label="Department" {...register('department')} error={errors.department?.message} />
-          <FormField label="Paid days" type="number" min="0" max="31" step="0.5" {...register('paidDays')} error={errors.paidDays?.message} />
+          <FormField label="Paid working days (automatic)" readOnly type="number" min="0" max="31" step="0.5" {...register('paidDays')} error={errors.paidDays?.message} />
           <FormField label="Payment date" type="date" {...register('paymentDate')} error={errors.paymentDate?.message} />
         </div>
+        {attendance.isError && <p role="alert" className="field-error">{errorMessage(attendance.error)}</p>}
+        {summary && <div className="panel form-section"><p>{summary.workingDays} working days ? {summary.unpaidDays} unpaid / absent ? {summary.paidLeaveDays} paid leave ? {summary.missingDays} unmarked</p><p>Attendance defaults to present. Sundays and mapped holidays excluded. Deduction uses monthly gross ? working days.</p><p>Leave / joining deduction: {money(leave)} ? Total deductions: {money(totalDeductions)} ? Net pay: {money(gross - totalDeductions)}</p>{summary.missingDays > 0 && <p role="alert">Complete the unmarked attendance before creating this payslip.</p>}</div>}
         <h3 className="form-subheading">Earnings</h3>
         <div className="form-grid">
           {salaryField('earnings', 'basic', 'Basic salary')}
@@ -83,7 +95,7 @@ function PayslipEditor({ onClose }) {
         {serverError && <p className="field-error" role="alert">{serverError}</p>}
         <div className="modal-footer">
           <button type="button" className="btn secondary" onClick={onClose} disabled={isSubmitting}>Cancel</button>
-          <button className="btn" disabled={isSubmitting}>{isSubmitting ? 'Creating…' : 'Create payslip'}</button>
+          <button className="btn" disabled={isSubmitting || !summary || attendance.isFetching || attendance.isError || summary.missingDays > 0 || totalDeductions > gross}>{isSubmitting ? 'Creating…' : 'Create payslip'}</button>
         </div>
       </form>
     </Modal>

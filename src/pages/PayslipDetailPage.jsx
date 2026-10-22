@@ -21,6 +21,7 @@ function PayslipSheet({ payslip }) {
       <div><span>Paid Days</span><b>{payslip.paidDays}</b></div>
       <div><span>Payslip Number</span><b>{payslip.payslipNumber}</b></div><div><span>Status</span><b>{payslip.status}</b></div>
     </section>
+    {payslip.attendanceSummary && <p>Working days: {payslip.attendanceSummary.workingDays} ? Unpaid / absent: {payslip.attendanceSummary.unpaidDays} ? Paid leave: {payslip.attendanceSummary.paidLeaveDays}. Sundays and mapped holidays excluded.</p>}
     <div className="payslip-tables">
       <table><thead><tr><th>Earnings</th><th>Amount (₹)</th></tr></thead><tbody>{rows(payslip.earnings).map(([name, value]) => <tr key={name}><td>{name}</td><td>{money(value)}</td></tr>)}<tr className="payslip-total"><th>Gross Earnings</th><th>{money(payslip.grossEarnings)}</th></tr></tbody></table>
       <table><thead><tr><th>Deductions</th><th>Amount (₹)</th></tr></thead><tbody>{rows(payslip.deductions).map(([name, value]) => <tr key={name}><td>{name}</td><td>{money(value)}</td></tr>)}<tr className="payslip-total"><th>Total Deductions</th><th>{money(payslip.totalDeductions)}</th></tr></tbody></table>

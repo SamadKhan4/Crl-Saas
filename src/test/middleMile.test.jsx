@@ -38,7 +38,7 @@ describe('Middle Mile document flow', () => {
     show('manifests');
     await screen.findByRole('option', { name: /LT001/ });
     await userEvent.selectOptions(screen.getByLabelText('Loading tally'), 'tally');
-    expect(await screen.findByLabelText('Vendor from PRS')).toHaveValue('V001 · Delivery Vendor');
+    expect(screen.queryByLabelText('Vendor from PRS')).not.toBeInTheDocument();
     const checkbox = await screen.findByLabelText('Verify LR001');
     expect(screen.getByRole('button', { name: 'Create Manifest' })).toBeDisabled();
     await userEvent.click(checkbox);
@@ -124,4 +124,38 @@ it('allows E-way updates only above 50000 and persists the high-value number', a
   await userEvent.type(input, '271234567890');
   await userEvent.click(screen.getByRole('button', { name: 'Create Manifest' }));
   await waitFor(() => expect(middleMileApi.manifests.create).toHaveBeenCalledWith({ loadingTallyId: 'tally', verifiedShipmentIds: ['high', 'low', 'equal'], eWayUpdates: [{ shipmentId: 'high', eWayBillNo: '271234567890' }] }));
+});
+
+
+it('lists LR destinations across pages and loads every LR for the selected city without PRS data', async () => {
+  const pune = { _id: 'pune-1', lrNumber: 'PUNE001', destinationBranchId: { city: 'Pune' }, packageCount: 1, weightKg: 10 };
+  const puneTwo = { ...pune, _id: 'pune-2', lrNumber: 'PUNE002', lrDetails: { to: 'Pune' } };
+  middleMileApi.sortingInventory
+    .mockResolvedValueOnce({ data: [{ _id: 'mumbai', lrNumber: 'MUM001', lrDetails: { to: 'Mumbai' } }], pagination: { pages: 2 } })
+    .mockResolvedValueOnce({ data: [pune], pagination: { pages: 2 } })
+    .mockResolvedValueOnce({ data: [pune], pagination: { pages: 2 } })
+    .mockResolvedValueOnce({ data: [puneTwo], pagination: { pages: 2 } });
+  show('segregations');
+  await screen.findByRole('option', { name: 'Pune' });
+  expect(screen.getByRole('option', { name: 'Mumbai' })).toBeInTheDocument();
+  await userEvent.selectOptions(screen.getByLabelText('Destination city'), 'Pune');
+  expect(await screen.findByLabelText('Select PUNE001')).toBeInTheDocument();
+  expect(await screen.findByLabelText('Select PUNE002')).toBeInTheDocument();
+  expect(screen.queryByText('MUM001')).not.toBeInTheDocument();
+  expect(middleMileApi.sortingInventory).toHaveBeenCalledWith({ destination: 'Pune', page: 2, limit: 100 });
+});
+
+
+it('shows the receiver city instead of a stale LR destination in sorting', async () => {
+  const lr = { _id: 'yavatmal-lr', lrNumber: 'CRL20281P2444', lrDetails: { to: 'Nagpur' }, sortingDestination: 'Yavatmal', packageCount: 20, weightKg: 200 };
+  middleMileApi.sortingInventory.mockResolvedValueOnce({ data: [lr] }).mockResolvedValueOnce({ data: [lr] });
+  show('segregations');
+  await screen.findByRole('option', { name: 'Yavatmal' });
+  expect(screen.queryByRole('option', { name: 'Nagpur' })).not.toBeInTheDocument();
+  await userEvent.selectOptions(screen.getByLabelText('Destination city'), 'Yavatmal');
+  expect(await screen.findByLabelText('Select CRL20281P2444')).toBeInTheDocument();
+  expect(screen.queryByText('Nagpur')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByLabelText('Select CRL20281P2444'));
+  await userEvent.click(screen.getByRole('button', { name: 'Save Sorting' }));
+  await waitFor(() => expect(middleMileApi.sort).toHaveBeenCalledWith({ destination: 'Yavatmal', shipmentIds: ['yavatmal-lr'] }));
 });

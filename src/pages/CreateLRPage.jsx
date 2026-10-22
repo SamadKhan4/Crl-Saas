@@ -155,7 +155,7 @@ export default function CreateLRPage() {
   const destinationQuery = useQuery({
     queryKey: ['destination-by-pincode', consigneePincode],
     queryFn: () => get('/destinations', { search: consigneePincode }),
-    enabled: /^\d{6}$/.test(consigneePincode || ''),
+    enabled: !pickupRequestId && /^\d{6}$/.test(consigneePincode || ''),
     staleTime: 86400000,
   });
   const selectDestination = useCallback((place) => {
@@ -168,8 +168,8 @@ export default function CreateLRPage() {
     setValue('expectedDeliveryDate', place?.transitDays ? addTransitDays(getValues('bookingDate'), place.transitDays) : '', { shouldValidate: true });
   }, [getValues, isCreditCustomer, setValue]);
   useEffect(() => {
-    if (route.to?.pincode && route.to.pincode !== consigneePincode) selectDestination(null);
-  }, [consigneePincode, route.to?.pincode, selectDestination]);
+    if (!sourcePickup && route.to?.pincode && route.to.pincode !== consigneePincode) selectDestination(null);
+  }, [consigneePincode, route.to?.pincode, selectDestination, sourcePickup]);
   useEffect(() => {
     if (!sourceBooking) return;
     const values = {
@@ -267,12 +267,13 @@ export default function CreateLRPage() {
     }
   }, [selectedCustomer, sourceBooking, sourcePickup, isCreditCustomer, isRetailCustomer, setValue, clearErrors]);
   useEffect(() => {
+    if (pickupRequestId) return;
     const destinations = (destinationQuery.data?.data || []).map((place) =>
       destinationFromPincode(place, isCreditCustomer ? selectedCustomer?.creditRateCard : []),
     );
     const destination = destinations.find((place) => place.serviceLevel) || destinations[0];
     if (destination) selectDestination(destination);
-  }, [destinationQuery.data, isCreditCustomer, selectedCustomer, selectDestination]);
+  }, [destinationQuery.data, isCreditCustomer, selectedCustomer, selectDestination, pickupRequestId]);
   async function submit(values) {
     setError('');
     try {

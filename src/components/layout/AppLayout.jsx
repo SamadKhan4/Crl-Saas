@@ -157,6 +157,8 @@ export default function AppLayout() {
       label: 'Human Resources',
       items: [
         ['employees', 'Employee Onboarding', Users],
+        ['attendance', 'Attendance', Users],
+        ['holidays', 'Holiday Calendar', FileText],
         ['payslips', 'Payslips', FileText],
         ['settings', 'Account Settings', Settings],
       ],

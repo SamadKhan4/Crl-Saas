@@ -10,6 +10,7 @@ import { useAuth } from '../features/auth/AuthContext';
 import { date, idOf } from '../lib/workflow';
 import { DataTable, ErrorState, Loadingcrleleton, Modal, PageHeader, StatusBadge } from '../components/common/UI';
 
+const lrDestination = (lr) => lr.sortingDestination?.trim() || lr.pickupRequestId?.recipient?.city?.trim() || lr.lrDetails?.to?.trim() || lr.destinationBranchId?.city?.trim() || lr.destinationBranchId?.name?.trim() || '';
 const rows = (query) => query.data?.data || [];
 async function allRows(list, params = {}) {
   const first = await list({ ...params, page: 1, limit: 100 });
@@ -22,7 +23,7 @@ function useRefresh() {
   return () => ['loading-tallies', 'middle-mile-manifests', 'middle-mile-trips', 'middle-mile-sorting-inventory', 'middle-mile-sortings', 'last-mile-arrivals', 'last-mile-pending-arrivals'].forEach((key) => cache.invalidateQueries({ queryKey: [key] }));
 }
 const lrColumns = [
-  { key: 'lrNumber', label: 'LR number' }, { key: 'destination', label: 'Destination', render: (lr) => lr.lrDetails?.to || lr.destinationBranchId?.city || '-' }, { key: 'receiverName', label: 'Receiver' },
+  { key: 'lrNumber', label: 'LR number' }, { key: 'destination', label: 'Destination', render: (lr) => lrDestination(lr) || '-' }, { key: 'receiverName', label: 'Receiver' },
   { key: 'packageCount', label: 'Packages' }, { key: 'weightKg', label: 'Weight (kg)' },
 ];
 
@@ -32,7 +33,7 @@ function RouteSortingWorkspace() {
   const [selected, setSelected] = useState([]);
   const refresh = useRefresh();
   const available = useQuery({ queryKey: ['middle-mile-sorting-inventory', 'cities'], queryFn: () => allRows(middleMileApi.sortingInventory) });
-  const cities = [...new Set(rows(available).map((lr) => lr.lrDetails?.to || lr.destinationBranchId?.city).filter(Boolean))].sort();
+  const cities = [...new Map(rows(available).map(lrDestination).filter(Boolean).map((city) => [city.toLowerCase().replace(/\s+/g, ' '), city])).values()].sort((a, b) => a.localeCompare(b));
   const inventory = useQuery({ queryKey: ['middle-mile-sorting-inventory', destination, pincode], queryFn: () => allRows(middleMileApi.sortingInventory, { destination, ...(pincode && { destinationPincode: pincode }) }), enabled: Boolean(destination) && (!pincode || /^\d{6}$/.test(pincode)) });
   const batches = useQuery({ queryKey: ['middle-mile-sortings'], queryFn: () => allRows(middleMileApi.sortings) });
   const create = useMutation({ mutationFn: () => middleMileApi.sort({ destination, ...(pincode && { destinationPincode: pincode }), shipmentIds: selected }), onSuccess: (result) => { toast.success(`Sorting ${result.data.segregationNumber} saved. Create its loading tally next.`); setSelected([]); refresh(); }, onError: (error) => { toast.error(errorMessage(error)); inventory.refetch(); } });
@@ -167,7 +168,7 @@ function ManifestWorkspace() {
   return <>
     <PageHeader title="Manifest Creation" description="Select a loading tally and verify every loaded LR before submitting." />
     <section className="panel form-section">
-      {tallies.isError ? <ErrorState error={errorMessage(tallies.error)} retry={tallies.refetch} /> : <div className="form-grid"><label>Loading tally<select value={tallyId} onChange={(event) => { setTallyId(event.target.value); setVerified([]); setEWayUpdates({}); }}><option value="">Select loading tally</option>{rows(tallies).map((row) => <option key={idOf(row)} value={idOf(row)}>{row.tallyNumber} - {row.totalLrs} LRs</option>)}</select></label><label>Vendor from PRS<input aria-label="Vendor from PRS" value={detail.data?.data?.sourceVendor ? `${detail.data.data.sourceVendor.vendorCode} · ${detail.data.data.sourceVendor.name}` : detail.isPending ? 'Loading…' : 'Not available in source PRS'} readOnly /></label></div>}
+      {tallies.isError ? <ErrorState error={errorMessage(tallies.error)} retry={tallies.refetch} /> : <div className="form-grid"><label>Loading tally<select value={tallyId} onChange={(event) => { setTallyId(event.target.value); setVerified([]); setEWayUpdates({}); }}><option value="">Select loading tally</option>{rows(tallies).map((row) => <option key={idOf(row)} value={idOf(row)}>{row.tallyNumber} - {row.totalLrs} LRs</option>)}</select></label></div>}
       {tallyId && (detail.isPending ? <Loadingcrleleton /> : detail.isError ? <ErrorState error={errorMessage(detail.error)} retry={detail.refetch} /> : <DataTable rows={lrs} columns={[
         { key: 'verify', label: 'Loaded / verified', render: (lr) => <input type="checkbox" aria-label={`Verify ${lr.lrNumber}`} checked={verified.includes(idOf(lr))} onChange={(event) => setVerified((current) => event.target.checked ? [...current, idOf(lr)] : current.filter((value) => value !== idOf(lr)))} /> }, ...lrColumns,
         { key: 'declaredValue', label: 'Goods value (INR)', render: (lr) => lr.lrDetails?.declaredValue == null ? 'Not entered' : Number(lr.lrDetails.declaredValue).toLocaleString('en-IN') },
@@ -222,10 +223,10 @@ function TripWorkspace() {
   const routes = useQuery({ queryKey: ['master-options', 'ROUTE', 'trip-all'], queryFn: () => allRows((params) => masterOptionsApi.list('ROUTE', params)), enabled: open });
   const available = rows(manifests).filter((row) => row.workflowStatus === 'LOCKED' && !row.tripId);
   const destinations = [...new Set(available.map((row) => row.destination))];
-  const create = useMutation({ mutationFn: middleMileApi.trips.create, onSuccess: (result) => { toast.success(`Trip ${result.data.tripNumber} created. Print is available in the register.`); setOpen(false); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
+  const create = useMutation({ mutationFn: middleMileApi.trips.create, onSuccess: (result) => { toast.success(`Trip ${result.data.tripNumber} created and dispatched. Print is available in the register.`); setOpen(false); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
   const action = useMutation({ mutationFn: (row) => middleMileApi.dispatchTrip(idOf(row)), onSuccess: () => { toast.success('Trip dispatched'); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
   return <>
-    <PageHeader title="Middle Mile Trip Creation" description="Select MV/VV, destination city, trip route and manifest, then enter the seal number."><button className="btn" onClick={() => { setDestination(''); setOpen(true); }}>Create Trip</button></PageHeader>
+    <PageHeader title="Middle Mile Trip Creation" description="Select MV/VV, destination city, trip route and manifest, then enter the seal number. Saving creates and dispatches the trip."><button className="btn" onClick={() => { setDestination(''); setOpen(true); }}>Create Trip</button></PageHeader>
     <section className="panel">{query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={rows(query)} pagination={query.data?.pagination} onPage={setPage} columns={[
       { key: 'tripNumber', label: 'Trip' }, { key: 'destination', label: 'Destination' }, { key: 'vehicleNumber', label: 'Vehicle' }, { key: 'sealNumber', label: 'Seal number' },
       { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },

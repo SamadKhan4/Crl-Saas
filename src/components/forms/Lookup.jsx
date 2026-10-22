@@ -4,6 +4,15 @@ import { get, errorMessage } from '../../api/client';
 import { useDebounce } from '../../hooks/useList';
 import { idOf } from '../../lib/workflow';
 
+async function employeeOptions(search) {
+  const first = await get('/hr-employees', { search, limit: 100, page: 1 });
+  const data = [...first.data];
+  for (let page = 2; page <= (first.pagination?.pages || 1); page++) {
+    data.push(...(await get('/hr-employees', { search, limit: 100, page })).data);
+  }
+  return { ...first, data };
+}
+
 export default function Lookup({
   resource,
   value,
@@ -13,19 +22,20 @@ export default function Lookup({
   branchOptions = false,
   activeOnly = true,
   customerType,
+  employeeOnly = false,
 }) {
   const [search, setSearch] = useState('');
   const term = useDebounce(search);
   const query = useQuery({
-    queryKey: [resource, 'lookup', term, branchOptions, activeOnly],
+    queryKey: [resource, 'lookup', term, branchOptions, activeOnly, employeeOnly],
     queryFn: () =>
-      branchOptions
+      employeeOnly ? employeeOptions(term) : branchOptions
         ? get('/branches/options')
         : resource === 'vendors'
           ? get('/vendors/options', { search: term, limit: 100 })
         : resource === 'segregations'
           ? get('/segregations/options', { search: term, limit: 100 })
-        : get(`/${resource}`, {
+        : get(`/${employeeOnly ? "hr-employees" : resource}`, {
             search: term,
             ...(activeOnly && { status: 'ACTIVE' }),
             limit: 100,
@@ -54,6 +64,7 @@ export default function Lookup({
           {(query.data?.data || [])
             .filter(
               (item) =>
+                (!employeeOnly || item.role === 'EMPLOYEE') &&
                 (!customerType || item.customerType === customerType) &&
                 (!ownBranch || idOf(item) === ownBranch) &&
                 (!branchOptions ||
@@ -63,6 +74,7 @@ export default function Lookup({
             )
             .map((item) => {
               const rawCode =
+                item.employeeCode ||
                 item.customerCode ||
                 item.branchCode ||
                 item.vendorCode ||
@@ -85,6 +97,7 @@ export default function Lookup({
             })}
         </select>
       </label>
+      {employeeOnly && query.data?.pagination && <small>{query.data.pagination.total} employees (including employees without login)</small>}
       {query.isPending && <small>Loading choices…</small>}
       {query.isError && (
         <small role="alert" className="field-error">
