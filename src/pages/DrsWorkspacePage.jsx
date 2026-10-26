@@ -131,12 +131,12 @@ export default function DrsWorkspacePage() {
                     </span>
                   </div>
                   {!attempted ? (
-                    <div className="tms-epod-fields drs-outcome-fields">
+                    <div className="drs-outcome-fields">
                       <label>Delivery status<select aria-label={`Delivery status for ${shipment.lrNumber}`} value={outcomes[idOf(shipment)] || ''} disabled={action.isPending || drs.status !== 'OPEN'} onChange={(event) => setOutcomes((current) => ({ ...current, [idOf(shipment)]: event.target.value }))}>
                         <option value="">Select status</option><option value="DELIVERED">Delivered</option><option value="UNDELIVERED">Undelivered</option>
                       </select></label>
                       {outcomes[idOf(shipment)] === 'UNDELIVERED' && <label className="drs-failure-reason">Reason for undelivered *<textarea aria-label={`Undelivered reason for ${shipment.lrNumber}`} placeholder="Why could this LR not be delivered?" required maxLength={300} value={failures[idOf(shipment)] || ''} onChange={(event) => setFailures((current) => ({ ...current, [idOf(shipment)]: event.target.value }))} /></label>}
-                      <button className="btn secondary" disabled={action.isPending || drs.status !== 'OPEN' || !outcomes[idOf(shipment)] || (outcomes[idOf(shipment)] === 'UNDELIVERED' && !failures[idOf(shipment)]?.trim())} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: outcomes[idOf(shipment)] })}>Save status</button>
+                      <button className="btn drs-save-outcome" disabled={action.isPending || drs.status !== 'OPEN' || !outcomes[idOf(shipment)] || (outcomes[idOf(shipment)] === 'UNDELIVERED' && !failures[idOf(shipment)]?.trim())} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: outcomes[idOf(shipment)] })}>Save status</button>
                     </div>
                   ) : done ? (
                     <StatusBadge status="POD_UPLOADED" />
