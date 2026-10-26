@@ -102,6 +102,7 @@ export default function App() {
                 {role !== 'EMPLOYEE' && (
                   <>
                     <Route path="customers" element={<Management />} />
+                    <Route path="branches" element={<Management />} />
                     <Route path="customers/:id" element={<CustomerDetail />} />
                     <Route path="fleet" element={<TmsModule />} />
                     <Route path="drivers" element={<TmsModule />} />

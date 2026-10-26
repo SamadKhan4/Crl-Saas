@@ -354,7 +354,7 @@ describe('Manager workspace', () => {
     expect(screen.getByRole('link', { name: 'User Permission' })).toHaveAttribute('href', '/manager/permissions');
     expect(screen.getByRole('link', { name: 'Vendor Master' })).toHaveAttribute('href', '/manager/vendors');
     expect(screen.queryByRole('link', { name: 'Manager Master' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Branches' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Branch Master' })).toHaveAttribute('href', '/manager/branches');
     const commercial = screen.getByRole('button', { name: 'Commercial' });
     expect(commercial).toHaveAttribute('aria-expanded', 'false');
     await userEvent.click(commercial);
@@ -529,5 +529,30 @@ describe('Vendor invoice print layout', () => {
     expect(container.querySelectorAll('.invoice-table')).toHaveLength(0);
     expect(screen.getByText('Page 4 of 4')).toBeInTheDocument();
     expect(screen.getByRole('rowheader', { name: 'Net payable' }).parentElement).toHaveTextContent('3,200.00');
+  });
+});
+
+
+describe('Restored Branch Master', () => {
+  const branch = { _id: origin, branchCode: 'NGP', name: 'Nagpur Branch', city: 'Nagpur', state: 'Maharashtra', status: 'ACTIVE' };
+  it('lets admins edit an existing branch', async () => {
+    vi.spyOn(api, 'get').mockResolvedValue({ data: { success: true, data: [branch], pagination: { page: 1, pages: 1, total: 1, limit: 20 } } });
+    const update = vi.spyOn(api, 'put').mockResolvedValue(result(branch));
+    mount(<ManagementPage />, { user: admin, path: '/admin/branches' });
+    expect(await screen.findByText('Nagpur Branch')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add branch' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const name = screen.getByLabelText('Branch name');
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Nagpur Main Branch');
+    await userEvent.click(screen.getByRole('button', { name: 'Save branch' }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith(`/branches/${origin}`, expect.objectContaining({ name: 'Nagpur Main Branch', branchCode: 'NGP' })));
+  });
+  it('lets managers view branches without offering unauthorized edits', async () => {
+    vi.spyOn(api, 'get').mockResolvedValue({ data: { success: true, data: [branch], pagination: { page: 1, pages: 1, total: 1, limit: 20 } } });
+    mount(<ManagementPage />, { user: branchManager, path: '/manager/branches' });
+    expect(await screen.findByText('Nagpur Branch')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add branch' })).not.toBeInTheDocument();
   });
 });

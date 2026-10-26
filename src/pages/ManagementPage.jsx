@@ -60,7 +60,7 @@ const configs = {
     ],
   },
   branches: {
-    title: 'Branches',
+    title: 'Branch Master',
     singular: 'branch',
     schema: branchSchema,
     fields: [
@@ -98,11 +98,12 @@ export default function ManagementPage() {
 }
 function Management({ resource }) {
   const { user } = useAuth();
+  const canEdit = resource !== 'branches' || user.role === 'ADMIN';
   const config = configs[resource],
     service = resourceApi(resource);
   const { query, filters, update, clear, sort } = useList(resource, service);
   const [search, setSearch] = useSearchParams();
-  const [editor, setEditor] = useState(search.get('create') ? {} : null),
+  const [editor, setEditor] = useState(search.get('create') && canEdit ? {} : null),
     [action, setAction] = useState(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
@@ -160,7 +161,7 @@ function Management({ resource }) {
     {
       key: 'actions',
       label: 'Actions',
-      render: (r) => (
+      render: (r) => canEdit ? (
         <div className="row-actions">
           <button className="text-btn" onClick={() => setEditor(r)}>
             Edit
@@ -187,7 +188,7 @@ function Management({ resource }) {
             </button>
           )}
         </div>
-      ),
+      ) : <span className="muted">View only</span>,
     },
   ];
   async function confirm() {
@@ -205,6 +206,7 @@ function Management({ resource }) {
           action.row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
         );
       cache.invalidateQueries({ queryKey: [resource] });
+      if (resource === 'branches') cache.invalidateQueries({ predicate: (query) => query.queryKey.some((key) => typeof key === 'string' && key.includes('branch')) });
       toast.success('Record updated');
       setAction(null);
       setPassword('');
@@ -220,7 +222,7 @@ function Management({ resource }) {
         title={config.title}
         description={`Manage your ${config.singular} directory and keep operations connected.`}
       >
-        {!(resource === 'users' && user.role === 'MANAGER') && (
+        {canEdit && !(resource === 'users' && user.role === 'MANAGER') && (
           <button className="btn" onClick={() => setEditor({})}>
             <Plus size={17} /> Add {config.singular}
           </button>
@@ -347,6 +349,7 @@ function Editor({ resource, config, record, onClose }) {
       if (editing) await api.update(idOf(record), values);
       else await api.create(values);
       cache.invalidateQueries({ queryKey: [resource] });
+      if (resource === 'branches') cache.invalidateQueries({ predicate: (query) => query.queryKey.some((key) => typeof key === 'string' && key.includes('branch')) });
       toast.success(`${config.title} ${editing ? 'updated' : 'created'}`);
       onClose();
     } catch (e) {

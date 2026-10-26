@@ -112,6 +112,7 @@ export default function AppLayout() {
   const masterItems = admin || manager
     ? [
         ['customers', 'Customer Master', Users],
+        ['branches', 'Branch Master', Building2],
         ['routes', 'Route Master', Route],
         ['locations', 'Location Master', MapPinned],
         ['fleet', 'Vehicle Master', Truck],
