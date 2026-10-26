@@ -4229,3 +4229,10 @@ dialog:has(.vendor-editor) { max-width: 880px; }
 .vendor-invoice-signatures span { border-top: 1px solid #5d6470; padding-top: 6px; }
 .vendor-page-footer { position: absolute; bottom: 8mm; left: 10mm; right: 10mm; display: flex; justify-content: space-between; border-top: 1px solid #d1d5db; padding-top: 6px; font-size: 9px; color: #556170; }
 @media print { .vendor-work-table tr, .vendor-totals-table tr, .vendor-invoice-signatures { break-inside: avoid; } .vendor-work-table thead { display: table-header-group; } }
+
+.drs-lr-picker { position: relative; display: grid; gap: 8px; }
+.drs-lr-options { max-height: 260px; overflow-y: auto; border: 1px solid #dce4ef; border-radius: 8px; padding: 8px; background: #fff; }
+.drs-lr-options > button[role="option"] { display: block; width: 100%; padding: 10px; border: 0; border-radius: 4px; background: transparent; text-align: left; cursor: pointer; color: inherit; }
+.drs-lr-options > button[aria-selected="true"] { background: #eaf2ff; }
+.drs-lr-options > button:hover { background: #f2f6fa; }
+.drs-selected-lrs { display: flex; flex-wrap: wrap; gap: 8px; }

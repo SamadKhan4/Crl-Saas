@@ -45,7 +45,7 @@ export default function DrsClosurePage() {
                   <span>
                     <b>{drs.drsNumber}</b>
                     <small>
-                      {drs.route} · {date(drs.deliveryDate)} · POD {uploaded}/{total}
+                      {drs.branchId?.name || "Delivery run"} · {date(drs.deliveryDate)} · POD {uploaded}/{total}
                     </small>
                   </span>
                 </div>

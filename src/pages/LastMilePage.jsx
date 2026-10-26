@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import DeliveryRouteField from '../components/tms/DeliveryRouteField';
-import { DeliveryManifestSheet } from '../components/tms/TransportPrintLayouts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { ClipboardCheck, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { errorMessage } from '../api/client';
-import { lastMileApi, middleMileApi, usersApi } from '../api/services';
+import { lastMileApi, middleMileApi, vendorOptionsApi, branchOptionsApi } from '../api/services';
 import { useAuth } from '../features/auth/AuthContext';
 import { idOf } from '../lib/workflow';
 import { DataTable, ErrorState, Loadingcrleleton, Modal, PageHeader, StatusBadge } from '../components/common/UI';
@@ -62,7 +60,7 @@ function Tallies() {
   const refresh = () => { cache.invalidateQueries({ queryKey: ['unloading-tallies'] }); cache.invalidateQueries({ queryKey: ['unloading-tally'] }); cache.invalidateQueries({ queryKey: ['last-mile-arrivals'] }); cache.invalidateQueries({ queryKey: ['last-mile-drs-inventory'] }); cache.invalidateQueries({ queryKey: ['last-mile-drs-manifests'] }); };
   const action = useMutation({
     mutationFn: ({ type, tally, payload }) => type === 'complete' ? lastMileApi.completeTally(idOf(tally), payload) : type === 'qc' ? lastMileApi.updateQc(idOf(tally), payload.shipmentId, payload.body) : lastMileApi.inward(idOf(tally), payload),
-    onSuccess: (_data, variables) => { toast.success({ complete: 'Trip closed; QC is pending', qc: 'QC / DEPS saved', inward: 'QC submitted; LRs ready for DRS creation' }[variables.type]); if (variables.type === 'inward') setSelected(null); refresh(); },
+    onSuccess: (_data, variables) => { toast.success({ complete: 'Trip closed; LRs available for DRS', qc: 'QC / DEPS saved', inward: 'QC submitted; LRs ready for DRS creation' }[variables.type]); if (['complete', 'inward'].includes(variables.type)) setSelected(null); refresh(); },
     onError: (error) => toast.error(errorMessage(error)),
   });
   const statusAllowed = (row) => ['UNLOADING', 'QC_PENDING', 'READY_FOR_INWARD'].includes(row.status);
@@ -136,40 +134,81 @@ function QcRow({ item, pending, onSave }) {
     </form></article>;
 }
 
+const vendorTypes = [{ value: 'MV', label: 'Market Vehicle (MV)' }, { value: 'VV', label: 'Vendor Vehicle (VV)' }];
+
 function DrsPreparation({ active = false }) {
-  const { user } = useAuth(); const base = `/${user.role.toLowerCase()}`; const cache = useQueryClient(); const [open, setOpen] = useState(false); const [manifestId, setManifestId] = useState('');
-  const manifests = useQuery({ queryKey: ['last-mile-drs-manifests'], queryFn: () => lastMileApi.drsManifests({ limit: 100 }), enabled: !active && open });
+  const { user } = useAuth();
+  const base = `/${user.role.toLowerCase()}`;
+  const cache = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [branchId, setBranchId] = useState(idOf(user.branchId) || '');
+  const [vendorType, setVendorType] = useState('');
+  const [vendorId, setVendorId] = useState('');
+  const [vehicleNumber, setVehicleNumber] = useState('');
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const branches = useQuery({ queryKey: ['drs-branch-options'], queryFn: () => branchOptionsApi.list(), enabled: open });
+  const vendors = useQuery({ queryKey: ['drs-vendor-options'], queryFn: () => vendorOptionsApi.list(), enabled: open });
+  const inventory = useQuery({ queryKey: ['last-mile-drs-inventory', branchId, search], queryFn: () => lastMileApi.inventory({ branchId, search: search || undefined, limit: 100 }), enabled: open && Boolean(branchId) });
   const drs = useQuery({ queryKey: ['last-mile-drs', active], queryFn: () => lastMileApi.drs.list({ limit: 100 }) });
-  const users = useQuery({ queryKey: ['delivery-agent-options'], queryFn: () => usersApi.list({ limit: 100, status: 'ACTIVE' }) });
-  const refresh = () => { cache.invalidateQueries({ queryKey: ['last-mile-drs'] }); cache.invalidateQueries({ queryKey: ['last-mile-drs-inventory'] }); cache.invalidateQueries({ queryKey: ['last-mile-drs-manifests'] }); };
+  const reset = () => { setOpen(false); setVendorType(''); setVendorId(''); setVehicleNumber(''); setSelected([]); setSearch(''); setPickerOpen(false); };
   const action = useMutation({
-    mutationFn: ({ body }) => lastMileApi.drs.create(body),
-    onSuccess: () => { toast.success('DRS created ? ready for POD closure'); setOpen(false); setManifestId(''); refresh(); },
+    mutationFn: (body) => lastMileApi.drs.create(body),
+    onSuccess: () => { toast.success('DRS created. Upload POD in DRS Closure.'); reset(); cache.invalidateQueries({ queryKey: ['last-mile-drs'] }); cache.invalidateQueries({ queryKey: ['drs'] }); cache.invalidateQueries({ queryKey: ['last-mile-drs-inventory'] }); },
     onError: (error) => toast.error(errorMessage(error)),
   });
-  const drsRows = rows(drs).filter((row) => row.status === 'OPEN');
-  const selectedManifest = rows(manifests).find((manifest) => idOf(manifest) === manifestId);
-  const selectedShipmentIds = selectedManifest?.shipmentIds?.map(idOf) || [];
-  const sourceTrip = selectedManifest?.tripId;
-  const sourceVehicle = sourceTrip?.vehicleNumber || selectedManifest?.vehicleNumber || '';
-  const sourceDriver = sourceTrip?.driverName || selectedManifest?.deliveryAgent || '';
-  const sourceDriverMobile = sourceTrip?.driverMobile || '';
-  const sourceRoute = selectedManifest?.routeId?.name || selectedManifest?.destination || '';
-  const sourceVendor = selectedManifest?.vendorId || sourceTrip?.vendorId;
+  const selectedVendor = rows(vendors).find((row) => idOf(row) === vendorId);
+  const mappedVehicles = (vendorType === 'MV' ? (selectedVendor?.marketVehicles?.length ? selectedVendor.marketVehicles : selectedVendor?.vendorType === 'MARKET' ? selectedVendor.vehicles : []) : selectedVendor?.vehicles) || [];
+  const availableVehicles = mappedVehicles.filter((vehicle) => vehicle.status !== 'INACTIVE');
+  const selectedVehicle = availableVehicles.find((vehicle) => vehicle.vehicleNumber === vehicleNumber) || availableVehicles[0];
   const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-  const save = (event) => { event.preventDefault(); const form = new FormData(event.currentTarget); action.mutate({ type: 'create', body: { manifestId, shipmentIds: selectedShipmentIds, vehicleNumber: form.get('vehicleNumber'), driverName: form.get('driverName'), driverMobile: form.get('driverMobile') || undefined, deliveryAgentId: form.get('deliveryAgentId') || undefined, deliveryDate: form.get('deliveryDate'), route: form.get('route'), partB: [], remarks: form.get('remarks') || undefined } }); };
-  return <><PageHeader title={active ? 'Delivery Attempts' : 'DRS Preparation'} description={active ? 'Record delivery outcomes, upload POD and return failed LRs for reattempt.' : 'Create a DRS, complete the POD closure checklist, upload PODs and close the run.'}>{!active && <button className="btn" onClick={() => setOpen(true)}><Truck size={17} /> Create DRS</button>}</PageHeader>
-    <section className="panel">{drs.isPending ? <Loadingcrleleton /> : drs.isError ? <ErrorState error={errorMessage(drs.error)} retry={drs.refetch} /> : <DataTable rows={drsRows} empty={active ? 'No active delivery runs' : 'No open DRS'} columns={[
-      { key: 'number', label: 'DRS', render: (row) => row.drsNumber }, { key: 'manifest', label: 'Manifest', render: (row) => row.manifestId?.manifestNumber || '—' }, { key: 'vendor', label: 'Vendor', render: (row) => row.vendorId?.vendorCode || '—' }, { key: 'vehicle', label: 'Vehicle / Driver', render: (row) => `${row.vehicleNumber} / ${row.driverName}` }, { key: 'route', label: 'Route' }, { key: 'lrs', label: 'LRs', render: (row) => row.shipmentIds?.length || 0 }, { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
-      { key: 'action', label: 'Actions', render: (row) => <div className="actions"><Link className="btn secondary" to={`${base}/drs/${idOf(row)}`}>POD Closure Checklist</Link></div> },
+  const save = (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    action.mutate({ branchId, vehicleSource: vendorType, vendorId, shipmentIds: selected.map(idOf), vehicleNumber: form.get('vehicleNumber'), driverName: form.get('driverName'), driverMobile: form.get('driverMobile') || undefined, deliveryDate: form.get('deliveryDate'), partB: [], remarks: form.get('remarks') || undefined });
+  };
+  const branchLocked = user.role === 'EMPLOYEE' && Array.isArray(user.operationStages);
+  return <><PageHeader title={active ? 'Delivery Attempts' : 'DRS Preparation'} description="Select a vendor and undelivered branch LRs to create a delivery run. Complete POD upload separately in DRS Closure.">
+    {!active && <button className="btn" onClick={() => setOpen(true)}><Truck size={17} /> Create DRS</button>}
+    <Link className="btn secondary" to={`${base}/drs-closure`}>DRS Closure</Link>
+  </PageHeader>
+    <section className="panel">{drs.isPending ? <Loadingcrleleton /> : drs.isError ? <ErrorState error={errorMessage(drs.error)} retry={drs.refetch} /> : <DataTable rows={rows(drs).filter((row) => row.status === 'OPEN')} empty="No open DRS" columns={[
+      { key: 'number', label: 'DRS', render: (row) => row.drsNumber },
+      { key: 'branch', label: 'Branch', render: (row) => row.branchId?.name || '-' },
+      { key: 'vendor', label: 'Vendor', render: (row) => row.vendorId?.name || row.vendorId?.vendorCode || '-' },
+      { key: 'vehicle', label: 'Vehicle / Driver', render: (row) => `${row.vehicleNumber} / ${row.driverName}` },
+      { key: 'lrs', label: 'LRs', render: (row) => row.shipmentIds?.length || 0 },
+      { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
+      { key: 'action', label: 'Actions', render: (row) => <div className="actions"><Link className="btn secondary" to={`${base}/drs/${idOf(row)}`}>View</Link><Link className="btn secondary" to={`${base}/drs/${idOf(row)}`} state={{ from: 'closure' }}>POD Closure Checklist</Link></div> },
     ]} />}</section>
-    {open && <Modal title="Create Delivery Run Sheet" onClose={() => { setOpen(false); setManifestId(''); }}><form className="drs-manifest-create" onSubmit={save}>
-      <div className="drs-manifest-picker"><label>Delivery Manifest *<select value={manifestId} onChange={(event) => setManifestId(event.target.value)} required><option value="">{manifests.isPending ? 'Loading eligible manifests…' : 'Select manifest'}</option>{rows(manifests).map((manifest) => <option key={idOf(manifest)} value={idOf(manifest)}>{manifest.manifestNumber} · {manifest.destination} · {manifest.shipmentIds?.length || 0} LRs</option>)}</select></label>{manifests.isError && <ErrorState error={errorMessage(manifests.error)} retry={manifests.refetch} />}{manifests.isSuccess && !rows(manifests).length && <p>No eligible manifest found. Complete Trip Closure and submit QC first.</p>}</div>
-      {selectedManifest && <div key={manifestId} className="drs-manifest-content">
-        <div className="drs-manifest-preview"><DeliveryManifestSheet record={{ ...selectedManifest, vehicleNumber: sourceVehicle, deliveryAgent: sourceDriver }} kind="manifest" /></div>
-        <div className="form-grid drs-manifest-fields"><label>Vendor from PRS<input aria-label="DRS vendor from PRS" value={sourceVendor ? `${sourceVendor.vendorCode} · ${sourceVendor.name}` : 'Not available in source PRS'} readOnly /></label><label>Vehicle Number<input name="vehicleNumber" required defaultValue={sourceVehicle} /></label><label>Driver Name<input name="driverName" required defaultValue={sourceDriver} /></label><label>Driver Mobile<input name="driverMobile" defaultValue={sourceDriverMobile} /></label><label>Delivery Agent<select name="deliveryAgentId"><option value="">Vehicle / external driver</option>{rows(users).map((row) => <option key={idOf(row)} value={idOf(row)}>{row.name} - {row.employeeCode || row.role}</option>)}</select><small>Assign any active employee, or keep the manifest driver.</small></label><label>Delivery Date<input name="deliveryDate" type="date" required defaultValue={today} /></label><DeliveryRouteField initialValue={sourceRoute} /><label className="full-span">Remarks<textarea name="remarks" /></label></div>
-      </div>}
-      <div className="modal-footer"><button type="button" className="btn secondary" onClick={() => { setOpen(false); setManifestId(''); }}>Cancel</button><button className="btn" disabled={!selectedShipmentIds.length || !sourceVendor || action.isPending}>{busyLabel(action.isPending, 'Create DRS')}</button></div>
+    {open && <Modal title="Create Delivery Run Sheet" onClose={reset}><form className="drs-manifest-create" onSubmit={save}>
+      <div className="form-grid drs-manifest-fields">
+        <label>Branch *<select aria-label="Branch" value={branchId} required disabled={branchLocked} onChange={(event) => { setBranchId(event.target.value); setSelected([]); setSearch(''); }}><option value="">Select branch</option>{rows(branches).map((row) => <option key={idOf(row)} value={idOf(row)}>{row.name}</option>)}</select></label>
+        <label>Vendor type *<select aria-label="Vendor type" value={vendorType} required onChange={(event) => { setVendorType(event.target.value); setVendorId(''); setVehicleNumber(''); }}><option value="">Select vendor type</option>{vendorTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></label>
+        <label>Vendor *<select aria-label="Vendor" value={vendorId} required disabled={!vendorType} onChange={(event) => { setVendorId(event.target.value); setVehicleNumber(''); }}><option value="">Select vendor</option>{rows(vendors).filter((row) => vendorType === 'MV' ? row.vendorType === 'MARKET' || row.hasMarketVehicles : row.vendorType !== 'MARKET').map((row) => <option key={idOf(row)} value={idOf(row)}>{row.vendorCode} - {row.name}</option>)}</select></label>
+        <div className="full-span drs-lr-picker">
+          <label htmlFor="drs-lr-search">Undelivered LRs *</label>
+          <input id="drs-lr-search" role="combobox" aria-expanded={pickerOpen} aria-controls="drs-lr-options" aria-autocomplete="list" disabled={!branchId || !vendorId} placeholder="Search LR number, receiver or mobile" value={search} onFocus={() => setPickerOpen(true)} onChange={(event) => { setSearch(event.target.value); setPickerOpen(true); }} />
+          {pickerOpen && branchId && vendorId && <div className="drs-lr-options" id="drs-lr-options" role="listbox" aria-label="Available LRs" aria-multiselectable="true">
+            {inventory.isPending ? <p>Loading LRs...</p> : inventory.isError ? <ErrorState error={errorMessage(inventory.error)} retry={inventory.refetch} /> : rows(inventory).length ? rows(inventory).map((lr) => {
+              const checked = selected.some((row) => idOf(row) === idOf(lr));
+              return <button type="button" role="option" aria-selected={checked} key={idOf(lr)} onClick={() => setSelected((current) => checked ? current.filter((row) => idOf(row) !== idOf(lr)) : [...current, lr])}>{checked ? '[Selected] ' : ''}{lr.lrNumber} - {lr.receiverName} - {lr.packageCount} boxes</button>;
+            }) : <p>No undelivered LRs available at this branch.</p>}
+            <button type="button" className="text-btn" onClick={() => setPickerOpen(false)}>Done selecting</button>
+          </div>}
+          <div className="drs-selected-lrs">{selected.map((lr) => <button type="button" className="btn secondary" key={idOf(lr)} onClick={() => setSelected((current) => current.filter((row) => idOf(row) !== idOf(lr)))} aria-label={`Remove ${lr.lrNumber}`}>{lr.lrNumber} x</button>)}</div>
+          <small>{selected.length} LRs selected. Only received, unassigned LRs from this branch are shown.</small>
+        </div>
+        <label>Vehicle Number<select name="vehicleNumber" required value={selectedVehicle?.vehicleNumber || ''} onChange={(event) => setVehicleNumber(event.target.value)} disabled={!vendorId}><option value="">Select mapped vehicle</option>{availableVehicles.map((vehicle) => <option key={vehicle.vehicleNumber} value={vehicle.vehicleNumber}>{vehicle.vehicleNumber}{vehicle.vehicleType ? ` - ${vehicle.vehicleType}` : ''}</option>)}</select>{vendorId && !availableVehicles.length && <small>No active vehicles mapped to this vendor. Update the vendor vehicle mapping first.</small>}</label>
+        <label>Driver Name<input name="driverName" required readOnly value={selectedVehicle?.driverName || ''} placeholder="From selected vehicle" />{selectedVehicle && !selectedVehicle.driverName && <small>Add a driver to this vehicle in Vendor Master.</small>}</label>
+        <label>Driver Mobile<input name="driverMobile" readOnly value={selectedVehicle?.driverMobile || ''} placeholder="From selected vehicle" /></label>
+        <label>Delivery Date<input name="deliveryDate" type="date" required defaultValue={today} /></label>
+        <label className="full-span">Remarks<textarea name="remarks" /></label>
+      </div>
+      {branches.isError && <ErrorState error={errorMessage(branches.error)} retry={branches.refetch} />}
+      {vendors.isError && <ErrorState error={errorMessage(vendors.error)} retry={vendors.refetch} />}
+      <div className="modal-footer"><button type="button" className="btn secondary" onClick={reset}>Cancel</button><button className="btn" disabled={!branchId || !vendorId || !selected.length || !selectedVehicle?.driverName || action.isPending}>{busyLabel(action.isPending, 'Create DRS')}</button></div>
     </form></Modal>}
   </>;
 }

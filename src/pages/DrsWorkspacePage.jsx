@@ -35,6 +35,7 @@ export default function DrsWorkspacePage() {
     cache.invalidateQueries({ queryKey: ['drs', id] });
     cache.invalidateQueries({ queryKey: ['drs'] });
     cache.invalidateQueries({ queryKey: ['last-mile-drs'] });
+    cache.invalidateQueries({ queryKey: ['last-mile-drs-inventory'] });
   };
   const action = useMutation({
     mutationFn: async ({ type, shipment, outcome }) => {
@@ -84,13 +85,13 @@ export default function DrsWorkspacePage() {
   const drs = query.data.data;
   const uploaded = new Set((drs.podShipmentIds || []).map(idOf));
   const itemByShipment = new Map((drs.items || []).map((item) => [idOf(item.shipmentId), item]));
-  const attemptsComplete = drs.shipmentIds?.length > 0 && drs.shipmentIds.every((shipment) => itemByShipment.get(idOf(shipment))?.attemptStatus !== 'PENDING');
+  const attemptsComplete = drs.shipmentIds?.length > 0 && drs.shipmentIds.every((shipment) => itemByShipment.get(idOf(shipment))?.attemptStatus && itemByShipment.get(idOf(shipment))?.attemptStatus !== 'PENDING');
   const complete = attemptsComplete && drs.shipmentIds.every((shipment) => itemByShipment.get(idOf(shipment))?.attemptStatus !== 'DELIVERED' || uploaded.has(idOf(shipment)));
   const base = `/${user.role.toLowerCase()}`;
   const canClose = ['ADMIN', 'MANAGER'].includes(user.role);
   return (
     <>
-      <PageHeader title={drs.drsNumber} description={`${drs.route} · ${date(drs.deliveryDate)}`}>
+      <PageHeader title={drs.drsNumber} description={`${drs.branchId?.name || "Delivery run"} · ${date(drs.deliveryDate)}`}>
         <Link className="btn secondary" to={`${base}/${location.state?.from === 'closure' ? 'drs-closure' : 'drs'}`}>
           Back to {location.state?.from === 'closure' ? 'DRS closure' : 'DRS'}
         </Link>
