@@ -20,21 +20,27 @@ export function UnloadingTallySheet({ trip }) {
       ['Vehicle / type', [trip.vehicleNumber, trip.vehicleType, trip.vehicleSource].filter(Boolean).join(' / ')],
       ['Driver / mobile', [trip.driverName, trip.driverMobile].filter(Boolean).join(' / ')],
       ['Seal number', trip.sealNumber],
-      ['Vendor / code', [vendor.name, vendor.vendorCode, vendor.vendorType].filter(Boolean).join(' / ') || 'Market vehicle - vendor not recorded'],
-      ['Vendor contact', [vendor.contactPerson || vendor.ownerName, vendor.mobile, vendor.email].filter(Boolean).join(' / ')],
-      ['Vendor address / GST', [vendor.address, vendor.city, vendor.state, vendor.gstNumber].filter(Boolean).join(', ')],
       ['Departure', date(trip.dispatchedAt || trip.departureDate)],
       ['Arrival', date(trip.arrivedAt)],
       ['Totals', `${shipments.length} LRs / ${shipments.reduce((sum, lr) => sum + Number(lr.packageCount || 0), 0)} packages / ${Number(trip.totalWeightKg || 0)} kg`],
     ].map(([label, value]) => <div key={label}><small>{label}</small><b>{value || '-'}</b></div>)}</section>
-    <p>Count and inspect packages physically. Enter received, short, excess and damaged quantities; add LR-wise remarks and sign after verification.</p>
+    <section className="unloading-vendor-details">
+      <div><small>Vendor / code</small><b>{[vendor.name, vendor.vendorCode, vendor.vendorType].filter(Boolean).join(' / ') || 'Market vehicle - vendor not recorded'}</b></div>
+      <div><small>Vendor contact</small><b>{[vendor.contactPerson || vendor.ownerName, vendor.mobile, vendor.email].filter(Boolean).join(' / ') || '-'}</b></div>
+      {vendor.gstNumber && <div className="unloading-vendor-address"><small>GST number</small><span>{vendor.gstNumber}</span></div>}
+    </section>
+    <div className="unloading-section-title"><h3>LR-wise physical verification</h3><span>Fill in during unloading</span></div>
+    <p className="unloading-instructions">Count packages and check their condition. Record discrepancies and sign against each LR.</p>
     <table className="tally-lr-table unloading-receipt-table">
-      <colgroup>{[15, 22, 7, 7, 6, 6, 7, 20, 10].map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>
+      <colgroup>{[15, 22, 6, 7, 6, 6, 7, 19, 12].map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>
       <thead><tr><th>LR number</th><th>Parties / goods</th><th>Pkgs</th><th>Recv.</th><th>Short</th><th>Extra</th><th>Dmg.</th><th>Remarks / condition</th><th>Verified / sign</th></tr></thead>
       <tbody>{manifests.map((manifest) => <ManifestReceiptRows key={idOf(manifest) || manifest.manifestNumber} manifest={manifest} />)}</tbody>
       <tfoot><tr><td colSpan={2}>Total expected packages</td><td>{shipments.reduce((sum, lr) => sum + Number(lr.packageCount || 0), 0)}</td><td /><td /><td /><td /><td colSpan={2}>Received count verified: __________</td></tr></tfoot>
     </table>
-    <div className="unloading-verification-notes"><b>Unloading date / time: ____________________ &nbsp; Bay / location: ____________________</b><p>Seal condition / overall remarks: __________________________________________________________</p><p>____________________________________________________________________________________</p></div>
+    <section className="unloading-verification-notes">
+      <div className="unloading-receipt-fields"><div><span>Unloading date / time</span><div className="unloading-write-line" /></div><div><span>Bay / location</span><div className="unloading-write-line" /></div></div>
+      <div className="unloading-remarks-box"><span>Seal condition / overall remarks</span><div className="unloading-write-line" /><div className="unloading-write-line" /></div>
+    </section>
     <footer className="tally-signatures"><div><span>Unloaded / counted by</span><b>Name / signature</b></div><div><span>Verified / received by</span><b>Name / signature</b></div><div><span>Driver acknowledgement</span><b>Name / signature</b></div></footer>
   </div>;
 }

@@ -18,7 +18,7 @@ function Arrivals() {
   const cache = useQueryClient();
   const [document, setDocument] = useState(null);
   const query = useQuery({ queryKey: ['last-mile-pending-arrivals'], queryFn: async () => {
-    const results = await Promise.all(['DISPATCHED', 'ARRIVED'].map((status) => middleMileApi.trips.list({ status, limit: 100 })));
+    const results = await Promise.all(['DISPATCHED', 'ARRIVED', 'CLOSED'].map((status) => middleMileApi.trips.list({ status, limit: 100 })));
     return { data: [...new Map(results.flatMap((result) => result.data || []).map((trip) => [idOf(trip), trip])).values()] };
   } });
   const arrive = useMutation({
@@ -26,15 +26,22 @@ function Arrivals() {
     onSuccess: () => { toast.success('Trip marked arrived'); cache.invalidateQueries({ queryKey: ['last-mile-pending-arrivals'] }); cache.invalidateQueries({ queryKey: ['last-mile-arrivals'] }); cache.invalidateQueries({ queryKey: ['middle-mile-trips'] }); },
     onError: (error) => toast.error(errorMessage(error)),
   });
-  return <><PageHeader title="Trip Arrival" description="Mark dispatched Middle Mile trips as arrived at the destination hub." />
-    <section className="panel">{query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={rows(query).filter((row) => ['DISPATCHED', 'ARRIVED'].includes(row.status))} empty="No dispatched or arrived trips" columns={[
+  const columns = [
       { key: 'trip', label: 'Trip', render: (row) => row.tripNumber },
       { key: 'vehicle', label: 'Vehicle / Driver', render: (row) => `${row.vehicleNumber} / ${row.driverName}` },
       { key: 'from', label: 'Movement', render: (row) => `${row.fromHubId?.name || row.origin} → ${row.toHubId?.name || row.destination}` },
       { key: 'lrs', label: 'LRs / Boxes', render: (row) => `${row.shipmentIds?.length || 0} / ${row.totalPackages || 0}` },
       { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
-      { key: 'action', label: 'Action', render: (row) => <div className="actions"><button className="btn secondary" disabled={arrive.isPending || row.status === 'ARRIVED'} onClick={() => arrive.mutate(idOf(row))}>{row.status === 'ARRIVED' ? 'Arrived' : 'Mark Arrived'}</button><button className="btn secondary" onClick={() => setDocument({ tripId: idOf(row) })}>View</button><button className="btn secondary" onClick={() => setDocument({ tripId: idOf(row), autoPrint: true })}>Print Unloading Tally</button></div> },
-    ]} />}</section>{document && <UnloadingTallyDocument {...document} onClose={() => setDocument(null)} />}</>;
+      { key: 'action', label: 'Action', render: (row) => <div className="actions">{row.status === 'DISPATCHED' && <button className="btn secondary" disabled={arrive.isPending} onClick={() => arrive.mutate(idOf(row))}>Mark Arrived</button>}<button className="btn secondary" onClick={() => setDocument({ tripId: idOf(row) })}>View</button><button className="btn secondary" onClick={() => setDocument({ tripId: idOf(row), autoPrint: true })}>Print Unloading Tally</button></div> },
+    ];
+  return <><PageHeader title="Trip Arrival" description="Mark dispatched Middle Mile trips as arrived at the destination hub." />
+    {[{ status: 'DISPATCHED', title: 'Pending Arrivals', empty: 'No dispatched trips pending arrival' }, { status: 'ARRIVED', title: 'Arrived Trips', empty: 'No arrived trips' }].map(({ status, title, empty }) => <section className="panel" key={status} aria-label={title}>
+      <div className="panel-heading"><h2>{title}</h2></div>
+      {query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={rows(query).filter((row) => status === 'ARRIVED' ? ['ARRIVED', 'CLOSED'].includes(row.status) : row.status === status)} empty={empty} columns={columns} />}
+    </section>)}
+    {document && <UnloadingTallyDocument {...document} onClose={() => setDocument(null)} />}
+  </>;
+
 }
 
 function ReadyForClosure() {
@@ -63,7 +70,7 @@ function Tallies() {
   const query = useQuery({ queryKey: ['unloading-tallies', 'closure'], queryFn: () => lastMileApi.tallies.list({ limit: 100 }) });
   const detail = useQuery({ queryKey: ['unloading-tally', idOf(selectedRecord)], queryFn: () => lastMileApi.tallies.detail(idOf(selectedRecord)), enabled: Boolean(selectedRecord) });
   const selected = detail.data?.data || rows(query).find((row) => idOf(row) === idOf(selectedRecord)) || selectedRecord;
-  const refresh = () => { cache.invalidateQueries({ queryKey: ['unloading-tallies'] }); cache.invalidateQueries({ queryKey: ['unloading-tally'] }); cache.invalidateQueries({ queryKey: ['last-mile-arrivals'] }); cache.invalidateQueries({ queryKey: ['last-mile-drs-inventory'] }); cache.invalidateQueries({ queryKey: ['last-mile-drs-manifests'] }); };
+  const refresh = () => { cache.invalidateQueries({ queryKey: ['last-mile-pending-arrivals'] }); cache.invalidateQueries({ queryKey: ['unloading-tallies'] }); cache.invalidateQueries({ queryKey: ['unloading-tally'] }); cache.invalidateQueries({ queryKey: ['last-mile-arrivals'] }); cache.invalidateQueries({ queryKey: ['last-mile-drs-inventory'] }); cache.invalidateQueries({ queryKey: ['last-mile-drs-manifests'] }); };
   const action = useMutation({
     mutationFn: ({ type, tally, payload }) => type === 'complete' ? lastMileApi.completeTally(idOf(tally), payload) : type === 'qc' ? lastMileApi.updateQc(idOf(tally), payload.shipmentId, payload.body) : lastMileApi.inward(idOf(tally), payload),
     onSuccess: (_data, variables) => { toast.success({ complete: 'Trip closed; LRs available for DRS', qc: 'QC / DEPS saved', inward: 'QC submitted; LRs ready for DRS creation' }[variables.type]); if (['complete', 'inward'].includes(variables.type)) setSelected(null); refresh(); },

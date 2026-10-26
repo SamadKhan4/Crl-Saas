@@ -48,7 +48,7 @@ export function LrPdfDownload({ shipment, className = 'btn secondary' }) {
   const root = useRef(null);
   const goods = shipment?.lrDetails?.goods;
   const rowsPerPage = 6;
-  const pages = goods?.length ? Array.from({ length: Math.ceil(goods.length / rowsPerPage) }, (_, index) => ({ ...shipment, lrDetails: { ...shipment.lrDetails, goods: goods.slice(index * rowsPerPage, (index + 1) * rowsPerPage).map((row, rowIndex) => ({ ...row, packageNumber: row.packageNumber || String(index * rowsPerPage + rowIndex + 1) })) } })) : [shipment];
+  const pages = goods?.length ? Array.from({ length: Math.ceil(goods.length / rowsPerPage) }, (_, index) => ({ ...shipment, lrDetails: { ...shipment.lrDetails, goods: goods.slice(index * rowsPerPage, (index + 1) * rowsPerPage).map((row, rowIndex) => ({ ...row, serialNumber: index * rowsPerPage + rowIndex + 1, packageNumber: row.packageNumber || String(index * rowsPerPage + rowIndex + 1) })) } })) : [shipment];
   const [busy, setBusy] = useState(false);
   const run = async (view) => {
     const popup = view ? window.open('', '_blank') : null;

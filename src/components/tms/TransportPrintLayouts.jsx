@@ -18,63 +18,45 @@ const amountInWords = (value) => {
   return `Rupees ${words(rupees) || 'Zero'}${paise ? ` and ${words(paise)} Paise` : ''} Only`;
 };
 
-function Barcode({ value }) {
-  return <div className="manifest-barcode" aria-label={`Barcode ${value}`}><span /><b>{value}</b></div>;
-}
-
 export function DeliveryManifestSheet({ record, kind = 'drs' }) {
   const shipments = record.shipmentIds || [];
-  const number = kind === 'manifest' ? record.manifestNumber : record.drsNumber;
+  const isDrs = kind !== 'manifest';
+  const number = isDrs ? record.drsNumber : record.manifestNumber;
   const branch = record.branchId || {};
+  const vendor = record.vendorId || {};
   const totalPackages = shipments.reduce((sum, row) => sum + Number(row.packageCount || 0), 0);
   const totalWeight = shipments.reduce((sum, row) => sum + Number(row.weightKg || 0), 0);
-  const status = kind === 'manifest' ? record.coLoaderStatus : record.status;
-  const vehicle = record.vehicleNumber || '—';
-  const deliveryAgent = record.deliveryAgent || record.driverName || record.vendorId?.name || '—';
-  return (
-    <div className="transport-print-document delivery-manifest-sheet">
-      <header className="manifest-title"><strong>DELIVERY MANIFEST</strong><span><b>Date :</b> {printableDate(record.createdAt, true)}</span></header>
-      <div className="manifest-meta">
-        <div className="manifest-meta-grid">
-          <b>Manifest :</b><span>{number}{record.destination ? ` : ${record.destination}` : ''}</span>
-          <b>Status :</b><span>{label(status)}</span>
-          <b>Manifest Date :</b><span>{printableDate(record.deliveryDate || record.createdAt)}</span>
-          <b>Origin :</b><span>{record.origin || record.shipmentIds?.[0]?.lrDetails?.from || branch.city || '—'}</span>
-          <b>Vehicle# :</b><span>{vehicle}</span>
-          {kind === 'drs' && record.vendorId?.vendorCode && <><b>Vendor code :</b><span>{record.vendorId.vendorCode} · {record.vendorId.name}</span></>}
-        </div>
-        <Barcode value={number} />
-      </div>
-      <div className="manifest-totals">
-        <span><b>Total# of Consignments :</b> {shipments.length}</span>
-        <span><b>Total Packages:</b> {totalPackages}</span>
-        <span><b>Total weight:</b> {(totalWeight / 1000).toFixed(3)} Tonnes</span>
-        <span><b>BA :</b> {deliveryAgent}</span>
-      </div>
-      <table className="manifest-table">
-        <thead><tr><th>LR#</th><th>Consignor</th><th>Consignee</th><th>Consignee Contact</th><th>Weight<br />(kgs)</th><th>#<br />Pkgs</th><th>COD<br />Amount</th><th>Delivery date /<br />Time</th><th>Signature</th></tr></thead>
-        <tbody>
-          {shipments.map((shipment) => {
-            const details = shipment.lrDetails || {};
-            const consignee = [shipment.receiverName, details.consigneeAddress, details.consigneeAddress2, details.to, details.consigneePincode].filter(Boolean).join(', ');
-            return <tr key={shipment.id || shipment._id || shipment.lrNumber}>
-              <td>{shipment.lrNumber}</td>
-              <td>{shipment.senderName}</td>
-              <td>{consignee}</td>
-              <td>{shipment.receiverMobile || details.receiverMobilePrint || '—'}</td>
-              <td className="number-cell">{amount(shipment.weightKg)}</td>
-              <td className="number-cell">{shipment.packageCount || 0}</td>
-              <td className="number-cell">{amount(details.codCharges)}</td>
-              <td />
-              <td />
-            </tr>;
-          })}
-        </tbody>
-      </table>
-      {record.remarks && <p className="manifest-remarks"><b>Remarks:</b> {record.remarks}</p>}
-      <footer>Page 1 of 1</footer>
-    </div>
-  );
+  return <div className="transport-print-document delivery-manifest-sheet delivery-run-document">
+    <header className="delivery-run-brand"><img src="/crl-logo.png" alt="CRL" /><div><h1>CHAPLE ROADLINES PVT. LTD.</h1><span>Goods transport &amp; logistics services</span></div><strong>{isDrs ? 'DELIVERY RUN SHEET' : 'DELIVERY MANIFEST'}</strong></header>
+    <section className="delivery-run-reference"><div><small>{isDrs ? 'DRS number' : 'Manifest number'}</small><h2>{number || '-'}</h2></div><div><small>{isDrs ? 'Delivery date' : 'Document date'}</small><b>{printableDate(record.deliveryDate || record.createdAt)}</b><span>Status: {label(isDrs ? record.status : record.coLoaderStatus || record.status)}</span></div></section>
+    <section className="delivery-run-details">{[
+      ['Operating branch', branch.name || branch.city || record.origin || '-'],
+      ['Vehicle number', record.vehicleNumber || '-'],
+      ['Driver / mobile', [record.driverName || record.deliveryAgent, record.driverMobile].filter(Boolean).join(' / ') || '-'],
+      ['Vendor / code', [vendor.name, vendor.vendorCode].filter(Boolean).join(' / ') || '-'],
+      ['Vendor contact', [vendor.contactPerson || vendor.ownerName, vendor.mobile].filter(Boolean).join(' / ') || '-'],
+      ['Vendor address / GST', [vendor.address, vendor.city, vendor.gstNumber].filter(Boolean).join(', ') || '-'],
+    ].map(([name, value]) => <div key={name}><small>{name}</small><b>{value}</b></div>)}</section>
+    <section className="delivery-run-totals"><div><span>Total LRs</span><b>{shipments.length}</b></div><div><span>Total packages</span><b>{totalPackages}</b></div><div><span>Total weight</span><b>{amount(totalWeight)} <small>kg</small></b></div></section>
+    <div className="delivery-run-section"><h3>LR delivery register</h3><span>Record receipt against each LR</span></div>
+    <table className="delivery-run-table">
+      <colgroup>{[14, 13, 24, 7, 6, 8, 13, 15].map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>
+      <thead><tr><th>LR number</th><th>Consignor</th><th>Consignee / contact</th><th>Weight (kg)</th><th>Pkgs</th><th>COD (INR)</th><th>Delivery date / time</th><th>Receiver signature</th></tr></thead>
+      <tbody>{shipments.map((shipment) => {
+        const details = shipment.lrDetails || {};
+        const address = [details.consigneeAddress, details.consigneeAddress2, details.to, details.consigneePincode].filter(Boolean).join(', ');
+        return <tr key={shipment.id || shipment._id || shipment.lrNumber}>
+          <td><b>{shipment.lrNumber}</b></td><td>{shipment.senderName || '-'}</td>
+          <td><b>{shipment.receiverName || '-'}</b>{address && <small>{address}</small>}<small>{shipment.receiverMobile || details.receiverMobilePrint || '-'}</small></td>
+          <td className="number-cell">{amount(shipment.weightKg)}</td><td className="number-cell">{shipment.packageCount || 0}</td><td className="number-cell">{amount(details.codCharges)}</td><td /><td />
+        </tr>;
+      })}</tbody>
+      <tfoot><tr><td colSpan={3}>Total</td><td className="number-cell">{amount(totalWeight)}</td><td className="number-cell">{totalPackages}</td><td className="number-cell">{amount(shipments.reduce((sum, row) => sum + Number(row.lrDetails?.codCharges || 0), 0))}</td><td colSpan={2} /></tr></tfoot>
+    </table>
+    <section className="delivery-run-notes"><b>Delivery remarks</b>{record.remarks && <p>{record.remarks}</p>}<div /><div /></section>
+    <footer className="delivery-run-signatures"><div><span>Prepared / dispatched by</span><small>Name &amp; signature</small></div><div><span>Driver acknowledgement</span><small>Name &amp; signature</small></div><div><span>Checked / received by</span><small>Name &amp; signature</small></div></footer>
+    <p className="delivery-run-instructions">Verify package counts at delivery. Collect the receiver signature and POD for each delivered LR.</p>
+  </div>;
 }
 
 function InvoiceHeader({ gstAvailable }) {

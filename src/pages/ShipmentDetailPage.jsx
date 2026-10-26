@@ -7,7 +7,6 @@ import { useAuth } from '../features/auth/AuthContext';
 import {
   PageHeader,
   StatusBadge,
-  ShipmentTimeline,
   ActivityTimeline,
   Loadingcrleleton,
   ErrorState,
@@ -15,6 +14,7 @@ import {
   EmptyState,
 } from '../components/common/UI';
 import { date } from '../lib/workflow';
+import ShipmentJourney from '../components/shipment/ShipmentJourney';
 import ShipmentActions from '../components/shipment/ShipmentActions';
 import DocumentPreview from '../components/shipment/DocumentPreview';
 import { LrPdfDownload } from '../Template/LrPdf';
@@ -58,7 +58,7 @@ export default function ShipmentDetailPage() {
             </div>
           ))}
         </div>
-        <ShipmentTimeline status={s.currentStatus} />
+        <ShipmentJourney shipment={s} events={history.data?.data || []} loading={history.isPending} error={history.isError} />
       </section>
       <ShipmentActions shipment={s} />
       <section className="panel">

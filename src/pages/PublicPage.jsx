@@ -9,9 +9,9 @@ import {
   Loadingcrleleton,
   ErrorState,
   StatusBadge,
-  ShipmentTimeline,
   ActivityTimeline,
 } from '../components/common/UI';
+import ShipmentJourney from '../components/shipment/ShipmentJourney';
 import FileUploader from '../components/forms/FileUploader';
 import { date } from '../lib/workflow';
 export default function PublicPage() {
@@ -104,7 +104,7 @@ function Tracking() {
                 </div>
               ))}
             </div>
-            <ShipmentTimeline status={data.status} />
+            <ShipmentJourney shipment={data} events={data.trackingHistory || []} />
             <h3>Tracking history</h3>
             <ActivityTimeline events={data.trackingHistory} />
           </section>

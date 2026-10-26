@@ -1,5 +1,5 @@
 import { it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -57,9 +57,21 @@ it('marks a dispatched trip arrived in the first Last Mile tab', async () => {
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={['/admin/last-mile-arrivals']}><LastMilePage /></MemoryRouter></QueryClientProvider>);
   await userEvent.click(await screen.findByRole('button', { name: 'Mark Arrived' }));
   await waitFor(() => expect(middleMileApi.arriveTrip).toHaveBeenCalledWith('trip'));
-  expect(await screen.findByRole('button', { name: 'Arrived' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Print Unloading Tally' })).toBeInTheDocument();
+  await waitFor(() => expect(within(screen.getByRole('region', { name: 'Arrived Trips' })).getByText('TRIP001')).toBeInTheDocument());
+  expect(within(screen.getByRole('region', { name: 'Pending Arrivals' })).queryByText('TRIP001')).not.toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: 'Arrived Trips' })).getByRole('button', { name: 'View' })).toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: 'Arrived Trips' })).getByRole('button', { name: 'Print Unloading Tally' })).toBeInTheDocument();
+});
+
+it('keeps closed trips in Arrived Trips with View and Print actions', async () => {
+  state.trips = [{ _id: 'closed-trip', tripNumber: 'TRIP-CLOSED', status: 'CLOSED', shipmentIds: [], vehicleNumber: 'MH31AB1234', driverName: 'Driver' }];
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={['/admin/last-mile-arrivals']}><LastMilePage /></MemoryRouter></QueryClientProvider>);
+  const arrived = within(screen.getByRole('region', { name: 'Arrived Trips' }));
+  expect(await arrived.findByText('TRIP-CLOSED')).toBeInTheDocument();
+  expect(arrived.getByText('Closed')).toBeInTheDocument();
+  expect(arrived.getByRole('button', { name: 'View' })).toBeInTheDocument();
+  expect(arrived.getByRole('button', { name: 'Print Unloading Tally' })).toBeInTheDocument();
+  expect(arrived.queryByRole('button', { name: 'Mark Arrived' })).not.toBeInTheDocument();
 });
 
 it('creates an independent DRS using a matching vendor and searchable branch LRs', async () => {

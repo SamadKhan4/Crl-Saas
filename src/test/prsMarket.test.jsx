@@ -55,21 +55,22 @@ describe('PRS market vehicle selection', () => {
   });
 });
 
-it('submits vendor LRs with an FE from another branch, payment and route', async () => {
+it('submits vendor LRs without requiring a field executive', async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={client}><MemoryRouter><PickupRunSheetsPage /></MemoryRouter></QueryClientProvider>);
   const vendor = await screen.findByRole('option', { name: /V001/ });
   await userEvent.selectOptions(vendor.closest('select'), 'vendor-1');
-  await userEvent.selectOptions(screen.getByLabelText('Field Executive *'), 'fe-1');
+  expect(screen.queryByLabelText('Field Executive *')).not.toBeInTheDocument();
   expect(screen.getByText('Acme Client')).toBeInTheDocument();
   expect(screen.getByText('To Pay')).toBeInTheDocument();
   expect(screen.getByText('1,250')).toBeInTheDocument();
   expect(screen.queryByText('PUR number')).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Create PRS' }));
   await waitFor(() => expect(pickupRunSheetsApi.create).toHaveBeenCalledWith(expect.objectContaining({
-    vendorId: 'vendor-1', fieldExecutiveId: 'fe-1',
+    vendorId: 'vendor-1',
     pickups: [{ pickupRequestId: 'pur-vendor' }],
   })));
+  expect(pickupRunSheetsApi.create.mock.calls.at(-1)[0]).not.toHaveProperty('fieldExecutiveId');
 });
 
 it('does not ask for a route again in PRS creation', async () => {

@@ -91,5 +91,10 @@ describe('LR goods and chargeable weight', () => {
     expect(pages).toHaveLength(2);
     expect(pages[0]).toHaveStyle({ width: '1000px', height: '670px' });
     expect(pages[0].querySelectorAll('tbody tr')).toHaveLength(6);
+    const headers = [...pages[0].querySelectorAll('.lr3-goods th')].map((cell) => cell.textContent);
+    expect(headers.slice(0, 4)).toEqual(['Sr. No.', 'Goods', 'Type', 'Pkg.']);
+    expect(pages[0].querySelector('.lr3-goods tbody tr td').textContent).toBe('1');
+    expect(pages[0].querySelector('.lr3-goods tbody tr td:nth-child(4)').textContent).toBe(String(row.quantity));
+    expect(pages[1].querySelector('.lr3-goods tbody tr td').textContent).toBe('7');
   });
 });
