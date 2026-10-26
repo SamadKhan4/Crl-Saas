@@ -1,3 +1,4 @@
+import { VendorSettlementSheet } from '../components/tms/VendorSettlement';
 import { InvoiceSheet } from '../components/tms/TransportPrintLayouts';
 import TmsModulePage from '../pages/TmsModulePage';
 const restoredSession = vi.hoisted(() => ({ user: null }));
@@ -493,7 +494,7 @@ describe('Invoice GST heading', () => {
 describe('Vendor commission settlement', () => {
   it('fetches vendor work by selected code and shows master rate breakdown', async () => {
     const vendor = { _id: 'vendor-1', vendorCode: 'V001', name: 'Road Vendor' };
-    const work = { vendor, shipments: [{ id: 'lr1', lrNumber: 'LR-VENDOR-1', weightKg: 20, packageCount: 3, freight: 500 }], operations: [{ key: 'TRIP:trip1', type: 'TRIP', number: 'TRIP-001', shipmentIds: ['lr1'], recordedCost: 400, advance: 10, eligible: true }], calculation: { rateBasis: 'PER_KG', agreedRate: 2, units: 20, commission: 40 }, advance: 10, settledLrCount: 0 };
+    const work = { vendor, shipments: [{ id: 'lr1', lrNumber: 'LR-VENDOR-1', weightKg: 20, packageCount: 3, freight: 500 }], operations: [{ key: 'TRIP:trip1', type: 'TRIP', number: 'TRIP-001', shipmentIds: ['lr1'], recordedCost: 400, advance: 10, eligible: true }], calculation: { rateBasis: 'PER_KG', agreedRate: 2, units: 20, commission: 40 }, advance: 10, settledLrCount: 0, defaults: { title: 'Commission settlement - V001 - Road Vendor', operationDate: '2026-10-26', dueDate: '2026-11-02', documentNumber: 'VCOM-V001-20261026', reference: 'TRIP-001', description: '1 LR commission', metadata: { detention: 0, loading: 0, otherCharge: 0, tds: 0, advance: 10 } } };
     const getSpy = vi.spyOn(api, 'get').mockImplementation(async (path) => result(path === '/vendors/options' ? [vendor] : path === '/vendors/vendor-1/settlement-work' ? work : []));
     mount(<TmsModulePage />, { user: branchManager, path: '/manager/vendor-settlements' });
     await userEvent.click(await screen.findByRole('button', { name: 'Add settlement invoice' }));
@@ -501,8 +502,32 @@ describe('Vendor commission settlement', () => {
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Vendor' }), 'vendor-1');
     expect(await screen.findByText('LR-VENDOR-1')).toBeInTheDocument();
     expect(screen.getByText('TRIP-001')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Bill / settlement title')).toHaveValue('Commission settlement - V001 - Road Vendor'));
+    expect(screen.getByLabelText('Vendor invoice number')).toHaveValue('VCOM-V001-20261026');
+    expect(screen.getByLabelText('Trip / manifest reference')).toHaveValue('TRIP-001');
+    expect(screen.getByLabelText('Advance paid')).toHaveValue(10);
+    expect(screen.getByLabelText('Detention')).toHaveValue(0);
+    expect(screen.getByLabelText('TDS deduction')).toHaveValue(0);
+    expect(screen.getByLabelText('Payment due date')).toHaveValue('2026-11-02');
+    await userEvent.clear(screen.getByLabelText('Bill / settlement title'));
+    await userEvent.type(screen.getByLabelText('Bill / settlement title'), 'Edited settlement');
+    expect(screen.getByLabelText('Bill / settlement title')).toHaveValue('Edited settlement');
+
     expect(screen.getByText(/PER_KG/)).toHaveTextContent('20 units');
     expect(screen.getByText('Net payable:').parentElement).toHaveTextContent('30.00');
     expect(getSpy).toHaveBeenCalledWith('/vendors/vendor-1/settlement-work', { params: undefined });
+  });
+});
+
+
+describe('Vendor invoice print layout', () => {
+  it('uses separate tables and paginates long operation lists before the totals', () => {
+    const operations = Array.from({ length: 17 }, (_, index) => ({ key: `TRIP:${index}`, type: 'TRIP', number: `TRIP-${index}`, shipmentIds: [], recordedCost: 100, advance: 0 }));
+    const { container } = render(<VendorSettlementSheet record={{ recordNumber: 'VST-TEST', amount: 3200, metadata: { operations, commission: 3200, rateBasis: 'PER_TRIP', units: 1, agreedRate: 3200 } }} />);
+    expect(container.querySelectorAll('.vendor-settlement-page')).toHaveLength(4);
+    expect(container.querySelectorAll('.vendor-operation-table')).toHaveLength(3);
+    expect(container.querySelectorAll('.invoice-table')).toHaveLength(0);
+    expect(screen.getByText('Page 4 of 4')).toBeInTheDocument();
+    expect(screen.getByRole('rowheader', { name: 'Net payable' }).parentElement).toHaveTextContent('3,200.00');
   });
 });

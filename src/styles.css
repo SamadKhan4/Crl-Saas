@@ -4178,3 +4178,54 @@ dialog:has(.vendor-editor) { max-width: 880px; }
 .hr-attendance-day select { width:100%; min-width:0; padding:5px; font-size:11px; background:rgba(255,255,255,.7); color:inherit; }
 .hr-attendance-off { background:#f1f5f9; color:#64748b; }
 @media(max-width:600px) { .hr-attendance-day { min-height:105px; padding:4px; } .hr-attendance-day select { font-size:9px; padding:2px; } }
+
+
+/* Vendor documents use their own column sizing; client invoice widths do not apply. */
+.vendor-work-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10px; line-height: 1.45; }
+.vendor-work-table th, .vendor-work-table td { padding: 7px 5px; border: 1px solid #d1d5db; vertical-align: top; overflow-wrap: anywhere; white-space: normal; }
+.vendor-work-table th { background: #edf0f3; color: #273343; text-align: left; font-size: 9px; font-weight: 700; }
+.vendor-lr-table th:nth-child(1) { width: 16%; }
+.vendor-lr-table th:nth-child(2) { width: 12%; }
+.vendor-lr-table th:nth-child(3) { width: 19%; }
+.vendor-lr-table th:nth-child(4) { width: 14%; }
+.vendor-lr-table th:nth-child(5) { width: 8%; }
+.vendor-lr-table th:nth-child(6) { width: 9%; }
+.vendor-lr-table th:nth-child(7) { width: 11%; }
+.vendor-lr-table th:nth-child(8) { width: 11%; }
+.vendor-operation-table th:nth-child(1) { width: 9%; }
+.vendor-operation-table th:nth-child(2) { width: 19%; }
+.vendor-operation-table th:nth-child(3) { width: 11%; }
+.vendor-operation-table th:nth-child(4) { width: 12%; }
+.vendor-operation-table th:nth-child(5) { width: 13%; }
+.vendor-operation-table th:nth-child(6) { width: 5%; }
+.vendor-operation-table th:nth-child(7) { width: 11%; }
+.vendor-operation-table th:nth-child(8) { width: 10%; }
+.vendor-operation-table th:nth-child(9) { width: 10%; }
+.vendor-settlement-page { font-size: 11px; line-height: 1.5; padding-bottom: 20mm; }
+.vendor-settlement-page .invoice-brand { grid-template-columns: 80px minmax(0, 1fr) 160px; gap: 12px; }
+.vendor-settlement-page .invoice-brand img { width: 76px; }
+.vendor-settlement-page .invoice-brand h2 { font-size: 17px; }
+.vendor-settlement-page .invoice-brand > strong { white-space: normal; text-align: center; font-size: 12px; line-height: 1.5; }
+.vendor-invoice-meta { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; margin: 14px 0; border: 1px solid #d1d5db; }
+.vendor-invoice-meta > div { min-width: 0; padding: 8px; overflow-wrap: anywhere; }
+.vendor-invoice-meta > div + div { border-left: 1px solid #d1d5db; }
+.vendor-invoice-meta span, .vendor-invoice-meta b, .vendor-invoice-party span { display: block; }
+.vendor-invoice-meta span { color: #556170; font-size: 10px; }
+.vendor-invoice-party { padding: 10px; background: #f4f6f8; border-left: 3px solid #be1e2d; margin-bottom: 12px; overflow-wrap: anywhere; }
+.vendor-invoice-party > b { font-size: 14px; }
+.vendor-invoice-reference, .vendor-invoice-notes { overflow-wrap: anywhere; white-space: normal; }
+.vendor-section-title { margin: 16px 0 8px; padding-bottom: 5px; border-bottom: 1px solid #cbd2db; font-size: 13px; }
+.vendor-commission-summary { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #d1d5db; }
+.vendor-commission-summary > span { padding: 10px; }
+.vendor-commission-summary b { display: block; font-size: 13px; }
+.vendor-totals-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
+.vendor-totals-table th, .vendor-totals-table td { padding: 9px 12px; border: 1px solid #d1d5db; }
+.vendor-totals-table th { width: 65%; text-align: left; font-weight: 500; background: #f8fafc; }
+.vendor-totals-table td { width: 35%; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vendor-totals-table .vendor-net-payable > * { background: #e9eef4; font-size: 15px; font-weight: 700; border-top: 2px solid #273343; }
+.vendor-invoice-notes { margin-top: 16px; padding: 10px; border: 1px solid #d1d5db; }
+.vendor-invoice-notes p { margin: 4px 0; }
+.vendor-invoice-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 70px; margin-top: 48px; }
+.vendor-invoice-signatures span { border-top: 1px solid #5d6470; padding-top: 6px; }
+.vendor-page-footer { position: absolute; bottom: 8mm; left: 10mm; right: 10mm; display: flex; justify-content: space-between; border-top: 1px solid #d1d5db; padding-top: 6px; font-size: 9px; color: #556170; }
+@media print { .vendor-work-table tr, .vendor-totals-table tr, .vendor-invoice-signatures { break-inside: avoid; } .vendor-work-table thead { display: table-header-group; } }

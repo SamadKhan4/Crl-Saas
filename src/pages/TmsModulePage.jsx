@@ -873,7 +873,7 @@ function RecordEditor({ resource, config, record, initialValues, onClose }) {
         {resource === 'invoices' && <label className="field"><span><input type="checkbox" checked={values.gstAvailable ?? Number(values.gstRate || 0) > 0} onChange={(event) => setValues((current) => ({ ...current, gstChoiceMade: true, gstAvailable: event.target.checked, gstRate: event.target.checked ? current.gstRate || 0 : 0 }))} /> GST available</span></label>}
         <div className="form-grid">
           <DynamicFields resource={resource} fields={resource === 'vendors' ? config.fields.filter(([name]) => !name.startsWith('vehicle.')) : config.fields} values={values} setValues={setValues} />
-          {resource === 'vendor-settlements' && <VendorWork vendorId={values.vendorId} values={values} />}
+          {resource === 'vendor-settlements' && <VendorWork vendorId={values.vendorId} values={values} setValues={setValues} />}
           {resource === 'vendors' && <VendorVehicles values={values} setValues={setValues} />}
         </div>
         {error && (
