@@ -11,17 +11,27 @@ export async function createLrPdfBlob(root) {
   if (logo) {
     await logo.decode();
   }
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'in', format: 'a4', compress: true });
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
   const pages = root.matches('.lr-print-root') ? [root] : [...root.querySelectorAll('.lr-print-root')];
   if (!pages.length) throw new Error('LR is not ready. Please try again.');
   for (const [index, page] of pages.entries()) {
-    if (index) pdf.addPage();
+    if (index) pdf.addPage('a4', 'portrait');
     const canvas = await html2canvas(page, { scale: 2, backgroundColor: '#ffffff', width: 1000, windowWidth: 1000, useCORS: true });
     const pageWidth = pdf.internal.pageSize.getWidth(), pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 0.15;
-    const scale = Math.min((pageWidth - margin * 2) / canvas.width, (pageHeight - margin * 2) / canvas.height);
+    const margin = 6;
+    const gap = 6;
+    const slotHeight = (pageHeight - margin * 2 - gap) / 2;
+    const scale = Math.min((pageWidth - margin * 2) / canvas.width, slotHeight / canvas.height);
     const width = canvas.width * scale, height = canvas.height * scale;
-    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', (pageWidth - width) / 2, (pageHeight - height) / 2, width, height, undefined, 'FAST');
+    const image = canvas.toDataURL('image/png');
+    for (let copy = 0; copy < 2; copy++) {
+      const top = margin + copy * (slotHeight + gap);
+      pdf.addImage(image, 'PNG', (pageWidth - width) / 2, top + (slotHeight - height) / 2, width, height, undefined, 'FAST');
+    }
+    pdf.setDrawColor(170);
+    pdf.setLineDashPattern([2, 2], 0);
+    pdf.line(margin, pageHeight / 2, pageWidth - margin, pageHeight / 2);
+    pdf.setLineDashPattern([], 0);
   }
   return pdf.output('blob');
 }
