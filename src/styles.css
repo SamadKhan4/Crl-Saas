@@ -4236,3 +4236,11 @@ dialog:has(.vendor-editor) { max-width: 880px; }
 .drs-lr-options > button[aria-selected="true"] { background: #eaf2ff; }
 .drs-lr-options > button:hover { background: #f2f6fa; }
 .drs-selected-lrs { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.unloading-receipt-table small { display: block; margin-top: 4px; font-size: 9px; }
+.unloading-receipt-table tbody td { min-height: 64px; height: 64px; }
+.unloading-receipt-table .unloading-manifest-heading td { height: auto; background: #e7f0ed; }
+.unloading-receipt-table th, .unloading-receipt-table td { padding: 8px 5px; }
+.unloading-verification-notes { margin-top: 22px; line-height: 2; }
+.unloading-verification-sheet .tally-signatures { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media print { .unloading-receipt-table thead { display: table-header-group; } .unloading-receipt-table tfoot { display: table-row-group; } .unloading-manifest-heading { break-after: avoid; } }

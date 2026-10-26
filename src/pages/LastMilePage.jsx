@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import UnloadingTallyDocument from '../components/tms/UnloadingTallyDocument';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { ClipboardCheck, Truck } from 'lucide-react';
@@ -15,25 +16,30 @@ const busyLabel = (pending, text) => pending ? 'Saving…' : text;
 
 function Arrivals() {
   const cache = useQueryClient();
-  const query = useQuery({ queryKey: ['last-mile-pending-arrivals'], queryFn: () => middleMileApi.trips.list({ status: 'DISPATCHED', limit: 100 }) });
+  const [document, setDocument] = useState(null);
+  const query = useQuery({ queryKey: ['last-mile-pending-arrivals'], queryFn: async () => {
+    const results = await Promise.all(['DISPATCHED', 'ARRIVED'].map((status) => middleMileApi.trips.list({ status, limit: 100 })));
+    return { data: [...new Map(results.flatMap((result) => result.data || []).map((trip) => [idOf(trip), trip])).values()] };
+  } });
   const arrive = useMutation({
     mutationFn: (tripId) => middleMileApi.arriveTrip(tripId),
     onSuccess: () => { toast.success('Trip marked arrived'); cache.invalidateQueries({ queryKey: ['last-mile-pending-arrivals'] }); cache.invalidateQueries({ queryKey: ['last-mile-arrivals'] }); cache.invalidateQueries({ queryKey: ['middle-mile-trips'] }); },
     onError: (error) => toast.error(errorMessage(error)),
   });
   return <><PageHeader title="Trip Arrival" description="Mark dispatched Middle Mile trips as arrived at the destination hub." />
-    <section className="panel">{query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={rows(query)} empty="No dispatched trips pending arrival" columns={[
+    <section className="panel">{query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={rows(query).filter((row) => ['DISPATCHED', 'ARRIVED'].includes(row.status))} empty="No dispatched or arrived trips" columns={[
       { key: 'trip', label: 'Trip', render: (row) => row.tripNumber },
       { key: 'vehicle', label: 'Vehicle / Driver', render: (row) => `${row.vehicleNumber} / ${row.driverName}` },
       { key: 'from', label: 'Movement', render: (row) => `${row.fromHubId?.name || row.origin} → ${row.toHubId?.name || row.destination}` },
       { key: 'lrs', label: 'LRs / Boxes', render: (row) => `${row.shipmentIds?.length || 0} / ${row.totalPackages || 0}` },
       { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
-      { key: 'action', label: 'Action', render: (row) => <button className="btn secondary" disabled={arrive.isPending} onClick={() => arrive.mutate(idOf(row))}>Mark Arrived</button> },
-    ]} />}</section></>;
+      { key: 'action', label: 'Action', render: (row) => <div className="actions"><button className="btn secondary" disabled={arrive.isPending || row.status === 'ARRIVED'} onClick={() => arrive.mutate(idOf(row))}>{row.status === 'ARRIVED' ? 'Arrived' : 'Mark Arrived'}</button><button className="btn secondary" onClick={() => setDocument({ tripId: idOf(row) })}>View</button><button className="btn secondary" onClick={() => setDocument({ tripId: idOf(row), autoPrint: true })}>Print Unloading Tally</button></div> },
+    ]} />}</section>{document && <UnloadingTallyDocument {...document} onClose={() => setDocument(null)} />}</>;
 }
 
 function ReadyForClosure() {
   const cache = useQueryClient();
+  const [document, setDocument] = useState(null);
   const query = useQuery({ queryKey: ['last-mile-arrivals'], queryFn: () => lastMileApi.arrivals({ limit: 100 }) });
   const create = useMutation({
     mutationFn: (tripId) => lastMileApi.tallies.create({ tripId }),
@@ -47,8 +53,8 @@ function ReadyForClosure() {
       { key: 'from', label: 'Movement', render: (row) => `${row.fromHubId?.name || row.origin} → ${row.toHubId?.name || row.destination}` },
       { key: 'lrs', label: 'LRs / Packages', render: (row) => `${row.shipmentIds?.length || 0} / ${row.totalPackages || 0}` },
       { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
-      { key: 'action', label: 'Action', render: (row) => <button className="btn secondary" disabled={create.isPending} onClick={() => create.mutate(idOf(row))}>Process Trip</button> },
-    ]} />}</section><Tallies /></>;
+      { key: 'action', label: 'Action', render: (row) => <div className="actions"><button className="btn secondary" disabled={create.isPending} onClick={() => create.mutate(idOf(row))}>Process Trip</button><button className="btn secondary" onClick={() => setDocument({ tripId: idOf(row) })}>View</button><button className="btn secondary" onClick={() => setDocument({ tripId: idOf(row), autoPrint: true })}>Print Unloading Tally</button></div> },
+    ]} />}</section><Tallies />{document && <UnloadingTallyDocument {...document} onClose={() => setDocument(null)} />}</>;
 }
 
 function Tallies() {

@@ -23,9 +23,10 @@ vi.mock('../api/services', () => ({
     }),
     inward: vi.fn(async () => ({ data: { ...state.tally, status: 'INWARDED' } })),
   },
+  tripsApi: { detail: vi.fn() },
   middleMileApi: {
     trips: { list: vi.fn(async () => ({ data: state.trips })) },
-    arriveTrip: vi.fn(async () => { state.trips = []; return { data: {} }; }),
+    arriveTrip: vi.fn(async () => { state.trips = state.trips.map((trip) => ({ ...trip, status: 'ARRIVED' })); return { data: {} }; }),
   },
   usersApi: { list: vi.fn(async () => ({ data: [] })) },
   vendorOptionsApi: { list: vi.fn(async () => ({ data: [{ _id: 'vendor', vendorCode: 'V001', name: 'Delivery Vendor', vendorType: 'LAST_MILE', vehicles: [{ vehicleNumber: 'MH31AB1111', driverName: 'First Driver', driverMobile: '9876543210', status: 'ACTIVE' }, { vehicleNumber: 'MH31AB1234', driverName: 'Local Driver', driverMobile: '9876543211', status: 'ACTIVE' }] }, { _id: 'other-vendor', name: 'Market Vendor', vendorType: 'MARKET' }] })) },
@@ -52,10 +53,13 @@ it('closes the trip and makes verified LRs available without a QC step', async (
 });
 
 it('marks a dispatched trip arrived in the first Last Mile tab', async () => {
-  state.trips = [{ _id: 'trip', tripNumber: 'TRIP001', vehicleNumber: 'MH31AB1234', driverName: 'Driver', origin: 'Nagpur', destination: 'Mumbai', shipmentIds: [], totalPackages: 1, workflowStatus: 'IN_TRANSIT' }];
+  state.trips = [{ _id: 'trip', tripNumber: 'TRIP001', vehicleNumber: 'MH31AB1234', driverName: 'Driver', origin: 'Nagpur', destination: 'Mumbai', shipmentIds: [], totalPackages: 1, status: 'DISPATCHED', workflowStatus: 'IN_TRANSIT' }];
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={['/admin/last-mile-arrivals']}><LastMilePage /></MemoryRouter></QueryClientProvider>);
   await userEvent.click(await screen.findByRole('button', { name: 'Mark Arrived' }));
   await waitFor(() => expect(middleMileApi.arriveTrip).toHaveBeenCalledWith('trip'));
+  expect(await screen.findByRole('button', { name: 'Arrived' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Print Unloading Tally' })).toBeInTheDocument();
 });
 
 it('creates an independent DRS using a matching vendor and searchable branch LRs', async () => {
