@@ -113,6 +113,7 @@ export default function App() {
                     <Route path="rate-engine" element={<RateEngine />} />
                     <Route path="profitability" element={<Profitability />} />
                     <Route path="vendor-settlements" element={<TmsModule />} />
+                    <Route path="vendor-settlements/:id" element={<TmsPrint resource="vendor-settlements" />} />
                     <Route path="eway-gst" element={<TmsModule />} />
                     <Route path="accounting" element={<AccountingWorkspace />} />
                     <Route path="hr" element={<TmsModule />} />

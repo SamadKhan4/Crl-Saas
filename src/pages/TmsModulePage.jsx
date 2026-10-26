@@ -1,3 +1,4 @@
+import { VendorWork } from '../components/tms/VendorSettlement';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router-dom';
@@ -42,7 +43,7 @@ const registerStatuses = option([
 ]);
 const registerConfig = ({ title, singular, description, fields, amount, count = false }) => ({
   title,
-  singular,
+  singular: singular === 'vendor-settlements' ? 'settlement invoice' : singular,
   service: registerApi(singular),
   number: 'recordNumber',
   description,
@@ -264,12 +265,12 @@ const configs = {
     manage: true,
   },
   invoices: {
-    title: 'Credit client billing',
+    title: 'Client Billing',
     singular: 'invoice',
     service: invoicesApi,
     number: 'invoiceNumber',
-    description: 'Create controlled GST invoices from delivered, unbilled credit-client LRs.',
-    primary: (row) => row.customerId?.name || 'Customer',
+    description: 'Create invoices for credit and retail customers from delivered, unbilled LRs.',
+    primary: (row) => row.billTo?.name || row.customerId?.name || 'Customer',
     secondary: (row) => money(row.totalAmount),
     count: true,
     fields: [
@@ -466,8 +467,8 @@ const configs = {
     fields: [['title', 'Driver name'], ['driverMobile', 'Mobile', 'tel'], ['operationDate', 'Joining date', 'date'], ['dueDate', 'Licence expiry', 'date'], ['documentNumber', 'Driving licence number'], ['vehicleNumber', 'Default vehicle'], ['vendorId', 'Vendor / owner', 'lookup', 'vendors'], ['description', 'Address / emergency contact', 'textarea'], ['remarks', 'Remarks', 'textarea']],
   }),
   'vendor-settlements': registerConfig({
-    title: 'Vendor Billing / Settlement', singular: 'vendor-settlements', description: 'Record vendor bills, deductions, approvals and payments.', amount: 'amount',
-    fields: [['title', 'Bill / settlement title'], ['vendorId', 'Vendor', 'lookup', 'vendors'], ['operationDate', 'Bill date', 'date'], ['dueDate', 'Payment due date', 'date'], ['documentNumber', 'Vendor invoice number'], ['reference', 'Trip / manifest reference'], ['metadata.baseAmount', 'Base vendor freight', 'number'], ['metadata.detention', 'Detention', 'number'], ['metadata.loading', 'Loading / unloading', 'number'], ['metadata.otherCharge', 'Other charge', 'number'], ['metadata.tds', 'TDS deduction', 'number'], ['metadata.advance', 'Advance paid', 'number'], ['description', 'Deductions / details', 'textarea'], ['remarks', 'Remarks', 'textarea']],
+    title: 'Vendor Billing / Settlement', singular: 'vendor-settlements', description: 'Create vendor commission invoices from linked LRs and operations using the agreed master rate.', amount: 'amount', count: true,
+    fields: [['title', 'Bill / settlement title'], ['vendorId', 'Vendor', 'lookup', 'vendors'], ['operationDate', 'Bill date', 'date'], ['dueDate', 'Payment due date', 'date'], ['documentNumber', 'Vendor invoice number'], ['reference', 'Trip / manifest reference'], ['metadata.detention', 'Detention', 'number'], ['metadata.loading', 'Loading / unloading', 'number'], ['metadata.otherCharge', 'Other charge', 'number'], ['metadata.tds', 'TDS deduction', 'number'], ['metadata.advance', 'Advance paid', 'number'], ['description', 'Deductions / details', 'textarea'], ['remarks', 'Remarks', 'textarea']],
   }),
   'eway-gst': registerConfig({
     title: 'E-Way Bill / GST Register', singular: 'eway-gst', description: 'Track statutory document validity, vehicle and tax details.',
@@ -563,6 +564,12 @@ const clean = (value) => {
 
 function prepare(resource, values) {
   const payload = clean(values);
+  if (resource === 'invoices') {
+    delete payload.retailName;
+    delete payload.gstChoiceMade;
+    payload.gstAvailable = values.gstAvailable ?? Number(values.gstRate || 0) > 0;
+    if (!payload.gstAvailable) payload.gstRate = 0;
+  }
   if (resource === 'vendors') {
     return {
       vendorType: payload.vendorType,
@@ -674,6 +681,68 @@ function ShipmentPicker({ value = [], onChange, statuses, customerId, resource }
   );
 }
 
+function InvoiceLrs({ values, setValues }) {
+  const retail = values.billingType === 'RETAIL';
+  const [search, setSearch] = useState('');
+  const term = useDebounce(search);
+  const query = useQuery({
+    queryKey: ['invoices', 'billable-lrs', values.billingType, values.customerId, term],
+    enabled: retail || Boolean(values.customerId),
+    queryFn: async () => {
+      const params = { billingType: values.billingType || 'CREDIT', ...(retail ? { search: term } : { customerId: values.customerId }), limit: 100 };
+      const first = await get('/invoices/billable-lrs', params);
+      const data = [...first.data];
+      for (let page = 2; page <= (first.pagination?.pages || 1); page++) {
+        data.push(...(await get('/invoices/billable-lrs', { ...params, page })).data);
+      }
+      return data;
+    },
+  });
+  const rows = query.data || [];
+  const selectRetail = (lrId) => {
+    const lr = rows.find((row) => idOf(row) === lrId);
+    const name = lr ? (lr.lrDetails?.paymentMode === 'TO_PAY' ? lr.receiverName : lr.senderName) : '';
+    const details = lr?.lrDetails || {};
+    const bookingDate = String(details.bookingDate || lr?.createdAt || today()).slice(0, 10);
+    const taxable = Math.max(0, Number(details.totalAmount || 0) - Number(details.gstAmount || 0));
+    const gstRate = details.gstRate != null ? Number(details.gstRate)
+      : taxable > 0 ? Math.round(Number(details.gstAmount || 0) / taxable * 10000) / 100 : 0;
+    setValues((current) => ({
+      ...current,
+      shipmentIds: lr ? [lrId] : [],
+      customerId: lr ? idOf(lr.customerId) : '',
+      retailName: name,
+      gstAvailable: current.gstChoiceMade ? current.gstAvailable : gstRate > 0,
+      gstRate: current.gstChoiceMade && !current.gstAvailable ? 0 : lr ? gstRate : 0,
+      issueDate: lr ? bookingDate : today(),
+      periodFrom: lr ? bookingDate : '',
+      periodTo: lr ? bookingDate : '',
+    }));
+  };
+  return <div className="field tms-span-2">
+    {retail ? <>
+      <label htmlFor="retail-lr-search">Search LR number</label>
+      <input id="retail-lr-search" value={search} onChange={(event) => setSearch(event.target.value)} />
+      <label htmlFor="retail-lr">Retail LR (9966)</label>
+      <select id="retail-lr" value={values.shipmentIds?.[0] || ''} onChange={(event) => selectRetail(event.target.value)}>
+        <option value="">Select LR</option>
+        {values.shipmentIds?.[0] && !rows.some((row) => idOf(row) === values.shipmentIds[0]) && <option value={values.shipmentIds[0]}>{values.shipmentIds[0]}</option>}
+        {rows.map((row) => <option key={idOf(row)} value={idOf(row)}>{row.lrNumber}</option>)}
+      </select>
+      <FormField name="retailName" label="Retail customer name" value={values.retailName || ''} readOnly />
+      <small>All customer code 9966 LRs are shown. Unbilled LRs can be billed and printed even with zero amount. Cancelled LRs cannot be billed. Customer details come from the LR: consignee for To Pay, consignor for Paid. GST and billing dates are filled from the LR booking date and can be edited.</small>
+    </> : !values.customerId ? <small>Select a credit customer to fetch eligible LRs.</small> : <>
+      <label>Delivered, unbilled LRs</label>
+      <div className="tms-checklist">{rows.map((row) => <label key={idOf(row)}>
+        <input type="checkbox" checked={(values.shipmentIds || []).includes(idOf(row))} onChange={(event) => setValues((current) => ({ ...current, shipmentIds: event.target.checked ? [...(current.shipmentIds || []), idOf(row)] : (current.shipmentIds || []).filter((lrId) => lrId !== idOf(row)) }))} />
+        <span><b>{row.lrNumber}</b><small>{row.senderName} &rarr; {row.receiverName}</small></span>
+      </label>)}</div>
+      <small>{values.shipmentIds?.length || 0} LR selected</small>
+    </>}
+    {(retail || values.customerId) && (query.isPending ? <small>{retail ? 'Loading 9966 LRs...' : 'Loading eligible LRs...'}</small> : query.isError ? <small role="alert" className="field-error">{errorMessage(query.error)}</small> : !rows.length && <small>{retail ? 'No customer code 9966 LRs found.' : 'No eligible LRs found.'}</small>)}
+  </div>;
+}
+
 function DynamicFields({ resource, fields, values, setValues }) {
   return fields.map(([name, caption, type = 'text', meta]) => {
     const value = valueAt(values, name) ?? '';
@@ -681,8 +750,11 @@ function DynamicFields({ resource, fields, values, setValues }) {
       const updated = setAt(current, name, next);
       if (['invoices', 'money-receipts'].includes(resource) && name === 'customerId' && current.customerId !== next)
         updated.shipmentIds = [];
+      if (resource === 'vendor-settlements' && name === 'vendorId' && current.vendorId !== next) updated.metadata = {};
       return updated;
     });
+    if (resource === 'invoices' && name === 'customerId' && values.billingType === 'RETAIL') return null;
+    if (resource === 'invoices' && type === 'shipments') return <InvoiceLrs key={`${name}-${values.billingType}`} values={values} setValues={setValues} />;
     if (type === 'lookup')
       return (
         <Lookup
@@ -732,6 +804,7 @@ function DynamicFields({ resource, fields, values, setValues }) {
         value={value}
         min={type === 'number' ? 0 : undefined}
         step={type === 'number' ? 'any' : undefined}
+        disabled={resource === 'invoices' && name === 'gstRate' && values.gstAvailable === false}
         onChange={(event) => change(event.target.value)}
       />
     );
@@ -778,6 +851,7 @@ function RecordEditor({ resource, config, record, initialValues, onClose }) {
     setBusy(true);
     setError('');
     try {
+      if (resource === 'invoices' && (!values.customerId || !values.shipmentIds?.length)) throw new Error('Select a customer and at least one eligible LR');
       const payload = prepare(resource, values);
       if (record) await config.service.update(idOf(record), payload);
       else await config.service.create(payload);
@@ -796,8 +870,10 @@ function RecordEditor({ resource, config, record, initialValues, onClose }) {
       onClose={() => !busy && onClose()}
     >
       <form className={resource === 'vendors' ? 'vendor-editor' : undefined} onSubmit={save}>
+        {resource === 'invoices' && <label className="field"><span><input type="checkbox" checked={values.gstAvailable ?? Number(values.gstRate || 0) > 0} onChange={(event) => setValues((current) => ({ ...current, gstChoiceMade: true, gstAvailable: event.target.checked, gstRate: event.target.checked ? current.gstRate || 0 : 0 }))} /> GST available</span></label>}
         <div className="form-grid">
           <DynamicFields resource={resource} fields={resource === 'vendors' ? config.fields.filter(([name]) => !name.startsWith('vehicle.')) : config.fields} values={values} setValues={setValues} />
+          {resource === 'vendor-settlements' && <VendorWork vendorId={values.vendorId} values={values} />}
           {resource === 'vendors' && <VendorVehicles values={values} setValues={setValues} />}
         </div>
         {error && (
@@ -874,7 +950,8 @@ export default function TmsModulePage() {
   const resource = location.pathname.replace(/\/+$/, '').split('/').at(-1);
   const config = configs[resource];
   const { user } = useAuth();
-  const { query, filters, update, clear, sort } = useList(resource, config.service);
+  const [billingType, setBillingType] = useState(location.state?.billingDraft?.billingType || 'CREDIT');
+  const { query, filters, update, clear, sort } = useList(resource, config.service, resource === 'invoices' ? { billingType } : {});
   const [editor, setEditor] = useState(() => resource === 'invoices' && location.state?.billingDraft ? location.state.billingDraft : null),
     [action, setAction] = useState(null);
   const base = `/${user.role.toLowerCase()}`;
@@ -920,7 +997,7 @@ export default function TmsModulePage() {
         label: 'Actions',
         render: (row) => (
           <div className="row-actions">
-            {['manifests', 'quotations', 'invoices', 'money-receipts'].includes(resource) && (
+            {['manifests', 'quotations', 'invoices', 'money-receipts', 'vendor-settlements'].includes(resource) && (
               <Link className="text-btn" to={`${base}/${resource}/${idOf(row)}`}>
                 View / Print
               </Link>
@@ -930,7 +1007,7 @@ export default function TmsModulePage() {
                 Manage POD
               </Link>
             )}
-            {config.edit && ['ADMIN', 'MANAGER'].includes(user.role) && (
+            {config.edit && resource !== 'vendor-settlements' && ['ADMIN', 'MANAGER'].includes(user.role) && (
               <button className="text-btn" onClick={() => setEditor(row)}>
                 Edit
               </button>
@@ -951,11 +1028,14 @@ export default function TmsModulePage() {
     <>
       <PageHeader title={config.title} description={config.description}>
         {canCreate && (
-          <button className="btn" onClick={() => setEditor({})}>
+          <button className="btn" onClick={() => setEditor(resource === 'invoices' ? { billingType } : {})}>
             <Plus size={17} /> Add {config.singular}
           </button>
         )}
       </PageHeader>
+      {resource === 'invoices' && <div role="tablist" aria-label="Customer billing" className="filter-bar">
+        {['CREDIT', 'RETAIL'].map((type) => <button key={type} type="button" role="tab" aria-selected={billingType === type} className={`btn ${billingType === type ? '' : 'secondary'}`} onClick={() => { setBillingType(type); setEditor(null); update('page', ''); }}>{type === 'CREDIT' ? 'Credit Customer' : 'Retail Customer'}</button>)}
+      </div>}
       <section className="panel">
         <div className="filter-bar">
           <SearchInput value={filters.search || ''} onChange={(value) => update('search', value)} />
@@ -989,7 +1069,7 @@ export default function TmsModulePage() {
           resource={resource}
           config={config}
           record={idOf(editor) ? editor : null}
-          initialValues={resource === 'invoices' ? editor : undefined}
+          initialValues={resource === 'invoices' ? { billingType, ...editor } : resource === 'vendor-settlements' ? editor : undefined}
           onClose={() => setEditor(null)}
         />
       )}

@@ -1,8 +1,9 @@
+import { VendorSettlementSheet } from '../components/tms/VendorSettlement';
 import { useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { Printer } from 'lucide-react';
-import { invoicesApi, manifestsApi, quotationsApi, receiptsApi } from '../api/services';
+import { invoicesApi, manifestsApi, quotationsApi, receiptsApi, registerApi } from '../api/services';
 import { errorMessage } from '../api/client';
 import { useAuth } from '../features/auth/AuthContext';
 import { DeliveryManifestSheet, InvoiceSheet, MoneyReceiptSheet, QuotationSheet } from '../components/tms/TransportPrintLayouts';
@@ -13,21 +14,21 @@ export default function TmsPrintPage({ resource }) {
   const { id } = useParams();
   const { user } = useAuth();
   const targetRef = useRef(null);
-  const service = resource === 'manifests' ? manifestsApi : resource === 'invoices' ? invoicesApi : resource === 'money-receipts' ? receiptsApi : quotationsApi;
+  const service = resource === 'vendor-settlements' ? registerApi('vendor-settlements') : resource === 'manifests' ? manifestsApi : resource === 'invoices' ? invoicesApi : resource === 'money-receipts' ? receiptsApi : quotationsApi;
   const query = useQuery({ queryKey: [resource, id], queryFn: () => service.detail(id) });
   if (query.isPending) return <Loadingcrleleton />;
   if (query.isError) return <ErrorState error={errorMessage(query.error)} retry={query.refetch} />;
   const record = query.data.data;
-  const title = resource === 'manifests' ? record.manifestNumber : resource === 'invoices' ? record.invoiceNumber : resource === 'money-receipts' ? record.receiptNumber : record.quotationNumber;
+  const title = resource === 'vendor-settlements' ? record.recordNumber : resource === 'manifests' ? record.manifestNumber : resource === 'invoices' ? record.invoiceNumber : resource === 'money-receipts' ? record.receiptNumber : record.quotationNumber;
   const base = `/${user.role.toLowerCase()}`;
   return <>
-    <PageHeader title={title} description={resource === 'manifests' ? 'Delivery manifest format' : resource === 'invoices' ? 'Credit client tax invoice' : resource === 'money-receipts' ? 'Customer payment acknowledgement' : 'CRL rate quotation'}>
+    <PageHeader title={title} description={resource === 'vendor-settlements' ? 'Vendor commission and settlement invoice' : resource === 'manifests' ? 'Delivery manifest format' : resource === 'invoices' ? 'Credit client tax invoice' : resource === 'money-receipts' ? 'Customer payment acknowledgement' : 'CRL rate quotation'}>
       <Link className="btn secondary" to={`${base}/${resource}`}>Back</Link>
       <button className="btn secondary" onClick={() => window.print()}><Printer size={16} /> Print</button>
       <TransportPdfDownload targetRef={targetRef} documentNumber={title} />
     </PageHeader>
     <div className="transport-document-shell" ref={targetRef}>
-      {resource === 'manifests'
+      {resource === 'vendor-settlements' ? <VendorSettlementSheet record={record} /> : resource === 'manifests'
         ? <DeliveryManifestSheet record={record} kind="manifest" />
         : resource === 'invoices'
           ? <InvoiceSheet invoice={record} />

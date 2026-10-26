@@ -77,11 +77,12 @@ export function DeliveryManifestSheet({ record, kind = 'drs' }) {
   );
 }
 
-function InvoiceHeader() {
-  return <header className="invoice-brand"><img src="/crl-logo.png" alt="CRL" /><div><h2>CHAPLE ROADLINES PVT. LTD.</h2><b>Goods Transport & Logistics Services</b><span>Shop No. 3, Opp. Joshi Clinic, Beside Pushpa Mobile,<br />Khargaon Road, Wadi, Nagpur-440023 (MH)<br />91-74993 58403 | info@crl-transport.com | www.crl-transport.com</span></div><strong>TAX INVOICE</strong></header>;
+function InvoiceHeader({ gstAvailable }) {
+  return <header className="invoice-brand"><img src="/crl-logo.png" alt="CRL" /><div><h2>CHAPLE ROADLINES PVT. LTD.</h2><b>Goods Transport & Logistics Services</b><span>Shop No. 3, Opp. Joshi Clinic, Beside Pushpa Mobile,<br />Khargaon Road, Wadi, Nagpur-440023 (MH)<br />91-74993 58403 | info@crl-transport.com | www.crl-transport.com</span></div><strong>{gstAvailable ? 'TAX INVOICE' : 'INVOICE'}</strong></header>;
 }
 
 export function InvoiceSheet({ invoice }) {
+  const gstAvailable = invoice.gstAvailable ?? (Number(invoice.gstRate || 0) > 0 || Number(invoice.gstAmount || 0) > 0);
   const billTo = invoice.billTo?.name ? invoice.billTo : (invoice.customerId || {});
   const branch = invoice.branchId || {};
   const sourceItems = invoice.lineItems?.length ? invoice.lineItems : (invoice.shipmentIds || []).map((shipment) => {
@@ -104,7 +105,7 @@ export function InvoiceSheet({ invoice }) {
     {chunks.map((items, pageIndex) => {
       const finalPage = pageIndex === chunks.length - 1;
       return <section className="invoice-page" key={pageIndex}>
-        <InvoiceHeader />
+        <InvoiceHeader gstAvailable={gstAvailable} />
         <div className="invoice-meta">
           <div><b>Invoice No.</b><span>{invoice.invoiceNumber}</span><b>Invoice Date</b><span>{printableDate(invoice.issueDate || invoice.createdAt)}</span><b>Due Date</b><span>{printableDate(invoice.dueDate)}</span></div>
           <div><b>Status</b><span>{label(invoice.status)}</span><b>Billing Period</b><span>{printableDate(invoice.periodFrom)} to {printableDate(invoice.periodTo)}</span><b>Place of Supply</b><span>{billTo.state || branch.state || '—'}</span></div>
@@ -116,7 +117,7 @@ export function InvoiceSheet({ invoice }) {
         {finalPage && <>
           <div className="invoice-closing">
             <div><b>Amount in words</b><p>{amountInWords(invoice.totalAmount)}</p>{invoice.notes && <p><b>Notes:</b> {invoice.notes}</p>}</div>
-            <table><tbody><tr><th>Taxable value</th><td>{amount(invoice.subtotal)}</td></tr>{sameState ? <><tr><th>CGST ({Number(invoice.gstRate || 0) / 2}%)</th><td>{amount(halfTax)}</td></tr><tr><th>SGST ({Number(invoice.gstRate || 0) / 2}%)</th><td>{amount(halfTax)}</td></tr></> : <tr><th>IGST ({invoice.gstRate || 0}%)</th><td>{amount(invoice.gstAmount)}</td></tr>}<tr className="invoice-grand-total"><th>Invoice Total</th><td>₹ {amount(invoice.totalAmount)}</td></tr><tr><th>Paid</th><td>{amount(invoice.paidAmount)}</td></tr><tr><th>Balance Due</th><td>{amount(invoice.balanceAmount)}</td></tr></tbody></table>
+            <table><tbody><tr><th>Taxable value</th><td>{amount(invoice.subtotal)}</td></tr>{gstAvailable && (sameState ? <><tr><th>CGST ({Number(invoice.gstRate || 0) / 2}%)</th><td>{amount(halfTax)}</td></tr><tr><th>SGST ({Number(invoice.gstRate || 0) / 2}%)</th><td>{amount(halfTax)}</td></tr></> : <tr><th>IGST ({invoice.gstRate || 0}%)</th><td>{amount(invoice.gstAmount)}</td></tr>)}<tr className="invoice-grand-total"><th>Invoice Total</th><td>₹ {amount(invoice.totalAmount)}</td></tr><tr><th>Paid</th><td>{amount(invoice.paidAmount)}</td></tr><tr><th>Balance Due</th><td>{amount(invoice.balanceAmount)}</td></tr></tbody></table>
           </div>
           <div className="invoice-signature"><span>For CHAPLE ROADLINES PVT. LTD.</span><b>Authorized Signatory</b></div>
         </>}

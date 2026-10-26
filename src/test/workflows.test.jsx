@@ -1,3 +1,5 @@
+import { InvoiceSheet } from '../components/tms/TransportPrintLayouts';
+import TmsModulePage from '../pages/TmsModulePage';
 const restoredSession = vi.hoisted(() => ({ user: null }));
 vi.mock('../api/client', async (original) => ({
   ...await original(),
@@ -418,5 +420,89 @@ describe('Activity feed', () => {
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /try again/i }));
     await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
+  });
+});
+
+
+describe('Client billing tabs', () => {
+  const retailLr = { _id: 'retail-lr', lrNumber: 'LR-RETAIL-1', customerId: 'retail-account', senderName: 'Retail Sender', receiverName: 'Retail Receiver', lrDetails: { paymentMode: 'TO_PAY', bookingDate: '2026-10-12T00:00:00.000Z', gstRate: 5, gstAmount: 50, totalAmount: 1050 } };
+  function mockBilling() {
+    return vi.spyOn(api, 'get').mockImplementation(async (path) => result(path === '/customers' ? [{ _id: customer, name: 'Credit Client', customerType: 'CREDIT' }] : path === '/invoices/billable-lrs' ? [retailLr] : []));
+  }
+  it('fetches credit LRs only after selecting a customer', async () => {
+    const getSpy = mockBilling();
+    mount(<TmsModulePage />, { user: branchManager, path: '/manager/invoices' });
+    await userEvent.click(await screen.findByRole('button', { name: 'Add invoice' }));
+    expect(screen.getByText('Select a credit customer to fetch eligible LRs.')).toBeInTheDocument();
+    await userEvent.selectOptions(await screen.findByLabelText('Credit customer', { selector: 'select' }), customer);
+    await screen.findByText('LR-RETAIL-1');
+    expect(getSpy).toHaveBeenCalledWith('/invoices/billable-lrs', expect.objectContaining({ params: expect.objectContaining({ customerId: customer, billingType: 'CREDIT' }) }));
+  });
+  it('resets GST to zero when switching to an LR without GST', async () => {
+    const noGst = { ...retailLr, _id: 'no-gst', lrNumber: 'LR-NO-GST', lrDetails: {} };
+    vi.spyOn(api, 'get').mockImplementation(async (path) => result(path === '/invoices/billable-lrs' ? [retailLr, noGst] : []));
+    mount(<TmsModulePage />, { user: branchManager, path: '/manager/invoices' });
+    await userEvent.click(await screen.findByRole('tab', { name: 'Retail Customer' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add invoice' }));
+    await screen.findByRole('option', { name: 'LR-RETAIL-1' });
+    await userEvent.selectOptions(screen.getByLabelText('Retail LR (9966)'), 'retail-lr');
+    expect(screen.getByLabelText('GST %')).toHaveValue(5);
+    expect(screen.getByRole('checkbox', { name: 'GST available' })).toBeChecked();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'GST available' }));
+    expect(screen.getByLabelText('GST %')).toHaveValue(0);
+    expect(screen.getByLabelText('GST %')).toBeDisabled();
+    await userEvent.selectOptions(screen.getByLabelText('Retail LR (9966)'), 'no-gst');
+    expect(screen.getByLabelText('GST %')).toHaveValue(0);
+  });
+  it('fetches the retail bill name from the LR and submits one LR', async () => {
+    mockBilling();
+    const postSpy = vi.spyOn(api, 'post').mockResolvedValue(result({ id: 'invoice' }));
+    mount(<TmsModulePage />, { user: branchManager, path: '/manager/invoices' });
+    await userEvent.click(await screen.findByRole('tab', { name: 'Retail Customer' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add invoice' }));
+    await screen.findByRole('option', { name: 'LR-RETAIL-1' });
+    await userEvent.selectOptions(screen.getByLabelText('Retail LR (9966)'), 'retail-lr');
+    expect(screen.getByLabelText('Retail customer name')).toHaveValue('Retail Receiver');
+    expect(screen.getByLabelText('Retail customer name')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('GST %')).toHaveValue(5);
+    expect(screen.getByLabelText('Invoice date')).toHaveValue('2026-10-12');
+    expect(screen.getByLabelText('Billing period from')).toHaveValue('2026-10-12');
+    expect(screen.getByLabelText('Billing period to')).toHaveValue('2026-10-12');
+    await userEvent.clear(screen.getByLabelText('GST %'));
+    await userEvent.type(screen.getByLabelText('GST %'), '12');
+    await userEvent.clear(screen.getByLabelText('Invoice date'));
+    await userEvent.type(screen.getByLabelText('Invoice date'), '2026-10-26');
+
+    expect(screen.queryByRole('combobox', { name: 'Credit customer' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save invoice' }));
+    await waitFor(() => expect(postSpy).toHaveBeenCalledWith('/invoices', expect.objectContaining({ billingType: 'RETAIL', customerId: 'retail-account', shipmentIds: ['retail-lr'], gstRate: '12', issueDate: '2026-10-26', periodFrom: '2026-10-12', periodTo: '2026-10-12' }), undefined));
+    expect(postSpy.mock.calls[0][1]).not.toHaveProperty('retailName');
+  });
+});
+
+
+describe('Invoice GST heading', () => {
+  it.each([[true, 'TAX INVOICE'], [false, 'INVOICE']])('renders saved GST availability %s', (gstAvailable, heading) => {
+    render(<InvoiceSheet invoice={{ gstAvailable, totalAmount: 0 }} />);
+    expect(screen.getByText(heading, { exact: true })).toBeInTheDocument();
+    if (!gstAvailable) expect(screen.queryByText(/IGST/)).not.toBeInTheDocument();
+  });
+});
+
+
+describe('Vendor commission settlement', () => {
+  it('fetches vendor work by selected code and shows master rate breakdown', async () => {
+    const vendor = { _id: 'vendor-1', vendorCode: 'V001', name: 'Road Vendor' };
+    const work = { vendor, shipments: [{ id: 'lr1', lrNumber: 'LR-VENDOR-1', weightKg: 20, packageCount: 3, freight: 500 }], operations: [{ key: 'TRIP:trip1', type: 'TRIP', number: 'TRIP-001', shipmentIds: ['lr1'], recordedCost: 400, advance: 10, eligible: true }], calculation: { rateBasis: 'PER_KG', agreedRate: 2, units: 20, commission: 40 }, advance: 10, settledLrCount: 0 };
+    const getSpy = vi.spyOn(api, 'get').mockImplementation(async (path) => result(path === '/vendors/options' ? [vendor] : path === '/vendors/vendor-1/settlement-work' ? work : []));
+    mount(<TmsModulePage />, { user: branchManager, path: '/manager/vendor-settlements' });
+    await userEvent.click(await screen.findByRole('button', { name: 'Add settlement invoice' }));
+    await screen.findByRole('option', { name: /V001/ });
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Vendor' }), 'vendor-1');
+    expect(await screen.findByText('LR-VENDOR-1')).toBeInTheDocument();
+    expect(screen.getByText('TRIP-001')).toBeInTheDocument();
+    expect(screen.getByText(/PER_KG/)).toHaveTextContent('20 units');
+    expect(screen.getByText('Net payable:').parentElement).toHaveTextContent('30.00');
+    expect(getSpy).toHaveBeenCalledWith('/vendors/vendor-1/settlement-work', { params: undefined });
   });
 });
