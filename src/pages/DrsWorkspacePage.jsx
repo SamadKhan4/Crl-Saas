@@ -30,6 +30,7 @@ export default function DrsWorkspacePage() {
   const [files, setFiles] = useState({});
   const [proofs, setProofs] = useState({});
   const [failures, setFailures] = useState({});
+  const [outcomes, setOutcomes] = useState({});
   const [error, setError] = useState('');
   const refresh = () => {
     cache.invalidateQueries({ queryKey: ['drs', id] });
@@ -89,19 +90,20 @@ export default function DrsWorkspacePage() {
   const complete = attemptsComplete && drs.shipmentIds.every((shipment) => itemByShipment.get(idOf(shipment))?.attemptStatus !== 'DELIVERED' || uploaded.has(idOf(shipment)));
   const base = `/${user.role.toLowerCase()}`;
   const canClose = ['ADMIN', 'MANAGER'].includes(user.role);
+  const closureOnly = location.state?.from === 'closure';
   return (
     <>
       <PageHeader title={drs.drsNumber} description={`${drs.branchId?.name || "Delivery run"} · ${date(drs.deliveryDate)}`}>
         <Link className="btn secondary" to={`${base}/${location.state?.from === 'closure' ? 'drs-closure' : 'drs'}`}>
           Back to {location.state?.from === 'closure' ? 'DRS closure' : 'DRS'}
         </Link>
-        <button className="btn secondary" onClick={() => window.print()}><Printer size={16} /> Print DRS</button>
-        <TransportPdfDownload targetRef={printRef} documentNumber={drs.drsNumber} label="Download DRS PDF" />
+        {!closureOnly && <><button className="btn secondary" onClick={() => window.print()}><Printer size={16} /> Print DRS</button>
+        <TransportPdfDownload targetRef={printRef} documentNumber={drs.drsNumber} label="Download DRS PDF" /></>}
         <StatusBadge status={drs.status} />
       </PageHeader>
-      <div className="transport-document-shell" ref={printRef}>
+      {!closureOnly && <div className="transport-document-shell" ref={printRef}>
         <DeliveryManifestSheet record={drs} />
-      </div>
+      </div>}
       <section className="panel">
         <div className="panel-heading">
           <div>
@@ -129,16 +131,17 @@ export default function DrsWorkspacePage() {
                     </span>
                   </div>
                   {!attempted ? (
-                    <div className="tms-epod-fields">
-                      <input aria-label={`Undelivered reason for ${shipment.lrNumber}`} placeholder="Reason if undelivered" value={failures[idOf(shipment)] || ''} onChange={(event) => setFailures((current) => ({ ...current, [idOf(shipment)]: event.target.value }))} />
-                      <button className="btn secondary" disabled={action.isPending || drs.status !== 'OPEN'} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'DELIVERED' })}>Delivered</button>
-                      <button className="btn secondary" disabled={action.isPending || drs.status !== 'OPEN' || !failures[idOf(shipment)]?.trim()} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'UNDELIVERED' })}>Undelivered</button>
-                      <button className="btn secondary" disabled={action.isPending || drs.status !== 'OPEN' || !failures[idOf(shipment)]?.trim()} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: 'REATTEMPT' })}>Reattempt</button>
+                    <div className="tms-epod-fields drs-outcome-fields">
+                      <label>Delivery status<select aria-label={`Delivery status for ${shipment.lrNumber}`} value={outcomes[idOf(shipment)] || ''} disabled={action.isPending || drs.status !== 'OPEN'} onChange={(event) => setOutcomes((current) => ({ ...current, [idOf(shipment)]: event.target.value }))}>
+                        <option value="">Select status</option><option value="DELIVERED">Delivered</option><option value="UNDELIVERED">Undelivered</option>
+                      </select></label>
+                      {outcomes[idOf(shipment)] === 'UNDELIVERED' && <label className="drs-failure-reason">Reason for undelivered *<textarea aria-label={`Undelivered reason for ${shipment.lrNumber}`} placeholder="Why could this LR not be delivered?" required maxLength={300} value={failures[idOf(shipment)] || ''} onChange={(event) => setFailures((current) => ({ ...current, [idOf(shipment)]: event.target.value }))} /></label>}
+                      <button className="btn secondary" disabled={action.isPending || drs.status !== 'OPEN' || !outcomes[idOf(shipment)] || (outcomes[idOf(shipment)] === 'UNDELIVERED' && !failures[idOf(shipment)]?.trim())} onClick={() => action.mutate({ type: 'attempt', shipment, outcome: outcomes[idOf(shipment)] })}>Save status</button>
                     </div>
                   ) : done ? (
                     <StatusBadge status="POD_UPLOADED" />
                   ) : deliveryItem?.attemptStatus !== 'DELIVERED' ? (
-                    <StatusBadge status={deliveryItem?.attemptStatus} />
+                    <div><StatusBadge status={deliveryItem?.attemptStatus} />{deliveryItem?.failureReason && <p className="drs-saved-reason">{deliveryItem.failureReason}</p>}</div>
                   ) : (
                     <div className="tms-epod-fields">
                       <input
@@ -159,7 +162,10 @@ export default function DrsWorkspacePage() {
                         value={proofs[idOf(shipment)]?.otpReference || ''}
                         onChange={(event) => setProofs((current) => ({ ...current, [idOf(shipment)]: { ...current[idOf(shipment)], otpReference: event.target.value } }))}
                       />
+                      <label className="drs-pod-file">Choose File / Image for POD
                       <input
+                        aria-label={`Choose POD file for ${shipment.lrNumber}`}
+                        disabled={action.isPending || drs.status !== 'OPEN'}
                         type="file"
                         accept=".jpg,.jpeg,.png,.webp,.pdf"
                         onChange={(event) =>
@@ -169,8 +175,9 @@ export default function DrsWorkspacePage() {
                           }))
                         }
                       />
+                      <small>JPG, PNG, WEBP or PDF</small></label>
                       <button
-                        className="btn secondary"
+                        className="btn"
                         disabled={action.isPending || drs.status !== 'OPEN' || !proofs[idOf(shipment)]?.receiverName?.trim() || !files[idOf(shipment)]}
                         onClick={() => action.mutate({ type: 'pod', shipment })}
                       >

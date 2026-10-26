@@ -202,11 +202,11 @@ function DrsPreparation({ active = false }) {
         <label>Vendor *<select aria-label="Vendor" value={vendorId} required disabled={!vendorType} onChange={(event) => { setVendorId(event.target.value); setVehicleNumber(''); }}><option value="">Select vendor</option>{rows(vendors).filter((row) => vendorType === 'MV' ? row.vendorType === 'MARKET' || row.hasMarketVehicles : row.vendorType !== 'MARKET').map((row) => <option key={idOf(row)} value={idOf(row)}>{row.vendorCode} - {row.name}</option>)}</select></label>
         <div className="full-span drs-lr-picker">
           <label htmlFor="drs-lr-search">Undelivered LRs *</label>
-          <input id="drs-lr-search" role="combobox" aria-expanded={pickerOpen} aria-controls="drs-lr-options" aria-autocomplete="list" disabled={!branchId || !vendorId} placeholder="Search LR number, receiver or mobile" value={search} onFocus={() => setPickerOpen(true)} onChange={(event) => { setSearch(event.target.value); setPickerOpen(true); }} />
-          {pickerOpen && branchId && vendorId && <div className="drs-lr-options" id="drs-lr-options" role="listbox" aria-label="Available LRs" aria-multiselectable="true">
+          <input id="drs-lr-search" type="search" aria-controls="drs-lr-options" disabled={!branchId || !vendorId} placeholder="Search LR number, receiver or mobile" value={search} onFocus={() => setPickerOpen(true)} onChange={(event) => { setSearch(event.target.value); setPickerOpen(true); }} />
+          {pickerOpen && branchId && vendorId && <div className="drs-lr-options" id="drs-lr-options" role="group" aria-label="Available LRs">
             {inventory.isPending ? <p>Loading LRs...</p> : inventory.isError ? <ErrorState error={errorMessage(inventory.error)} retry={inventory.refetch} /> : rows(inventory).length ? rows(inventory).map((lr) => {
               const checked = selected.some((row) => idOf(row) === idOf(lr));
-              return <button type="button" role="option" aria-selected={checked} key={idOf(lr)} onClick={() => setSelected((current) => checked ? current.filter((row) => idOf(row) !== idOf(lr)) : [...current, lr])}>{checked ? '[Selected] ' : ''}{lr.lrNumber} - {lr.receiverName} - {lr.packageCount} boxes</button>;
+              return <label className={`drs-lr-checkbox${checked ? ' is-selected' : ''}`} key={idOf(lr)}><input type="checkbox" aria-label={`Select LR ${lr.lrNumber}`} checked={checked} onChange={(event) => { const included = event.target.checked; setSelected((current) => included ? [...current.filter((row) => idOf(row) !== idOf(lr)), lr] : current.filter((row) => idOf(row) !== idOf(lr))); }} /><span><strong>{lr.lrNumber}</strong><small>{lr.receiverName || '-'} - {lr.packageCount} boxes</small></span></label>;
             }) : <p>No undelivered LRs available at this branch.</p>}
             <button type="button" className="text-btn" onClick={() => setPickerOpen(false)}>Done selecting</button>
           </div>}

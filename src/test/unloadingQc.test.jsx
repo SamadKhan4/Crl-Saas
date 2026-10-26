@@ -82,8 +82,13 @@ it('creates an independent DRS using a matching vendor and searchable branch LRs
   await userEvent.selectOptions(screen.getByLabelText('Vendor type'), 'VV');
   await userEvent.selectOptions(screen.getByLabelText('Vendor'), 'vendor');
   expect(screen.queryByRole('option', { name: /Market Vendor/ })).not.toBeInTheDocument();
-  await userEvent.type(screen.getByRole('combobox', { name: 'Undelivered LRs *' }), 'LR001');
-  await userEvent.click(await screen.findByRole('option', { name: /LR001/ }));
+  await userEvent.type(screen.getByRole('searchbox', { name: 'Undelivered LRs *' }), 'LR001');
+  const lrCheckbox = await screen.findByRole('checkbox', { name: 'Select LR LR001' });
+  await userEvent.click(lrCheckbox);
+  expect(lrCheckbox).toBeChecked();
+  await userEvent.click(lrCheckbox);
+  expect(lrCheckbox).not.toBeChecked();
+  await userEvent.click(lrCheckbox);
   expect(screen.getByLabelText('Driver Name')).toHaveValue('First Driver');
   await userEvent.selectOptions(screen.getByLabelText('Vehicle Number'), 'MH31AB1234');
   expect(screen.getByLabelText('Driver Name')).toHaveValue('Local Driver');
