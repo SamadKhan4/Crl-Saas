@@ -80,7 +80,7 @@ const LrTemplate3 = forwardRef(function LrTemplate3({ shipment = {} }, ref) {
             <img src="/crl-logo.png" alt="Chaple Roadlines logo" width="108" height="48" />
             <div><h1>CHAPLE ROADLINES PVT. LTD.</h1><p>Shop No. 3, Opp. Joshi Clinic, Beside Pushpa Mobile, Wadi, Nagpur - 440023 (MH.)</p><p>Mobile: 7499358403 | info@crl-transport.com | www.crl-transport.com</p><p>GST: 27AANCC4313N1ZC | PAN: AANCC4313N | Transporter ID: 27AANCC4313N1ZC</p></div>
           </div>
-          <div className="lr3-note"><small>CONSIGNMENT NOTE</small><LrBarcode value={s.lrNumber} className="lr3-barcode" /><span>RECIEVER COPY</span></div>
+          <div className="lr3-note"><small>CONSIGNMENT NOTE</small><LrBarcode value={s.lrNumber} className="lr3-barcode" /><span className="lr3-copy-label">RECEIVER COPY</span></div>
           <section className="lr3-route">
             <div><span>From</span><strong>{show(s.from || branch(s.originBranchId))}</strong></div><div><span>To</span><strong>{show(s.to || branch(s.destinationBranchId))}</strong></div>
             <div><span>Booking date</span><strong>{date(s.bookingDate || s.createdAt)}</strong></div><div><span>Expected delivery</span><strong>{date(s.expectedDeliveryDate)}</strong></div>

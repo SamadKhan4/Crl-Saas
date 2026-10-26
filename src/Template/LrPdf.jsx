@@ -16,17 +16,23 @@ export async function createLrPdfBlob(root) {
   if (!pages.length) throw new Error('LR is not ready. Please try again.');
   for (const [index, page] of pages.entries()) {
     if (index) pdf.addPage('a4', 'portrait');
-    const canvas = await html2canvas(page, { scale: 2, backgroundColor: '#ffffff', width: 1000, windowWidth: 1000, useCORS: true });
     const pageWidth = pdf.internal.pageSize.getWidth(), pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 6;
     const gap = 6;
     const slotHeight = (pageHeight - margin * 2 - gap) / 2;
-    const scale = Math.min((pageWidth - margin * 2) / canvas.width, slotHeight / canvas.height);
-    const width = canvas.width * scale, height = canvas.height * scale;
-    const image = canvas.toDataURL('image/png');
-    for (let copy = 0; copy < 2; copy++) {
-      const top = margin + copy * (slotHeight + gap);
-      pdf.addImage(image, 'PNG', (pageWidth - width) / 2, top + (slotHeight - height) / 2, width, height, undefined, 'FAST');
+    const copyLabel = page.querySelector('.lr3-copy-label');
+    const originalLabel = copyLabel?.textContent;
+    try {
+      for (let copy = 0; copy < 2; copy++) {
+        if (copyLabel) copyLabel.textContent = copy === 0 ? 'SENDER COPY' : 'RECEIVER COPY';
+        const canvas = await html2canvas(page, { scale: 2, backgroundColor: '#ffffff', width: 1000, windowWidth: 1000, useCORS: true });
+        const scale = Math.min((pageWidth - margin * 2) / canvas.width, slotHeight / canvas.height);
+        const width = canvas.width * scale, height = canvas.height * scale;
+        const top = margin + copy * (slotHeight + gap);
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', (pageWidth - width) / 2, top + (slotHeight - height) / 2, width, height, undefined, 'FAST');
+      }
+    } finally {
+      if (copyLabel) copyLabel.textContent = originalLabel;
     }
     pdf.setDrawColor(170);
     pdf.setLineDashPattern([2, 2], 0);
