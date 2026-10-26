@@ -15,7 +15,7 @@ export function UnloadingTallySheet({ trip }) {
   if (unlisted.length) manifests.push({ manifestNumber: 'Manifest reference unavailable', shipmentIds: unlisted });
   return <div className="transport-print-document tally-print-document unloading-verification-sheet">
     <header className="tally-brand"><img src="/crl-logo.png" alt="CRL" /><div><h1>CHAPLE ROADLINES PVT. LTD.</h1><span>Physical goods receipt and verification</span></div><strong>UNLOADING TALLY</strong></header>
-    <section className="tally-heading"><div><small>Trip number</small><h2>{trip.tripNumber}</h2></div><div><small>Movement</small><b>{trip.origin || trip.fromHubId?.name || '-'} to {trip.destination || trip.toHubId?.name || '-'}</b><span>Receiving branch: {trip.toHubId?.name || '-'}</span></div></section>
+    <section className="tally-heading"><div><small>Trip number</small><h2>{trip.tripNumber}</h2></div><div><small>Movement</small><b>{trip.origin || trip.fromHubId?.name || '-'} to {trip.destination || trip.toHubId?.name || '-'}</b><span>Receiving branch: {trip.destination || trip.toHubId?.city || trip.toHubId?.name || '-'}</span></div></section>
     <section className="tally-info-grid">{[
       ['Vehicle / type', [trip.vehicleNumber, trip.vehicleType, trip.vehicleSource].filter(Boolean).join(' / ')],
       ['Driver / mobile', [trip.driverName, trip.driverMobile].filter(Boolean).join(' / ')],

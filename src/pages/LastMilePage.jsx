@@ -29,7 +29,7 @@ function Arrivals() {
   const columns = [
       { key: 'trip', label: 'Trip', render: (row) => row.tripNumber },
       { key: 'vehicle', label: 'Vehicle / Driver', render: (row) => `${row.vehicleNumber} / ${row.driverName}` },
-      { key: 'from', label: 'Movement', render: (row) => `${row.fromHubId?.name || row.origin} → ${row.toHubId?.name || row.destination}` },
+      { key: 'from', label: 'Movement', render: (row) => `${row.origin || row.fromHubId?.city || row.fromHubId?.name || '-'} → ${row.destination || row.toHubId?.city || row.toHubId?.name || '-'}` },
       { key: 'lrs', label: 'LRs / Boxes', render: (row) => `${row.shipmentIds?.length || 0} / ${row.totalPackages || 0}` },
       { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
       { key: 'action', label: 'Action', render: (row) => <div className="actions">{row.status === 'DISPATCHED' && <button className="btn secondary" disabled={arrive.isPending} onClick={() => arrive.mutate(idOf(row))}>Mark Arrived</button>}<button className="btn secondary" onClick={() => setDocument({ tripId: idOf(row) })}>View</button><button className="btn secondary" onClick={() => setDocument({ tripId: idOf(row), autoPrint: true })}>Print Unloading Tally</button></div> },
@@ -57,7 +57,7 @@ function ReadyForClosure() {
     <section className="panel"><div className="panel-heading"><h2>Arrived trips</h2></div>{query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={rows(query)} empty="No arrived trips waiting to process" columns={[
       { key: 'trip', label: 'Trip', render: (row) => row.tripNumber },
       { key: 'vehicle', label: 'Vehicle / Driver', render: (row) => `${row.vehicleNumber} / ${row.driverName}` },
-      { key: 'from', label: 'Movement', render: (row) => `${row.fromHubId?.name || row.origin} → ${row.toHubId?.name || row.destination}` },
+      { key: 'from', label: 'Movement', render: (row) => `${row.origin || row.fromHubId?.city || row.fromHubId?.name || '-'} → ${row.destination || row.toHubId?.city || row.toHubId?.name || '-'}` },
       { key: 'lrs', label: 'LRs / Packages', render: (row) => `${row.shipmentIds?.length || 0} / ${row.totalPackages || 0}` },
       { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
       { key: 'action', label: 'Action', render: (row) => <div className="actions"><button className="btn secondary" disabled={create.isPending} onClick={() => create.mutate(idOf(row))}>Process Trip</button><button className="btn secondary" onClick={() => setDocument({ tripId: idOf(row) })}>View</button><button className="btn secondary" onClick={() => setDocument({ tripId: idOf(row), autoPrint: true })}>Print Unloading Tally</button></div> },
