@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { CheckCircle2, FileCheck2, Printer, Truck } from 'lucide-react';
+import { CheckCircle2, FileCheck2, Printer, Truck, UploadCloud } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, errorMessage } from '../api/client';
 import { lastMileApi } from '../api/services';
@@ -120,7 +120,7 @@ export default function DrsWorkspacePage() {
               const deliveryItem = itemByShipment.get(idOf(shipment));
               const attempted = deliveryItem?.attemptStatus && deliveryItem.attemptStatus !== 'PENDING';
               return (
-                <article key={idOf(shipment)}>
+                <article className="drs-closure-lr" key={idOf(shipment)}>
                   <div>
                     {done ? <CheckCircle2 size={20} /> : <FileCheck2 size={20} />}
                     <span>
@@ -143,26 +143,29 @@ export default function DrsWorkspacePage() {
                   ) : deliveryItem?.attemptStatus !== 'DELIVERED' ? (
                     <div><StatusBadge status={deliveryItem?.attemptStatus} />{deliveryItem?.failureReason && <p className="drs-saved-reason">{deliveryItem.failureReason}</p>}</div>
                   ) : (
-                    <div className="tms-epod-fields">
-                      <input
+                    <div className="drs-pod-fields">
+                      <label>Receiver name *<input
                         aria-label={`Receiver name for ${shipment.lrNumber}`}
                         placeholder="Actual receiver name *"
                         value={proofs[idOf(shipment)]?.receiverName || ''}
                         onChange={(event) => setProofs((current) => ({ ...current, [idOf(shipment)]: { ...current[idOf(shipment)], receiverName: event.target.value } }))}
-                      />
-                      <input
+                      /></label>
+                      <label>Receiver mobile<input
                         aria-label={`Receiver mobile for ${shipment.lrNumber}`}
                         placeholder="Receiver mobile"
                         value={proofs[idOf(shipment)]?.receiverMobile || ''}
                         onChange={(event) => setProofs((current) => ({ ...current, [idOf(shipment)]: { ...current[idOf(shipment)], receiverMobile: event.target.value } }))}
-                      />
-                      <input
+                      /></label>
+                      <label>Delivery reference<input
                         aria-label={`OTP reference for ${shipment.lrNumber}`}
                         placeholder="OTP / delivery reference"
                         value={proofs[idOf(shipment)]?.otpReference || ''}
                         onChange={(event) => setProofs((current) => ({ ...current, [idOf(shipment)]: { ...current[idOf(shipment)], otpReference: event.target.value } }))}
-                      />
-                      <label className="drs-pod-file">Choose File / Image for POD
+                      /></label>
+                      <div className="drs-pod-upload-row">
+                      <label className="drs-pod-picker">
+                      <span className="drs-pod-picker-icon"><UploadCloud size={21} /></span>
+                      <span className="drs-pod-picker-copy"><strong>{files[idOf(shipment)] ? 'Change POD file' : 'Choose file or image'}</strong><small>{files[idOf(shipment)]?.name || 'JPG, PNG, WEBP or PDF'}</small></span>
                       <input
                         aria-label={`Choose POD file for ${shipment.lrNumber}`}
                         disabled={action.isPending || drs.status !== 'OPEN'}
@@ -175,14 +178,15 @@ export default function DrsWorkspacePage() {
                           }))
                         }
                       />
-                      <small>JPG, PNG, WEBP or PDF</small></label>
+                      </label>
                       <button
-                        className="btn"
+                        className="btn drs-pod-upload-button"
                         disabled={action.isPending || drs.status !== 'OPEN' || !proofs[idOf(shipment)]?.receiverName?.trim() || !files[idOf(shipment)]}
                         onClick={() => action.mutate({ type: 'pod', shipment })}
                       >
                         Upload POD
                       </button>
+                      </div>
                     </div>
                   )}
                 </article>
