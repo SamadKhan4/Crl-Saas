@@ -34,6 +34,7 @@ export function DeliveryManifestSheet({ record, kind = 'drs' }) {
       ['Vehicle number', record.vehicleNumber || '-'],
       ['Driver / mobile', [record.driverName || record.deliveryAgent, record.driverMobile].filter(Boolean).join(' / ') || '-'],
       ['Vendor / code', [vendor.name, vendor.vendorCode].filter(Boolean).join(' / ') || '-'],
+      ...(isDrs ? [['Vendor charges (INR)', record.vendorCharges == null ? '-' : amount(record.vendorCharges)], ['Vendor rate / basis', record.vendorRate == null ? '-' : `${amount(record.vendorRate)} / ${label(record.vendorRateBasis)}`]] : []),
       ['Vendor contact', [vendor.contactPerson || vendor.ownerName, vendor.mobile].filter(Boolean).join(' / ') || '-'],
       ['Vendor address / GST', [vendor.address, vendor.city, vendor.gstNumber].filter(Boolean).join(', ') || '-'],
     ].map(([name, value]) => <div key={name}><small>{name}</small><b>{value}</b></div>)}</section>

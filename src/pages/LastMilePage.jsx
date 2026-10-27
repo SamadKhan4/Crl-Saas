@@ -175,11 +175,15 @@ function DrsPreparation({ active = false }) {
   const mappedVehicles = (vendorType === 'MV' ? (selectedVendor?.marketVehicles?.length ? selectedVendor.marketVehicles : selectedVendor?.vendorType === 'MARKET' ? selectedVendor.vehicles : []) : selectedVendor?.vehicles) || [];
   const availableVehicles = mappedVehicles.filter((vehicle) => vehicle.status !== 'INACTIVE');
   const selectedVehicle = availableVehicles.find((vehicle) => vehicle.vehicleNumber === vehicleNumber) || availableVehicles[0];
+  const vendorRate = Number(selectedVendor?.commercial?.rate || 0);
+  const vendorRateBasis = selectedVendor?.commercial?.rateBasis || 'PER_TRIP';
+  const vendorUnits = vendorRateBasis === 'PER_KG' ? selected.reduce((sum, row) => sum + Number(row.weightKg || 0), 0) : vendorRateBasis === 'PER_BOX' ? selected.reduce((sum, row) => sum + Number(row.packageCount || 0), 0) : 1;
+  const mappedCharges = Math.round(vendorRate * vendorUnits * 100) / 100;
   const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const save = (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    action.mutate({ branchId, vehicleSource: vendorType, vendorId, shipmentIds: selected.map(idOf), vehicleNumber: form.get('vehicleNumber'), driverName: form.get('driverName'), driverMobile: form.get('driverMobile') || undefined, deliveryDate: form.get('deliveryDate'), partB: [], remarks: form.get('remarks') || undefined });
+    action.mutate({ branchId, vehicleSource: vendorType, vendorId, ...(vendorType === 'MV' && { vendorCharges: Number(form.get('vendorCharges')) }), shipmentIds: selected.map(idOf), vehicleNumber: form.get('vehicleNumber'), driverName: form.get('driverName'), driverMobile: form.get('driverMobile') || undefined, deliveryDate: form.get('deliveryDate'), partB: [], remarks: form.get('remarks') || undefined });
   };
   const branchLocked = user.role === 'EMPLOYEE' && Array.isArray(user.operationStages);
   return <><PageHeader title={active ? 'Delivery Attempts' : 'DRS Preparation'} description="Select a vendor and undelivered branch LRs to create a delivery run. Complete POD upload separately in DRS Closure.">
@@ -190,6 +194,7 @@ function DrsPreparation({ active = false }) {
       { key: 'number', label: 'DRS', render: (row) => row.drsNumber },
       { key: 'branch', label: 'Branch', render: (row) => row.branchId?.name || '-' },
       { key: 'vendor', label: 'Vendor', render: (row) => row.vendorId?.name || row.vendorId?.vendorCode || '-' },
+      { key: 'vendorCharges', label: 'Vendor charges (INR)', render: (row) => row.vendorCharges == null ? '-' : Number(row.vendorCharges).toLocaleString('en-IN') },
       { key: 'vehicle', label: 'Vehicle / Driver', render: (row) => `${row.vehicleNumber} / ${row.driverName}` },
       { key: 'lrs', label: 'LRs', render: (row) => row.shipmentIds?.length || 0 },
       { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
@@ -216,6 +221,7 @@ function DrsPreparation({ active = false }) {
         <label>Vehicle Number<select name="vehicleNumber" required value={selectedVehicle?.vehicleNumber || ''} onChange={(event) => setVehicleNumber(event.target.value)} disabled={!vendorId}><option value="">Select mapped vehicle</option>{availableVehicles.map((vehicle) => <option key={vehicle.vehicleNumber} value={vehicle.vehicleNumber}>{vehicle.vehicleNumber}{vehicle.vehicleType ? ` - ${vehicle.vehicleType}` : ''}</option>)}</select>{vendorId && !availableVehicles.length && <small>No active vehicles mapped to this vendor. Update the vendor vehicle mapping first.</small>}</label>
         <label>Driver Name<input name="driverName" required readOnly value={selectedVehicle?.driverName || ''} placeholder="From selected vehicle" />{selectedVehicle && !selectedVehicle.driverName && <small>Add a driver to this vehicle in Vendor Master.</small>}</label>
         <label>Driver Mobile<input name="driverMobile" readOnly value={selectedVehicle?.driverMobile || ''} placeholder="From selected vehicle" /></label>
+        {vendorType === 'MV' ? <label>Vendor charges (INR) *<input key={vendorId} name="vendorCharges" aria-label="Vendor charges" type="number" min="0" step="0.01" required placeholder="Enter market vehicle charges" /></label> : vendorType === 'VV' && <label>Vendor charges (INR)<input aria-label="Vendor charges" readOnly value={mappedCharges} /><small>Vendor Master: {vendorRate} / {vendorRateBasis.replaceAll('_', ' ').toLowerCase()} x {vendorUnits}</small></label>}
         <label>Delivery Date<input name="deliveryDate" type="date" required defaultValue={today} /></label>
         <label className="full-span">Remarks<textarea name="remarks" /></label>
       </div>
