@@ -76,7 +76,8 @@ it('creates tally from saved sorting with loading details, then displays the sel
   print.mockRestore();
 });
 
-it('assigns the selected route when creating a trip from a city manifest', async () => {
+it.each([true, false])('creates a trip with route selection: %s', async (selectRoute) => {
+  middleMileApi.trips.create.mockClear();
   show('trips');
   await userEvent.click(screen.getByRole('button', { name: 'Create Trip' }));
   await userEvent.selectOptions(await screen.findByLabelText('Vehicle Source'), 'MV');
@@ -86,14 +87,15 @@ it('assigns the selected route when creating a trip from a city manifest', async
   await screen.findByRole('option', { name: 'Mumbai' });
   await userEvent.selectOptions(screen.getByLabelText('Destination'), 'Mumbai');
   await screen.findByRole('option', { name: /Nagpur Mumbai/ });
-  await userEvent.selectOptions(screen.getByLabelText('Route *'), 'route');
+  expect(screen.getByLabelText('Route (optional)')).not.toBeRequired();
+  if (selectRoute) await userEvent.selectOptions(screen.getByLabelText('Route (optional)'), 'route');
   await userEvent.selectOptions(screen.getByLabelText('Manifest number'), 'manifest');
   await userEvent.type(screen.getByLabelText('Seal number'), 'SEAL001');
   const departure = screen.getByLabelText('Departure date');
   const { fireEvent } = await import('@testing-library/react');
   fireEvent.change(departure, { target: { value: '2026-10-06T10:00' } });
   await userEvent.click(screen.getAllByRole('button', { name: 'Create Trip' }).at(-1));
-  await waitFor(() => expect(middleMileApi.trips.create).toHaveBeenCalledWith(expect.objectContaining({ routeId: 'route', destination: 'Mumbai', manifestIds: ['manifest'] }), expect.anything()));
+  await waitFor(() => expect(middleMileApi.trips.create).toHaveBeenCalledWith(expect.objectContaining({ routeId: selectRoute ? 'route' : undefined, destination: 'Mumbai', manifestIds: ['manifest'] }), expect.anything()));
 });
 
 it('opens the manifest view with its LRs, destination, tally and totals', async () => {

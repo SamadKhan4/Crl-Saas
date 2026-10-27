@@ -226,7 +226,7 @@ function TripWorkspace() {
   const create = useMutation({ mutationFn: middleMileApi.trips.create, onSuccess: (result) => { toast.success(`Trip ${result.data.tripNumber} created and dispatched. Print is available in the register.`); setOpen(false); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
   const action = useMutation({ mutationFn: (row) => middleMileApi.dispatchTrip(idOf(row)), onSuccess: () => { toast.success('Trip dispatched'); refresh(); }, onError: (error) => toast.error(errorMessage(error)) });
   return <>
-    <PageHeader title="Middle Mile Trip Creation" description="Select MV/VV, destination city, trip route and manifest, then enter the seal number. Saving creates and dispatches the trip."><button className="btn" onClick={() => { setDestination(''); setOpen(true); }}>Create Trip</button></PageHeader>
+    <PageHeader title="Middle Mile Trip Creation" description="Select MV/VV, destination city, manifest and an optional trip route, then enter the seal number. Saving creates and dispatches the trip."><button className="btn" onClick={() => { setDestination(''); setOpen(true); }}>Create Trip</button></PageHeader>
     <section className="panel">{query.isPending ? <Loadingcrleleton /> : query.isError ? <ErrorState error={errorMessage(query.error)} retry={query.refetch} /> : <DataTable rows={rows(query)} pagination={query.data?.pagination} onPage={setPage} columns={[
       { key: 'tripNumber', label: 'Trip' }, { key: 'destination', label: 'Destination' }, { key: 'vehicleNumber', label: 'Vehicle' }, { key: 'sealNumber', label: 'Seal number' },
       { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
@@ -234,18 +234,18 @@ function TripWorkspace() {
     ]} />}</section>
     {open && <Modal title="Create Middle Mile Trip" onClose={() => setOpen(false)}>{manifests.isError || vendors.isError ? <ErrorState error={errorMessage(manifests.error || vendors.error)} retry={() => { manifests.refetch(); vendors.refetch(); }} /> : <form onSubmit={(event) => {
       event.preventDefault(); const form = new FormData(event.currentTarget);
-      create.mutate({ vehicleSource: source, destination, routeId: form.get('routeId'), manifestIds: [form.get('manifestId')], sealNumber: form.get('sealNumber'), vendorId: form.get('vendorId') || undefined,
+      create.mutate({ vehicleSource: source, destination, routeId: form.get('routeId') || undefined, manifestIds: [form.get('manifestId')], sealNumber: form.get('sealNumber'), vendorId: form.get('vendorId') || undefined,
         vehicleNumber: form.get('vehicleNumber'), vehicleType: form.get('vehicleType') || undefined, vehicleCapacityKg: form.get('vehicleCapacityKg') || undefined,
         driverName: form.get('driverName'), driverMobile: form.get('driverMobile') || undefined, departureDate: form.get('departureDate'), freightAmount: form.get('freightAmount') || 0 });
     }}><div className="form-grid">
       <TripVehicleFields vendors={rows(vendors)} source={source} vendorId={vendorId} onSourceChange={setSource} onVendorChange={setVendorId} />
       <label>Trip cost {source === 'MV' ? '(required for MV)' : ''}<input name="freightAmount" type="number" min={source === 'MV' ? '0.01' : '0'} step="0.01" required={source === 'MV'} /></label>
       <label>Destination<select required value={destination} onChange={(event) => setDestination(event.target.value)}><option value="">Select destination</option>{destinations.map((row) => <option key={row} value={row}>{row}</option>)}</select></label>
-      <label>Route *<select name="routeId" key={destination + '-route'} required><option value="">Select trip route</option>{rows(routes).filter((route) => route.destination?.trim().toLowerCase() === destination.trim().toLowerCase()).map((route) => <option key={idOf(route)} value={idOf(route)}>{route.name} ({route.origin} to {route.destination})</option>)}</select></label>
+      <label>Route (optional)<select name="routeId" key={destination + '-route'}><option value="">No route selected</option>{rows(routes).filter((route) => route.destination?.trim().toLowerCase() === destination.trim().toLowerCase()).map((route) => <option key={idOf(route)} value={idOf(route)}>{route.name} ({route.origin} to {route.destination})</option>)}</select></label>
       {routes.isError && <ErrorState error={errorMessage(routes.error)} retry={routes.refetch} />}
       <label>Manifest number<select name="manifestId" key={destination} required><option value="">Select manifest</option>{available.filter((row) => row.destination === destination).map((row) => <option key={idOf(row)} value={idOf(row)}>{row.manifestNumber} - {row.totalLrs} LRs / {Number(row.totalWeightKg || 0).toLocaleString('en-IN')} kg</option>)}</select></label>
       <label>Seal number<input name="sealNumber" required maxLength={80} /></label><label>Departure date<input name="departureDate" type="datetime-local" required /></label>
-    </div><div className="modal-footer"><button className="btn" disabled={create.isPending || manifests.isPending || vendors.isPending || routes.isPending || routes.isError}>{create.isPending ? 'Creating...' : 'Create Trip'}</button></div></form>}</Modal>}
+    </div><div className="modal-footer"><button className="btn" disabled={create.isPending || manifests.isPending || vendors.isPending}>{create.isPending ? 'Creating...' : 'Create Trip'}</button></div></form>}</Modal>}
     {printTrip && <TripDocument trip={printTrip} onClose={() => setPrintTrip(null)} />}
   </>;
 }
