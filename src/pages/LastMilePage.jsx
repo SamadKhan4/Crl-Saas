@@ -219,15 +219,15 @@ function DrsPreparation({ active = false }) {
           <small>{selected.length} LRs selected. Only received, unassigned LRs from this branch are shown.</small>
         </div>
         <label>Vehicle Number<select name="vehicleNumber" required value={selectedVehicle?.vehicleNumber || ''} onChange={(event) => setVehicleNumber(event.target.value)} disabled={!vendorId}><option value="">Select mapped vehicle</option>{availableVehicles.map((vehicle) => <option key={vehicle.vehicleNumber} value={vehicle.vehicleNumber}>{vehicle.vehicleNumber}{vehicle.vehicleType ? ` - ${vehicle.vehicleType}` : ''}</option>)}</select>{vendorId && !availableVehicles.length && <small>No active vehicles mapped to this vendor. Update the vendor vehicle mapping first.</small>}</label>
-        <label>Driver Name<input name="driverName" required readOnly value={selectedVehicle?.driverName || ''} placeholder="From selected vehicle" />{selectedVehicle && !selectedVehicle.driverName && <small>Add a driver to this vehicle in Vendor Master.</small>}</label>
-        <label>Driver Mobile<input name="driverMobile" readOnly value={selectedVehicle?.driverMobile || ''} placeholder="From selected vehicle" /></label>
+        <label>Driver Name (optional)<input name="driverName" readOnly value={selectedVehicle?.driverName || ''} placeholder="From selected vehicle" /></label>
+        <label>Driver Mobile (optional)<input name="driverMobile" readOnly value={selectedVehicle?.driverMobile || ''} placeholder="From selected vehicle" /></label>
         {vendorType === 'MV' ? <label>Vendor charges (INR) *<input key={vendorId} name="vendorCharges" aria-label="Vendor charges" type="number" min="0" step="0.01" required placeholder="Enter market vehicle charges" /></label> : vendorType === 'VV' && <label>Vendor charges (INR)<input aria-label="Vendor charges" readOnly value={mappedCharges} /><small>Vendor Master: {vendorRate} / {vendorRateBasis.replaceAll('_', ' ').toLowerCase()} x {vendorUnits}</small></label>}
         <label>Delivery Date<input name="deliveryDate" type="date" required defaultValue={today} /></label>
         <label className="full-span">Remarks<textarea name="remarks" /></label>
       </div>
       {branches.isError && <ErrorState error={errorMessage(branches.error)} retry={branches.refetch} />}
       {vendors.isError && <ErrorState error={errorMessage(vendors.error)} retry={vendors.refetch} />}
-      <div className="modal-footer"><button type="button" className="btn secondary" onClick={reset}>Cancel</button><button className="btn" disabled={!branchId || !vendorId || !selected.length || !selectedVehicle?.driverName || action.isPending}>{busyLabel(action.isPending, 'Create DRS')}</button></div>
+      <div className="modal-footer"><button type="button" className="btn secondary" onClick={reset}>Cancel</button><button className="btn" disabled={!branchId || !vendorId || !selected.length || !selectedVehicle || action.isPending}>{busyLabel(action.isPending, 'Create DRS')}</button></div>
     </form></Modal>}
   </>;
 }
