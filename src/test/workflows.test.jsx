@@ -164,7 +164,7 @@ describe('Form validation', () => {
       },
     });
     expect(shipmentCreatePayload(values).invoiceNo).toBeUndefined();
-    expect(shipmentCreatePayload({ ...values, packageCount: 7, weightKg: 42.5 }, { packageCount: 'MANUAL', weight: 'MANUAL' })).toMatchObject({
+    expect(shipmentCreatePayload({ ...values, packageCount: 7, weightKg: 42.5 })).toMatchObject({
       packageCount: 7,
       weightKg: 42.5,
     });

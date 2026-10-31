@@ -69,10 +69,10 @@ function PricingFields({ register, errors, disabled = false }) {
   );
 }
 
-export function shipmentCreatePayload(values, modes = {}) {
-  const { packageCount: automaticPackageCount, ...totals } = calculateGoods(values.goods, values.cftFactor ?? 7);
-  const packageCount = modes.packageCount === 'MANUAL' ? Number(values.packageCount) : automaticPackageCount;
-  const weightKg = modes.weight === 'MANUAL' ? Number(values.weightKg) : totals.actualWeight;
+export function shipmentCreatePayload(values) {
+  const totals = calculateGoods(values.goods, values.cftFactor ?? 7);
+  const packageCount = Number(values.packageCount);
+  const weightKg = Number(values.weightKg);
   const pricedValues = { ...values, ...totals, packageCount, weightKg };
   values = { ...pricedValues, ...calculateCharges(pricedValues) };
   const shipment = shipmentSchema.parse(values);
@@ -95,8 +95,6 @@ export default function CreateLRPage() {
   const [created, setCreated] = useState(null),
     [selectedCustomer, setSelectedCustomer] = useState(null),
     [gstEntryEnabled, setGstEntryEnabled] = useState(false),
-    [packageCountMode, setPackageCountMode] = useState('AUTOMATIC'),
-    [weightMode, setWeightMode] = useState('AUTOMATIC'),
     [error, setError] = useState('');
   const {
     register,
@@ -277,7 +275,7 @@ export default function CreateLRPage() {
   async function submit(values) {
     setError('');
     try {
-      const shipmentPayload = shipmentCreatePayload(values, { packageCount: packageCountMode, weight: weightMode });
+      const shipmentPayload = shipmentCreatePayload(values);
       const serialized = JSON.stringify(shipmentPayload);
       if (request.current.body !== serialized) {
         request.current = { key: crypto.randomUUID(), body: serialized };
@@ -472,21 +470,13 @@ export default function CreateLRPage() {
             {destinationQuery.isFetching && <small>Finding destination for this PIN...</small>}
             {destinationQuery.isError && <div role="alert"><small className="field-error">{errorMessage(destinationQuery.error)}</small> <button type="button" className="table-action" onClick={() => destinationQuery.refetch()}>Retry</button></div>}
             <div className="field lr-total-field">
-              <label htmlFor="packageCount">Package count</label>
-              <select aria-label="Package count mode" value={packageCountMode} onChange={(event) => setPackageCountMode(event.target.value)}>
-                <option value="AUTOMATIC">Automatic from goods</option>
-                <option value="MANUAL">Manual entry</option>
-              </select>
-              <input id="packageCount" aria-invalid={Boolean(errors.packageCount)} readOnly={packageCountMode === 'AUTOMATIC'} type="number" min="1" max="10000" {...register('packageCount')} />
+              <label htmlFor="packageCount">Total package</label>
+              <input id="packageCount" aria-invalid={Boolean(errors.packageCount)} type="number" min="1" max="10000" {...register('packageCount')} />
               <small className="field-error">{errors.packageCount?.message}</small>
             </div>
             <div className="field lr-total-field">
               <label htmlFor="weightKg">Total weight (kg)</label>
-              <select aria-label="Total weight mode" value={weightMode} onChange={(event) => setWeightMode(event.target.value)}>
-                <option value="AUTOMATIC">Automatic from goods</option>
-                <option value="MANUAL">Manual entry</option>
-              </select>
-              <input id="weightKg" aria-invalid={Boolean(errors.weightKg)} readOnly={weightMode === 'AUTOMATIC'} type="number" min="0.001" step="any" {...register('weightKg')} />
+              <input id="weightKg" aria-invalid={Boolean(errors.weightKg)} type="number" min="0.001" step="any" {...register('weightKg')} />
               <small className="field-error">{errors.weightKg?.message}</small>
             </div>
             <FormField
@@ -533,7 +523,7 @@ export default function CreateLRPage() {
         </section>
         <section className="panel form-section">
           <div className="section-title"><span>05</span><div><h2>Goods details</h2><p>Fill each printed goods-table field.</p></div></div>
-          <GoodsFields control={control} register={register} setValue={setValue} errors={errors} autoPackageCount={packageCountMode === 'AUTOMATIC'} autoWeight={weightMode === 'AUTOMATIC'} />
+          <GoodsFields control={control} register={register} setValue={setValue} errors={errors} autoPackageCount={false} autoWeight={false} />
         </section>
         <section className="panel form-section">
           <div className="section-title"><span>06</span><div><h2>Payment, risk & charges</h2><p>Freight calculates automatically from customer, destination and chargeable weight.</p></div></div>
