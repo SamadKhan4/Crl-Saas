@@ -6,21 +6,23 @@ import { date } from '../../lib/workflow';
 const money = (value) => Number(value || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
 
 export function VendorWork({ vendorId, values, setValues }) {
-  const query = useQuery({ queryKey: ['vendor-settlements', 'work', vendorId], queryFn: () => get(`/vendors/${vendorId}/settlement-work`), enabled: Boolean(vendorId) });
+  const market = values.metadata?.settlementType === 'MARKET';
+  const source = market ? values.metadata?.marketOperationKey : vendorId;
+  const query = useQuery({ queryKey: ['vendor-settlements', 'work', market ? 'MARKET' : 'VENDOR', source], queryFn: () => get(market ? `/market-settlement-work/${source.replace(':', '/')}` : `/vendors/${vendorId}/settlement-work`), enabled: Boolean(source) });
   const filledVendor = useRef(null);
   useEffect(() => {
-    if (!vendorId) { filledVendor.current = null; return; }
+    if (!source) { filledVendor.current = null; return; }
     const defaults = query.data?.data?.defaults;
-    if (!defaults || filledVendor.current === vendorId) return;
-    filledVendor.current = vendorId;
-    setValues((current) => current.vendorId !== vendorId ? current : {
+    if (!defaults || filledVendor.current === source) return;
+    filledVendor.current = source;
+    setValues((current) => (market ? current.metadata?.marketOperationKey : current.vendorId) !== source ? current : {
       ...current,
       ...defaults,
-      vendorId,
+      vendorId: market ? undefined : vendorId,
       metadata: { ...defaults.metadata },
     });
-  }, [vendorId, query.data, setValues]);
-  if (!vendorId) return <p>Select a vendor code to fetch linked LRs and operations.</p>;
+  }, [vendorId, source, market, query.data, setValues]);
+  if (!source) return <p>{market ? 'Select a market vehicle operation to fetch its LRs and payable.' : 'Select a vendor code to fetch linked LRs and operations.'}</p>;
   if (query.isPending) return <p>Loading vendor work...</p>;
   if (query.isError) return <p role="alert">{errorMessage(query.error)}</p>;
   const work = query.data.data;
@@ -31,7 +33,7 @@ export function VendorWork({ vendorId, values, setValues }) {
     <h3>{work.vendor.vendorCode} - {work.vendor.name}</h3>
     <p>{work.shipments.length} unsettled LRs | {work.operations.length} operations | {work.settledLrCount} previously billed LRs excluded</p>
     <p><b>Commission:</b> {work.calculation.rateBasis} - {work.calculation.units} units x {money(work.calculation.agreedRate)} = {money(work.calculation.commission)}</p>
-    <p>Per trip counts each vendor trip and pickup run once. Manifests and DRS are reference records; they do not add trip units.</p>
+    <p>{market ? 'Market payable uses the saved operation amount. Pending or rejected rate approvals must be resolved before saving.' : 'Per trip counts each vendor trip and pickup run once. Manifests and DRS are reference records; they do not add trip units.'}</p>
     <h4>LR breakdown</h4><LrTable rows={work.shipments} />
     <h4>Trips, pickup runs, manifests and delivery runs</h4><OperationTable rows={work.operations} />
     <p>Recorded operation costs are reference amounts. The agreed-rate commission is charged once.</p>
@@ -40,6 +42,19 @@ export function VendorWork({ vendorId, values, setValues }) {
     {!work.shipments.length && !work.operations.length && <p>No unsettled work found for this vendor.</p>}
     {work.operations.some((row) => !row.eligible) && <p role="alert">Pending/rejected market rate approvals must be resolved before settlement.</p>}
   </section>;
+}
+
+export function MarketVehiclePicker({ values, setValues }) {
+  const query = useQuery({ queryKey: ['vendor-settlements', 'market-options'], queryFn: () => get('/market-settlement-work') });
+  return <label className="tms-span-2">Market vehicle / operation
+    <select required value={values.metadata?.marketOperationKey || ''} onChange={event => setValues({ metadata: { settlementType: 'MARKET', marketOperationKey: event.target.value } })}>
+      <option value="">Select market vehicle</option>
+      {(query.data?.data || []).map(row => <option key={row.key} value={row.key}>{row.vehicleNumber} · {row.name || 'Market'} · {row.number} · {money(row.recordedCost)}{!row.eligible ? ' · Approval required' : ''}</option>)}
+    </select>
+    {query.isPending && <small>Loading market vehicles...</small>}
+    {query.isError && <small role="alert">{errorMessage(query.error)}</small>}
+    {query.isSuccess && !query.data.data.length && <small>No unsettled market vehicle operations found.</small>}
+  </label>;
 }
 
 function LrTable({ rows = [] }) {

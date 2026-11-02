@@ -1,4 +1,4 @@
-import { VendorWork } from '../components/tms/VendorSettlement';
+import { VendorWork, MarketVehiclePicker } from '../components/tms/VendorSettlement';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router-dom';
@@ -745,6 +745,7 @@ function InvoiceLrs({ values, setValues }) {
 
 function DynamicFields({ resource, fields, values, setValues }) {
   return fields.map(([name, caption, type = 'text', meta]) => {
+    if (resource === 'vendor-settlements' && name === 'vendorId' && values.metadata?.settlementType === 'MARKET') return <MarketVehiclePicker key={name} values={values} setValues={setValues} />;
     const value = valueAt(values, name) ?? '';
     const change = (next) => setValues((current) => {
       const updated = setAt(current, name, next);
@@ -951,7 +952,8 @@ export default function TmsModulePage() {
   const config = configs[resource];
   const { user } = useAuth();
   const [billingType, setBillingType] = useState(location.state?.billingDraft?.billingType || 'CREDIT');
-  const { query, filters, update, clear, sort } = useList(resource, config.service, resource === 'invoices' ? { billingType } : {});
+  const [settlementType, setSettlementType] = useState('VENDOR');
+  const { query, filters, update, clear, sort } = useList(resource, config.service, resource === 'invoices' ? { billingType } : resource === 'vendor-settlements' ? { settlementType } : {});
   const [editor, setEditor] = useState(() => resource === 'invoices' && location.state?.billingDraft ? location.state.billingDraft : null),
     [action, setAction] = useState(null);
   const base = `/${user.role.toLowerCase()}`;
@@ -1028,13 +1030,16 @@ export default function TmsModulePage() {
     <>
       <PageHeader title={config.title} description={config.description}>
         {canCreate && (
-          <button className="btn" onClick={() => setEditor(resource === 'invoices' ? { billingType } : {})}>
+          <button className="btn" onClick={() => setEditor(resource === 'invoices' ? { billingType } : resource === 'vendor-settlements' ? { metadata: { settlementType } } : {})}>
             <Plus size={17} /> Add {config.singular}
           </button>
         )}
       </PageHeader>
       {resource === 'invoices' && <div role="tablist" aria-label="Customer billing" className="filter-bar">
         {['CREDIT', 'RETAIL'].map((type) => <button key={type} type="button" role="tab" aria-selected={billingType === type} className={`btn ${billingType === type ? '' : 'secondary'}`} onClick={() => { setBillingType(type); setEditor(null); update('page', ''); }}>{type === 'CREDIT' ? 'Credit Customer' : 'Retail Customer'}</button>)}
+      </div>}
+      {resource === 'vendor-settlements' && <div role="tablist" aria-label="Vehicle settlement" className="filter-bar">
+        {['VENDOR', 'MARKET'].map(type => <button key={type} type="button" role="tab" aria-selected={settlementType === type} className={`btn ${settlementType === type ? '' : 'secondary'}`} onClick={() => { setSettlementType(type); setEditor(null); update('page', ''); }}>{type === 'VENDOR' ? 'Vendor Vehicle' : 'Market Vehicle'}</button>)}
       </div>}
       <section className="panel">
         <div className="filter-bar">

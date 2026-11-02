@@ -25,7 +25,7 @@ export default function GoodsFields({ control, register, setValue, errors, autoP
       <div className="form-grid">
         {[
           ['packageNumber', 'Pkg. No.'], ['description', 'Description of goods'], ['packageType', 'Package type'],
-          ['quantity', 'Package quantity', 'number'], ['actualWeight', 'Actual weight for this row (kg)', 'number'],
+          ['quantity', 'No. of Packages', 'number'], ['actualWeight', 'Actual weight for this row (kg)', 'number'],
           ['length', 'Length', 'number'], ['breadth', 'Breadth', 'number'], ['height', 'Height', 'number'],
         ].map(([name, label, type = 'text']) => <FormField key={name} label={label} type={type}
           min={type === 'number' ? (name === 'quantity' ? 1 : 0) : undefined} step={name === 'quantity' ? '1' : 'any'}

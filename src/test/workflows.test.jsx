@@ -505,6 +505,26 @@ describe('Invoice GST heading', () => {
 
 
 describe('Vendor commission settlement', () => {
+  it('switches settlement lists and saves a market vehicle operation without a vendor ID', async () => {
+    const key = `TRIP:${'e'.repeat(24)}`;
+    const operation = { key, type: 'TRIP', number: 'MARKET-TRIP', vehicleNumber: 'MH31AB1234', name: 'Market Owner', recordedCost: 500, advance: 100, eligible: true };
+    const work = { vendor: { vendorCode: 'MARKET', name: 'Market Owner' }, shipments: [], operations: [operation], calculation: { rateBasis: 'FIXED', units: 1, agreedRate: 500, commission: 500 }, advance: 100, settledLrCount: 0, defaults: { title: 'Market settlement', operationDate: '2026-11-02', dueDate: '2026-11-02', metadata: { settlementType: 'MARKET', marketOperationKey: key, advance: 100 } } };
+    const getSpy = vi.spyOn(api, 'get').mockImplementation(async path => result(path === '/market-settlement-work' ? [operation] : path.startsWith('/market-settlement-work/') ? work : []));
+    const postSpy = vi.spyOn(api, 'post').mockResolvedValue(result({}));
+    mount(<TmsModulePage />, { user: branchManager, path: '/manager/vendor-settlements' });
+    await userEvent.click(await screen.findByRole('tab', { name: 'Market Vehicle' }));
+    expect(screen.getByRole('tab', { name: 'Market Vehicle' })).toHaveAttribute('aria-selected', 'true');
+    await waitFor(() => expect(getSpy).toHaveBeenCalledWith('/tms-registers/vendor-settlements', { params: expect.objectContaining({ settlementType: 'MARKET' }) }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add settlement invoice' }));
+    await screen.findByRole('option', { name: /MH31AB1234/ });
+    await userEvent.selectOptions(screen.getByLabelText('Market vehicle / operation'), key);
+    await waitFor(() => expect(screen.getByLabelText('Bill / settlement title')).toHaveValue('Market settlement'));
+    expect(screen.queryByRole('combobox', { name: 'Vendor' })).not.toBeInTheDocument();
+    expect(screen.getByText('Net payable:').parentElement).toHaveTextContent('400.00');
+    await userEvent.click(screen.getByRole('button', { name: /Save/ }));
+    await waitFor(() => expect(postSpy).toHaveBeenCalledWith('/tms-registers/vendor-settlements', expect.objectContaining({ metadata: expect.objectContaining({ settlementType: 'MARKET', marketOperationKey: key }) }), undefined));
+    expect(postSpy.mock.calls.at(-1)[1].vendorId).toBeUndefined();
+  });
   it('fetches vendor work by selected code and shows master rate breakdown', async () => {
     const vendor = { _id: 'vendor-1', vendorCode: 'V001', name: 'Road Vendor' };
     const work = { vendor, shipments: [{ id: 'lr1', lrNumber: 'LR-VENDOR-1', weightKg: 20, packageCount: 3, freight: 500 }], operations: [{ key: 'TRIP:trip1', type: 'TRIP', number: 'TRIP-001', shipmentIds: ['lr1'], recordedCost: 400, advance: 10, eligible: true }], calculation: { rateBasis: 'PER_KG', agreedRate: 2, units: 20, commission: 40 }, advance: 10, settledLrCount: 0, defaults: { title: 'Commission settlement - V001 - Road Vendor', operationDate: '2026-10-26', dueDate: '2026-11-02', documentNumber: 'VCOM-V001-20261026', reference: 'TRIP-001', description: '1 LR commission', metadata: { detention: 0, loading: 0, otherCharge: 0, tds: 0, advance: 10 } } };

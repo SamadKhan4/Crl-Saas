@@ -22,9 +22,16 @@ export async function createLrPdfBlob(root) {
     const slotHeight = (pageHeight - margin * 2 - gap) / 2;
     const copyLabel = page.querySelector('.lr3-copy-label');
     const originalLabel = copyLabel?.textContent;
+    const amounts = [...page.querySelectorAll('.lr3-charge strong, .lr3-pricing')];
+    const originalStyles = amounts.map(element => element.getAttribute('style'));
     try {
       for (let copy = 0; copy < 2; copy++) {
         if (copyLabel) copyLabel.textContent = copy === 0 ? 'SENDER COPY' : 'RECEIVER COPY';
+        amounts.forEach((element, index) => {
+          if (copy === 1) element.style.visibility = 'hidden';
+          else if (originalStyles[index] === null) element.removeAttribute('style');
+          else element.setAttribute('style', originalStyles[index]);
+        });
         const canvas = await html2canvas(page, { scale: 2, backgroundColor: '#ffffff', width: 1000, windowWidth: 1000, useCORS: true });
         const scale = Math.min((pageWidth - margin * 2) / canvas.width, slotHeight / canvas.height);
         const width = canvas.width * scale, height = canvas.height * scale;
@@ -33,6 +40,10 @@ export async function createLrPdfBlob(root) {
       }
     } finally {
       if (copyLabel) copyLabel.textContent = originalLabel;
+      amounts.forEach((element, index) => {
+        if (originalStyles[index] === null) element.removeAttribute('style');
+        else element.setAttribute('style', originalStyles[index]);
+      });
     }
     pdf.setDrawColor(170);
     pdf.setLineDashPattern([2, 2], 0);

@@ -49,3 +49,18 @@ it('renders sender and receiver labels inside the LR barcode panel', async () =>
   expect(root.textContent).toBe('RECEIVER COPY');
   expect(pdf.text).not.toHaveBeenCalled();
 });
+
+it('hides charges and rates only on the receiver copy and restores them after capture', async () => {
+  const root = document.createElement('div');
+  root.className = 'lr-print-root';
+  root.innerHTML = '<div class="lr3-charge"><span>GRAND TOTAL</span><strong>11000</strong></div><div class="lr3-pricing">Rate: 100</div>';
+  const visibility = [];
+  mocks.capture.mockImplementation(async page => {
+    visibility.push([...page.querySelectorAll('.lr3-charge strong, .lr3-pricing')].map(element => element.style.visibility));
+    return { width: 1000, height: 670, toDataURL: () => 'image-data' };
+  });
+  await createLrPdfBlob(root);
+  expect(visibility).toEqual([['', ''], ['hidden', 'hidden']]);
+  expect(root.querySelector('strong').getAttribute('style')).toBeNull();
+  expect(root.querySelector('.lr3-pricing').getAttribute('style')).toBeNull();
+});

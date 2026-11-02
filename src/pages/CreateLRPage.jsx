@@ -149,7 +149,7 @@ export default function CreateLRPage() {
   const sourcePickup = pickupRequestQuery.data?.data;
   const isCreditCustomer = selectedCustomer?.customerType === 'CREDIT';
   const isRetailCustomer = selectedCustomer?.customerCode === '9966';
-  const signaturesLocked = user.role === 'EMPLOYEE';
+  const signaturesLocked = true;
   const destinationQuery = useQuery({
     queryKey: ['destination-by-pincode', consigneePincode],
     queryFn: () => get('/destinations', { search: consigneePincode }),
@@ -546,7 +546,7 @@ export default function CreateLRPage() {
           <ChargeTotals control={control} />
         </section>
         <section className={`panel form-section ${signaturesLocked ? 'employee-locked-section' : ''}`} aria-disabled={signaturesLocked}>
-          <div className="section-title"><span>07</span><div><h2>Signatures & remarks</h2><p>{signaturesLocked ? 'Locked for Employee role. Admin or Manager can update this section.' : 'Enter the text that must print in the signature and remarks boxes.'}</p></div>{signaturesLocked && <strong className="locked-badge">Locked</strong>}</div>
+          <div className="section-title"><span>07</span><div><h2>Signatures & remarks</h2><p>Locked for all roles, including Admin and Manager.</p></div><strong className="locked-badge">Locked</strong></div>
           <PrintInputGrid
             register={register}
             errors={errors}
