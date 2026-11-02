@@ -40,15 +40,7 @@ import { misReports } from '../../lib/misReports';
 export function Brand() {
   return (
     <Link className="brand" to="/" aria-label={import.meta.env.VITE_APP_NAME || 'CRL Transport'}>
-      <span className="brand-mark">
-        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" width="34" height="26" />
-      </span>
-      <span>
-        <b>
-          CRL <span className="brand-dot">.</span>
-        </b>
-        <small>transport</small>
-      </span>
+      <img className="brand-logo" src={`${import.meta.env.BASE_URL}logo.png`} alt="CRL Transport" width="160" height="80" />
     </Link>
   );
 }

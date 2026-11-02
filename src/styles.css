@@ -236,36 +236,12 @@ input[aria-invalid='true'] {
   align-items: center;
   gap: 11px;
 }
-.brand-mark {
-  background: #25816b;
-  color: white;
-  width: 42px;
-  height: 42px;
-  border-radius: 11px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-}
-.brand-mark img {
+.brand-logo {
   display: block;
+  width: 160px;
+  height: auto;
+  max-width: 100%;
   object-fit: contain;
-}
-.brand b {
-  font-size: 30px;
-  line-height: 29px;
-  font-weight: 750;
-  letter-spacing: 1px;
-  color: inherit;
-}
-.brand small {
-  display: block;
-  letter-spacing: 3px;
-  font-size: 8px;
-  font-weight: 600;
-  color: inherit;
-}
-.brand-dot {
-  color: #55c1a1;
 }
 .sidebar .brand {
   color: #fff;
@@ -3060,9 +3036,12 @@ progress {
   margin-left: 78px;
 }
 .collapsed .sidebar .brand {
-  margin: 0 7px;
+  margin: 0;
+  justify-content: center;
 }
-.collapsed .sidebar .brand > span:last-child,
+.collapsed .sidebar .brand-logo {
+  width: 58px;
+}
 .collapsed .sidebar nav a > span,
 .collapsed .sidebar nav .nav-disabled > span,
 .collapsed .sidebar nav .nav-dropdown-toggle > span,
