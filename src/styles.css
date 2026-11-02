@@ -244,6 +244,11 @@ input[aria-invalid='true'] {
   border-radius: 11px;
   display: grid;
   place-items: center;
+  flex-shrink: 0;
+}
+.brand-mark img {
+  display: block;
+  object-fit: contain;
 }
 .brand b {
   font-size: 30px;

@@ -41,7 +41,7 @@ export function Brand() {
   return (
     <Link className="brand" to="/" aria-label={import.meta.env.VITE_APP_NAME || 'CRL Transport'}>
       <span className="brand-mark">
-        <Truck size={25} />
+        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" width="34" height="26" />
       </span>
       <span>
         <b>
