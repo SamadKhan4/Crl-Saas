@@ -133,7 +133,7 @@ const manualLrNumber = z.string().trim().toUpperCase().min(1, 'Enter LR number')
 export const shipmentSchema = shipmentFields
   .extend({
     lrNumber: manualLrNumber,
-    pickupRequestId: shipmentRecordId('Pickup request is invalid').optional(),
+    pickupRequestId: optional(shipmentRecordId('Pickup request is invalid')),
     customerId: z.union([shipmentRecordId('Select a customer'), z.literal('RETAIL')]),
     originBranchId: z.string().optional(),
     destinationBranchId: z.string().optional(),
@@ -240,7 +240,7 @@ export const lrPrintFieldNames = Object.freeze(Object.keys(lrPrintFields));
 export const lrCreateSchema = shipmentFields
   .extend({
     lrNumber: manualLrNumber,
-    pickupRequestId: shipmentRecordId('Pickup request is invalid').optional(),
+    pickupRequestId: optional(shipmentRecordId('Pickup request is invalid')),
     customerId: z.union([shipmentRecordId('Select a customer'), z.literal('RETAIL')]),
     originBranchId: z.string().optional(),
     destinationBranchId: z.string().optional(),

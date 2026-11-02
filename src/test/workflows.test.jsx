@@ -127,6 +127,19 @@ describe('Form validation', () => {
   it('accepts the reserved retail customer key', () => {
     expect(shipmentSchema.safeParse({ ...valid, customerId: 'RETAIL' }).success).toBe(true);
   });
+  it('allows direct LR creation with a blank hidden pickup ID and validates linked IDs', () => {
+    const lr = {
+      ...valid,
+      from: 'Nagpur',
+      to: 'Amravati',
+      goods: [{ description: 'Boxes', quantity: 1, actualWeight: 5, dimensionUnit: 'CM' }],
+    };
+    for (const [schema, values] of [[shipmentSchema, valid], [lrCreateSchema, lr]]) {
+      expect(schema.parse({ ...values, pickupRequestId: '' }).pickupRequestId).toBeUndefined();
+      expect(schema.safeParse({ ...values, pickupRequestId: '507f1f77bcf86cd799439014' }).success).toBe(true);
+      expect(schema.safeParse({ ...values, pickupRequestId: 'invalid' }).success).toBe(false);
+    }
+  });
   it('omits empty optional contact fields', () =>
     expect(
       customerSchema.parse({ customerType: 'TO_PAY_PAID', name: 'Customer', mobile: '+919876543210', email: '', pincode: '' })
