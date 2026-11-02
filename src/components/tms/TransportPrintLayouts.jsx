@@ -94,8 +94,8 @@ export function InvoiceSheet({ invoice }) {
           <div><b>Status</b><span>{label(invoice.status)}</span><b>Billing Period</b><span>{printableDate(invoice.periodFrom)} to {printableDate(invoice.periodTo)}</span><b>Place of Supply</b><span>{billTo.state || branch.state || '—'}</span></div>
         </div>
         <section className="invoice-bill-to"><h3>Bill To</h3><strong>{billTo.companyName || billTo.name || '—'}</strong><span>{[billTo.address, billTo.city, billTo.state, billTo.pincode].filter(Boolean).join(', ') || '—'}</span><span>GSTIN: {billTo.gstNumber || 'Unregistered'} &nbsp; | &nbsp; Mobile: {billTo.mobile || '—'}</span></section>
-        <table className="invoice-table"><thead><tr><th>Sr.</th><th>LR Date</th><th>LR Number</th><th>From - To</th><th>Packages</th><th>Weight (kg)</th><th>Taxable Amount (₹)</th></tr></thead><tbody>
-          {items.map((item, index) => <tr key={item.shipmentId || item.lrNumber}><td>{pageIndex * 14 + index + 1}</td><td>{printableDate(item.bookingDate)}</td><td>{item.lrNumber}</td><td>{[item.origin, item.destination].filter(Boolean).join(' - ') || '—'}</td><td className="number-cell">{item.packageCount || 0}</td><td className="number-cell">{amount(item.weightKg)}</td><td className="number-cell">{amount(item.taxableAmount)}</td></tr>)}
+        <table className="invoice-table"><thead><tr><th>Sr.</th><th>LR Number</th><th>LR Date</th><th>From</th><th>To</th><th>Packages</th><th>Weight (kg)</th><th>Taxable Amount (₹)</th></tr></thead><tbody>
+          {items.map((item, index) => <tr key={item.shipmentId || item.lrNumber}><td>{pageIndex * 14 + index + 1}</td><td>{item.lrNumber}</td><td>{printableDate(item.bookingDate)}</td><td>{item.origin || '—'}</td><td>{item.destination || '—'}</td><td className="number-cell">{item.packageCount || 0}</td><td className="number-cell">{amount(item.weightKg)}</td><td className="number-cell">{amount(item.taxableAmount)}</td></tr>)}
         </tbody></table>
         {finalPage && <>
           <div className="invoice-closing">
